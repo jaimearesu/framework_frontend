@@ -1,0 +1,27 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atomic_frontend
+    restart: unless-stopped
+    env_file: 
+      - .env
+    volumes:
+      - ./:/usr/src/app
+      - /usr/src/app/node_modules
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      # Hört auf deine Hauptdomain (at0mic.ch oder www.at0mic.ch)
+      - "traefik.http.routers.atomic-frontend.rule=Host(`at0mic.ch`) || Host(`www.at0mic.ch`)"
+      - "traefik.http.routers.atomic-frontend.entrypoints=websecure"
+      - "traefik.http.routers.atomic-frontend.tls.certresolver=letsencrypt"
+      # Leitet an unseren Frontend-Express-Port weiter
+      - "traefik.http.services.atomic-frontend.loadbalancer.server.port=3001"
+
+networks:
+  proxy:
+    external: true
