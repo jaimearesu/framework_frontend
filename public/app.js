@@ -57,7 +57,7 @@ document.getElementById("btn-api").addEventListener("click", async () => {
     const token = await auth0Client.getTokenSilently();
     
     // 2. Ausweis ans Backend schicken mit der URL aus der Config
-    const response = await fetch(`${appConfig.apiUrl}/api/users`, {
+    const response = await fetch(`${appConfig.apiUrl}/api/objects`, {
         headers: {
             Authorization: `Bearer ${token}`
         }
