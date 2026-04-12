@@ -1,71 +1,74 @@
-let auth0Client = null;
+// public/app.js
 let appConfig = null;
 
 // Wenn die Seite lädt
 window.onload = async () => {
-    // 1. Config vom Express-Server holen
+    // 1. Config (nur noch die API URL) vom Frontend-Server holen
     const configResponse = await fetch('/config.json');
     appConfig = await configResponse.json();
 
-    // 2. Auth0 mit der geladenen Config initialisieren
-    auth0Client = await auth0.createAuth0Client({
-        domain: appConfig.domain,
-        clientId: appConfig.clientId,
-        authorizationParams: {
-            redirect_uri: window.location.origin,
-            audience: appConfig.audience
-        }
-    });
-
-    // Schauen, ob wir gerade vom Auth0-Login zurückkommen
-    if (window.location.search.includes("code=") && window.location.search.includes("state=")) {
-        await auth0Client.handleRedirectCallback();
-        window.history.replaceState({}, document.title, "/"); // URL aufräumen
-    }
-
-    // UI aktualisieren aufrufen
-    updateUI();
+    // 2. UI aktualisieren (schauen, ob wir ein gültiges Session-Cookie haben)
+    await updateUI();
 };
 
 // UI aktualisieren (Buttons ein/ausblenden)
 const updateUI = async () => {
-    const isAuthenticated = await auth0Client.isAuthenticated();
-    
-    if (isAuthenticated) {
-        document.getElementById("btn-login").style.display = "none";
-        document.getElementById("btn-logout").style.display = "inline-block";
-        document.getElementById("btn-api").style.display = "inline-block";
+    try {
+        // Wir fragen unser Backend, ob wir eingeloggt sind. 
+        // Das Cookie wird durch 'include' automatisch mitgesendet!
+        const response = await fetch(`${appConfig.apiUrl}/api/me`, {
+            credentials: 'include' 
+        });
         
-        const user = await auth0Client.getUser();
-        document.getElementById("user-info").innerText = `Eingeloggt als: ${user.name || user.email}`;
+        const data = await response.json();
+
+        if (data.isAuthenticated) {
+            document.getElementById("btn-login").style.display = "none";
+            document.getElementById("btn-logout").style.display = "inline-block";
+            document.getElementById("btn-api").style.display = "inline-block";
+            
+            // Name aus dem Backend anzeigen
+            document.getElementById("user-info").innerText = `Eingeloggt als: ${data.user.name || data.user.email}`;
+        } else {
+            document.getElementById("btn-login").style.display = "inline-block";
+            document.getElementById("btn-logout").style.display = "none";
+            document.getElementById("btn-api").style.display = "none";
+            document.getElementById("user-info").innerText = "";
+        }
+    } catch (error) {
+        console.error("Fehler beim Prüfen des Auth-Status:", error);
     }
 };
 
-// Klick auf Login
-document.getElementById("btn-login").addEventListener("click", async () => {
-    await auth0Client.loginWithRedirect();
+// Klick auf Login -> Wir schicken den User einfach auf die Backend-Login-Route!
+document.getElementById("btn-login").addEventListener("click", () => {
+    window.location.href = `${appConfig.apiUrl}/login`;
 });
 
-// Klick auf Logout
+// Klick auf Logout -> Wir rufen die Backend-Logout-Route auf!
 document.getElementById("btn-logout").addEventListener("click", () => {
-    auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
+    window.location.href = `${appConfig.apiUrl}/logout`;
 });
 
-// Klick auf "Geheime Daten laden" -> Backend Aufruf!
+// Klick auf "Geheime Daten laden"
 document.getElementById("btn-api").addEventListener("click", async () => {
-    // 1. Ausweis holen
-    const token = await auth0Client.getTokenSilently();
-    
-    // 2. Ausweis ans Backend schicken mit der URL aus der Config
-    const response = await fetch(`${appConfig.apiUrl}/api/objects`, {
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
+    try {
+        // KEIN Token mehr extrahieren! Das Cookie macht die ganze Arbeit im Hintergrund.
+        // Wichtig: 'credentials: include' muss dabei sein!
+        const response = await fetch(`${appConfig.apiUrl}/api/objects`, {
+            method: 'GET',
+            credentials: 'include', 
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
 
-    // 3. Antwort anzeigen
-    const data = await response.json();
-    const resultContainer = document.getElementById("api-result");
-    resultContainer.style.display = "block";
-    resultContainer.innerText = JSON.stringify(data, null, 2);
+        const data = await response.json();
+        
+        const resultContainer = document.getElementById("api-result");
+        resultContainer.style.display = "block";
+        resultContainer.innerText = JSON.stringify(data, null, 2);
+    } catch (error) {
+        console.error("Fehler beim API Aufruf:", error);
+    }
 });
