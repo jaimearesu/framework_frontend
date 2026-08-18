@@ -260,19 +260,73 @@ document.getElementById("btn-create-hook").addEventListener("click", async () =>
     }
 });
 
-// AST Generator V2 Button Logik
+document.getElementById("ast-v2-object-dropdown").addEventListener("change", async (e) => {
+    const objectUuid = e.target.value;
+    
+    // Die Textfelder, die wir befüllen wollen
+    const fields = [
+        { type: 'html', id: 'ast-v2-html' },
+        { type: 'css', id: 'ast-v2-css' },
+        { type: 'javascript', id: 'ast-v2-js' },
+        { type: 'ssf', id: 'ast-v2-ssf' },
+        { type: 'data', id: 'ast-v2-data' },
+        { type: 'syntax', id: 'ast-v2-syntax' }
+    ];
+
+    // 1. Bei jedem Wechsel zuerst alle Boxen sauber machen
+    fields.forEach(f => document.getElementById(f.id).value = "");
+
+    if (!objectUuid) return; // Wenn auf "Auswählen..." geklickt wird, abbrechen
+
+    try {
+        // 2. Daten vom neuen Endpunkt abrufen
+        const response = await fetch(`${appConfig.apiUrl}/api/ast/${objectUuid}`, { 
+            credentials: 'include' 
+        });
+        
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            // 3. Die empfangenen Strings in die passenden Boxen füllen
+            fields.forEach(f => {
+                if (result.data[f.type]) {
+                    document.getElementById(f.id).value = result.data[f.type];
+                }
+            });
+        }
+    } catch (error) {
+        console.error("Fehler beim Laden der Objekt-Daten:", error);
+    }
+});
+
 document.getElementById("btn-parse-v2").addEventListener("click", async () => {
     const objectUuid = document.getElementById("ast-v2-object-dropdown").value;
-    const type = document.getElementById("ast-v2-type").value;
-    const code = document.getElementById("ast-v2-code").value;
     
     if (!objectUuid) {
         alert("Bitte wähle zuerst ein Ziel-Objekt aus dem Dropdown aus!");
         return;
     }
-    
-    if (!code.trim()) {
-        alert("Bitte gib Code zum Parsen ein!");
+
+    // Wir sammeln alle Werte ein und mappen sie auf ihre Typen
+    const snippets = [];
+    const fields = [
+        { type: 'html', id: 'ast-v2-html' },
+        { type: 'css', id: 'ast-v2-css' },
+        { type: 'javascript', id: 'ast-v2-js' },
+        { type: 'ssf', id: 'ast-v2-ssf' },
+        { type: 'data', id: 'ast-v2-data' },
+        { type: 'syntax', id: 'ast-v2-syntax' }
+    ];
+
+    fields.forEach(field => {
+        const codeValue = document.getElementById(field.id).value.trim();
+        if (codeValue) { // Nur auswerten, wenn auch was drinsteht
+            snippets.push({ type: field.type, code: codeValue });
+        }
+    });
+
+    if (snippets.length === 0) {
+        alert("Bitte gib mindestens einen Code (HTML, CSS, JS etc.) ein!");
         return;
     }
 
@@ -283,20 +337,19 @@ document.getElementById("btn-parse-v2").addEventListener("click", async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 objectUuid: objectUuid, 
-                type: type,
-                code: code
+                snippets: snippets // Array statt einzelnem Wert!
             }) 
         });
 
         const data = await response.json();
         
-        // Wir nutzen einfach dein altes api-result Feld zur Anzeige
         const resultContainer = document.getElementById("api-result");
         resultContainer.style.display = "block";
         resultContainer.innerText = JSON.stringify(data, null, 2);
         
         if (response.ok) {
-            // Dropdowns neu laden, damit der geupdatete Path (z.B. neues Directory) sofort sichtbar wird
+            // Nach Erfolg alle Textfelder wieder ausleeren, damit man clean weitermachen kann
+            fields.forEach(f => document.getElementById(f.id).value = "");
             await loadObjects(); 
         }
 

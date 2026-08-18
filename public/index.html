@@ -71,31 +71,53 @@
 
 
 <!-- NEU: AST Generator V2 (Smart) -->
-    <div id="ast-playground-v2" style="display: none; margin-top: 20px; border: 1px solid #ff9900; padding: 15px; border-radius: 8px; background: #fffdfa;">
-        <h3 style="color: #ff9900;">AST Generator V2 (Smart Select) 🧠</h3>
-        
-        <label style="font-weight: bold;">Ziel-Objekt auswählen (Root oder Hook):</label><br>
-        <select id="ast-v2-object-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px;">
-            <option value="">-- Objekte werden geladen... --</option>
-        </select>
-        <br>
+<!-- NEU: AST Generator V2 (Smart Bundle) -->
+<div id="ast-playground-v2" style="display: none; margin-top: 20px; border: 1px solid #ff9900; padding: 15px; border-radius: 8px; background: #fffdfa;">
+    <h3 style="color: #ff9900;">AST Generator V2 (Bundle Injection) 🧠📦</h3>
+    
+    <label style="font-weight: bold;">Ziel-Objekt auswählen:</label><br>
+    <select id="ast-v2-object-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 20px; border-radius: 4px; font-size: 16px;">
+        <option value="">-- Objekte werden geladen... --</option>
+    </select>
+    <br>
 
-        <label style="font-weight: bold;">Code Typ:</label><br>
-        <select id="ast-v2-type" style="padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px; width: 100%; max-width: 500px;">
-            <option value="javascript">JavaScript</option>
-            <option value="ssf">Server Side Functions (SSF)</option>
-            <option value="html">HTML</option>
-            <option value="css">CSS</option>
-            <option value="syntax">Syntax (JSON)</option>
-            <option value="data">Data (JSON)</option>
-        </select>
-        <br>
+    <p style="margin-bottom: 10px; font-size: 14px; color: #555;">Fülle nur die Felder aus, die du injizieren möchtest (Rest einfach leer lassen):</p>
 
-        <textarea id="ast-v2-code" rows="5" style="width: 100%; max-width: 500px; font-family: monospace; padding: 8px;" placeholder="Code zum Parsen hier eingeben..."></textarea>
-        <br>
+    <div style="display: flex; flex-wrap: wrap; gap: 15px; max-width: 1400px; align-items: flex-start;">
         
-        <button id="btn-parse-v2" style="padding: 10px; font-size: 16px; margin-top: 10px; background: #ff9900; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold;">AST injizieren!</button>
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #e34c26; margin-bottom: 5px;">HTML:</label>
+            <textarea id="ast-v2-html" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #e34c26; border-radius: 4px;" placeholder="<div>...</div>"></textarea>
+        </div>
+        
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #264de4; margin-bottom: 5px;">CSS:</label>
+            <textarea id="ast-v2-css" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #264de4; border-radius: 4px;" placeholder=".class { ... }"></textarea>
+        </div>
+        
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #f0db4f; margin-bottom: 5px;">JavaScript:</label>
+            <textarea id="ast-v2-js" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #e2cc45; border-radius: 4px;" placeholder="const x = 1;"></textarea>
+        </div>
+        
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #6c757d; margin-bottom: 5px;">Server Side (SSF):</label>
+            <textarea id="ast-v2-ssf" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #6c757d; border-radius: 4px;" placeholder="db.query(...)"></textarea>
+        </div>
+
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #17a2b8; margin-bottom: 5px;">Data (JSON):</label>
+            <textarea id="ast-v2-data" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #17a2b8; border-radius: 4px;" placeholder='{"key": "value"}'></textarea>
+        </div>
+
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #9c27b0; margin-bottom: 5px;">Syntax (JSON):</label>
+            <textarea id="ast-v2-syntax" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #9c27b0; border-radius: 4px;" placeholder='{"rules": []}'></textarea>
+        </div>
     </div>
+    
+    <button id="btn-parse-v2" style="padding: 10px 20px; font-size: 16px; margin-top: 20px; background: #ff9900; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; max-width: 800px;">⚡ AST Bundle in die Datenbank feuern!</button>
+</div>
 
 
 
