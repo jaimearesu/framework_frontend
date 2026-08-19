@@ -178,6 +178,34 @@
         <div id="syntax-canvas-area" class="dropzone"></div>
     </div>
 
+<!-- NEU: Tree Explorer -->
+    <div id="tree-explorer-container" style="display: none; margin-top: 40px; border: 1px solid #17a2b8; padding: 15px; border-radius: 8px; background: #f8f9fa;">
+        <h3 style="color: #17a2b8;">Tree Explorer 🌲</h3>
+        <p style="font-size: 14px; color: #555;">Löse einen kompletten Objekt-Baum rekursiv auf. Inklusive Step/Timestamp-Matching und Performance-Tracking.</p>
+        
+        <!-- 1. Die bestehende Suche über UUID -->
+        <label style="font-weight: bold; font-size: 14px;">Ab Root-Objekt auflösen:</label>
+        <div style="margin-bottom: 15px; margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+            <select id="tree-object-dropdown" style="padding: 8px; border-radius: 4px; font-size: 16px; min-width: 300px; border: 1px solid #ccc;">
+                <option value="">-- Root-Objekt auswählen --</option>
+            </select>
+            <button id="btn-resolve-tree" style="padding: 8px 15px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baum analysieren!</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
+
+        <!-- 2. NEU: Die Suche über den Browser-Pfad -->
+        <label style="font-weight: bold; font-size: 14px;">Oder über tiefen Pfad (Browser-URL) auflösen:</label>
+        <div style="margin-bottom: 20px; margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="tree-path-input" placeholder="z.B. app/home/home2" style="padding: 8px; border-radius: 4px; font-size: 16px; min-width: 300px; border: 1px solid #ccc;">
+            <button id="btn-resolve-path" style="padding: 8px 15px; background: #6f42c1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Pfad analysieren!</button>
+        </div>
+
+        <h4 id="tree-performance" style="color: #28a745; display: none;">⏱️ Ausführungszeit: <span id="tree-ms">0</span> ms</h4>
+        <pre id="tree-result" style="background: #1e1e24; color: #a0a0b0; padding: 15px; border-radius: 6px; display: none; max-height: 500px; overflow-y: auto; font-family: monospace;"></pre>
+    </div>
+
+
     <script src="app.js"></script>
     <script src="canvas.js"></script>
 </body>

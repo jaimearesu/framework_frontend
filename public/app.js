@@ -27,6 +27,7 @@ const updateUI = async () => {
             document.getElementById("ast-playground").style.display = "block";
             document.getElementById("object-manager").style.display = "block";
             document.getElementById("ast-playground-v2").style.display = "block";
+            document.getElementById("tree-explorer-container").style.display = "block";
             
             // NEU: Canvas sichtbar machen, wenn eingeloggt!
             document.getElementById("visual-canvas-container").style.display = "block"; 
@@ -39,6 +40,7 @@ const updateUI = async () => {
             document.getElementById("ast-playground").style.display = "none";
             document.getElementById("object-manager").style.display = "none";
             document.getElementById("ast-playground-v2").style.display = "none";
+            document.getElementById("tree-explorer-container").style.display = "none";
             
             // NEU: Canvas verstecken, wenn ausgeloggt!
             document.getElementById("visual-canvas-container").style.display = "none"; 
@@ -366,5 +368,83 @@ document.getElementById("btn-parse-v2").addEventListener("click", async () => {
 
     } catch (error) {
         console.error("Fehler beim AST generieren (V2):", error);
+    }
+});
+
+// public/app.js (Ganz unten anhängen)
+
+// Füllt das Dropdown für den Tree Explorer auf, wenn Objekte geladen werden
+const populateTreeDropdown = () => {
+    const dropdown = document.getElementById("tree-object-dropdown");
+    if (!dropdown) return;
+    dropdown.innerHTML = '<option value="">-- Root-Objekt auswählen --</option>';
+    if (typeof allObjects !== 'undefined') {
+        allObjects.forEach(obj => {
+            let label = obj.domain ? `🟢 ${obj.domain}` : `🔗 ${obj.domain_ref}`;
+            dropdown.add(new Option(`${label} [${obj.uuid.substring(0,8)}]`, obj.uuid));
+        });
+    }
+};
+
+document.getElementById("btn-reload-objects").addEventListener("click", () => setTimeout(populateTreeDropdown, 500));
+// Initialer Aufruf
+setTimeout(populateTreeDropdown, 1000);
+
+// Der Klick-Listener für den "Baum analysieren" Button
+document.getElementById("btn-resolve-tree").addEventListener("click", async () => {
+    const uuid = document.getElementById("tree-object-dropdown").value;
+    if (!uuid) return alert("Bitte wähle ein Objekt aus!");
+
+    try {
+        const response = await fetch(`${appConfig.apiUrl}/api/ast/tree/${uuid}`, { credentials: 'include' });
+        const data = await response.json();
+
+        if (data.success) {
+            // Performance anzeigen
+            document.getElementById("tree-performance").style.display = "block";
+            document.getElementById("tree-ms").innerText = data.executionTimeMs;
+
+            // Resultat anzeigen
+            const resultBox = document.getElementById("tree-result");
+            resultBox.style.display = "block";
+            resultBox.innerText = JSON.stringify(data.tree, null, 2);
+        } else {
+            alert(`Fehler: ${data.error}`);
+        }
+    } catch (error) {
+        console.error("Fehler beim Tree Resolve:", error);
+    }
+});
+
+document.getElementById("btn-resolve-path").addEventListener("click", async () => {
+    // Pfad auslesen und eventuelle Leerzeichen am Anfang/Ende entfernen
+    const pathValue = document.getElementById("tree-path-input").value.trim();
+    
+    if (!pathValue) {
+        return alert("Bitte gib einen Pfad ein (z.B. app/home/home2)!");
+    }
+
+    try {
+        // Wir schicken den String exakt so ans Backend
+        const response = await fetch(`${appConfig.apiUrl}/api/ast/tree/path/${pathValue}`, { 
+            credentials: 'include' 
+        });
+        
+        const data = await response.json();
+
+        if (data.success) {
+            // Performance anzeigen
+            document.getElementById("tree-performance").style.display = "block";
+            document.getElementById("tree-ms").innerText = data.executionTimeMs;
+
+            // Resultat in die bestehende Box schreiben
+            const resultBox = document.getElementById("tree-result");
+            resultBox.style.display = "block";
+            resultBox.innerText = JSON.stringify(data.tree, null, 2);
+        } else {
+            alert(`Fehler: ${data.error}`);
+        }
+    } catch (error) {
+        console.error("Fehler beim Tree Resolve per Pfad:", error);
     }
 });
