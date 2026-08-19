@@ -9,6 +9,9 @@ window.onload = async () => {
 };
 
 // UI aktualisieren (Buttons ein/ausblenden)
+// public/app.js
+
+// UI aktualisieren (Buttons ein/ausblenden)
 const updateUI = async () => {
     try {
         const response = await fetch(`${appConfig.apiUrl}/api/me`, {
@@ -22,8 +25,12 @@ const updateUI = async () => {
             document.getElementById("btn-logout").style.display = "inline-block";
             document.getElementById("btn-api").style.display = "inline-block";
             document.getElementById("ast-playground").style.display = "block";
-            document.getElementById("object-manager").style.display = "block"; // NEU
+            document.getElementById("object-manager").style.display = "block";
             document.getElementById("ast-playground-v2").style.display = "block";
+            
+            // NEU: Canvas sichtbar machen, wenn eingeloggt!
+            document.getElementById("visual-canvas-container").style.display = "block"; 
+            
             document.getElementById("user-info").innerText = `Eingeloggt als: ${data.user.name || data.user.email}`;
         } else {
             document.getElementById("btn-login").style.display = "inline-block";
@@ -32,6 +39,10 @@ const updateUI = async () => {
             document.getElementById("ast-playground").style.display = "none";
             document.getElementById("object-manager").style.display = "none";
             document.getElementById("ast-playground-v2").style.display = "none";
+            
+            // NEU: Canvas verstecken, wenn ausgeloggt!
+            document.getElementById("visual-canvas-container").style.display = "none"; 
+            
             document.getElementById("user-info").innerText = "";
         }
     } catch (error) {
@@ -220,19 +231,18 @@ document.getElementById("parent-object-dropdown").addEventListener("change", (e)
     }
 });
 
-// Hook erstellen Button
 document.getElementById("btn-create-hook").addEventListener("click", async () => {
     const parentUuid = document.getElementById("parent-object-dropdown").value;
     const pathStep = document.getElementById("path-selector-dropdown").value;
+    // NEU: Identifier auslesen
+    const identifier = document.getElementById("hook-identifier-input").value;
     
     if (!parentUuid) {
         alert("Bitte wähle ein Ziel-Objekt aus!");
         return;
     }
 
-    // Wir suchen das Objekt, um die domain oder domain_ref herauszufinden
     const parentObj = allObjects.find(o => o.uuid === parentUuid);
-    // Wenn das Parent eine eigene Domain hat, nehmen wir die. Wenn es selbst ein Hook ist, nehmen wir seine Referenz.
     const refToSave = parentObj.domain || parentObj.domain_ref; 
 
     try {
@@ -242,14 +252,15 @@ document.getElementById("btn-create-hook").addEventListener("click", async () =>
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 domainRef: refToSave,
-                // parentUuid und pathStep senden wir schon mal mit fürs Backend (auch wenn wir es im Model aktuell noch nicht in eine Spalte speichern)
                 parentUuid: parentUuid,
-                pathStep: pathStep 
+                pathStep: pathStep,
+                identifier: identifier // NEU: An das Backend mitschicken
             })
         });
         
         if (response.ok) {
-            alert("Hook-Objekt erfolgreich angelegt!");
+            alert("Hook-Objekt erfolgreich angelegt (inklusive Initial-Syntax)!");
+            document.getElementById("hook-identifier-input").value = ""; // Input wieder leeren
             await loadObjects();
         } else {
             const data = await response.json();

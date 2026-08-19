@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>localhost:3001</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body style="font-family: sans-serif; padding: 20px;">
 
@@ -45,11 +46,15 @@
             </select>
             <br>
             
-            <!-- Der Path-Selektor (für später vorbereitet!) -->
             <label style="font-weight: bold;">An welchem Schritt (Path) einhaken?</label><br>
             <select id="path-selector-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px;">
                 <option value="">Wähle zuerst ein Ziel-Objekt...</option>
             </select>
+            <br>
+
+            <!-- NEU: Das Identifier / Namens-Feld -->
+            <label style="font-weight: bold;">Name / Identifier (optional):</label><br>
+            <input type="text" id="hook-identifier-input" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 15px; border-radius: 4px;" placeholder="z.B. main-button (Leer lassen für UUID)">
             <br>
 
             <button id="btn-create-hook" style="padding: 10px; font-size: 16px; background: #17a2b8; color: white; border: none; cursor: pointer; border-radius: 4px;">Als Ast anhängen</button>
@@ -155,6 +160,25 @@
 
     <pre id="api-result" style="background: #eee; padding: 10px; display: none; margin-top: 20px; white-space: pre-wrap; word-wrap: break-word;"></pre>
 
+
+    <!-- NEU: Visueller Syntax Canvas -->
+    <div id="visual-canvas-container" style="display: none; margin-top: 40px; border: 1px solid #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa;">
+        <h3>Syntax Canvas (Drag & Drop) 🧩</h3>
+        <p style="font-size: 14px; color: #555;">Wähle ein Objekt, um es auf das Canvas zu legen. Ziehe Blöcke ineinander, um "children" zu erzeugen.</p>
+        
+        <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+            <select id="canvas-object-dropdown" style="padding: 8px; border-radius: 4px; font-size: 16px; min-width: 300px;">
+                <option value="">-- Objekt zum Canvas hinzufügen --</option>
+            </select>
+            <button id="btn-add-to-canvas" style="padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">➕ Aufs Canvas legen</button>
+            <button id="btn-save-canvas" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: auto; font-weight: bold;">💾 Alle Canvas-Änderungen in DB speichern</button>
+        </div>
+
+        <!-- Hier drin passiert die Magie -->
+        <div id="syntax-canvas-area" class="dropzone"></div>
+    </div>
+
     <script src="app.js"></script>
+    <script src="canvas.js"></script>
 </body>
 </html>

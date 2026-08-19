@@ -1,0 +1,77 @@
+/* public/style.css */
+
+/* Der Canvas-Bereich */
+#syntax-canvas-area {
+    width: 100%;
+    min-height: 500px;
+    background-color: #1e1e24;
+    background-image: radial-gradient(#3a3a45 2px, transparent 2px);
+    background-size: 30px 30px;
+    border: 2px solid #ff9900;
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-start;
+    align-content: flex-start;
+}
+
+/* Ein einzelner Syntax-Block */
+.canvas-block {
+    background: #2a2a35;
+    border: 1px solid #4a4a5a;
+    border-radius: 8px;
+    min-width: 250px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    cursor: grab;
+    transition: transform 0.1s, box-shadow 0.1s;
+    display: flex;
+    flex-direction: column;
+}
+
+.canvas-block:active {
+    cursor: grabbing;
+}
+
+/* Der Header des Blocks (zeigt Name/Domain) */
+.block-header {
+    background: linear-gradient(135deg, #ff9900, #ff5500);
+    color: white;
+    padding: 10px 15px;
+    font-weight: bold;
+    font-size: 14px;
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none; /* Verhindert Probleme beim Draggen */
+}
+
+/* Die Dropzone IN einem Block (für die Children) */
+.block-children {
+    padding: 15px;
+    min-height: 60px; /* Immer etwas Platz, damit man was reinziehen kann */
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Wenn man gerade etwas über die Dropzone zieht */
+.block-children.drag-over {
+    background: rgba(255, 153, 0, 0.2);
+    border: 2px dashed #ff9900;
+}
+
+/* Kleine Labels für die UUID/Type im Block */
+.block-meta {
+    font-size: 11px;
+    color: #a0a0b0;
+    margin-top: 4px;
+    font-family: monospace;
+}
