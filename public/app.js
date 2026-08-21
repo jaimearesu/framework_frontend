@@ -448,3 +448,61 @@ document.getElementById("btn-resolve-path").addEventListener("click", async () =
         console.error("Fehler beim Tree Resolve per Pfad:", error);
     }
 });
+
+// --- STRESSTEST LOGIK ---
+document.getElementById("btn-stress-test").addEventListener("click", async () => {
+    const count = parseInt(document.getElementById("stress-count-input").value) || 10;
+    const dropdown = document.getElementById("tree-object-dropdown");
+    
+    // Wir holen uns alle gültigen UUIDs aus dem Dropdown, um zufällige Objekte abzufragen
+    const options = Array.from(dropdown.options).filter(opt => opt.value !== "");
+    
+    if (options.length === 0) {
+        return alert("Keine Objekte zum Testen gefunden. Bitte erst Objekte laden!");
+    }
+
+    const resultBox = document.getElementById("stress-result");
+    resultBox.style.display = "block";
+    resultBox.innerText = `Sende ${count} parallele Anfragen an Node.js...\n`;
+    document.getElementById("stress-performance").style.display = "none";
+
+    const promises = [];
+    
+    // Wir bauen ein Array mit X fetch-Anfragen, FEUERN sie aber noch nicht ab!
+    for(let i = 0; i < count; i++) {
+        // Ein zufälliges Objekt aus der Liste wählen
+        const randomUuid = options[Math.floor(Math.random() * options.length)].value;
+        
+        promises.push(
+            fetch(`${appConfig.apiUrl}/api/ast/tree/${randomUuid}`, { credentials: 'include' })
+                .then(res => res.json())
+        );
+    }
+
+    const startTotal = performance.now();
+    
+    try {
+        // HIER PASSIERT DIE MAGIE: Promise.all feuert alle Requests gleichzeitig ab!
+        const results = await Promise.all(promises);
+        
+        const endTotal = performance.now();
+        const totalTime = (endTotal - startTotal).toFixed(2);
+        
+        document.getElementById("stress-performance").style.display = "block";
+        document.getElementById("stress-count").innerText = count;
+        document.getElementById("stress-ms").innerText = totalTime;
+
+        // Zusammenfassung generieren
+        let summary = `✅ ${count} Abfragen beendet.\n\n`;
+        results.forEach((res, index) => {
+            const time = res.executionTimeMs ? `${res.executionTimeMs} ms` : 'Fehler';
+            summary += `Request ${index + 1}: ${res.success ? 'Erfolg' : 'Fehlgeschlagen'} (Backend-Dauer: ${time})\n`;
+        });
+        
+        resultBox.innerText = summary;
+        
+    } catch (error) {
+        console.error("Fehler beim Stresstest:", error);
+        resultBox.innerText = "Ein Fehler ist aufgetreten: " + error.message;
+    }
+});

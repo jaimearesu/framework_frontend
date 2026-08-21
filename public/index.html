@@ -203,6 +203,20 @@
 
         <h4 id="tree-performance" style="color: #28a745; display: none;">⏱️ Ausführungszeit: <span id="tree-ms">0</span> ms</h4>
         <pre id="tree-result" style="background: #1e1e24; color: #a0a0b0; padding: 15px; border-radius: 6px; display: none; max-height: 500px; overflow-y: auto; font-family: monospace;"></pre>
+
+
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
+
+        <!-- 3. NEU: Der Node.js Stresstest -->
+        <label style="font-weight: bold; font-size: 14px;">Paralleler Stresstest (Node.js Event Loop Test):</label>
+        <p style="font-size: 12px; color: #555;">Feuert N Abfragen in derselben Millisekunde parallel auf den Server ab (Promise.all).</p>
+        <div style="margin-bottom: 20px; margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+            <input type="number" id="stress-count-input" value="10" min="1" max="100" style="padding: 8px; border-radius: 4px; font-size: 16px; width: 80px; border: 1px solid #ccc;">
+            <button id="btn-stress-test" style="padding: 8px 15px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Stresstest starten!</button>
+        </div>
+
+        <h4 id="stress-performance" style="color: #dc3545; display: none;">🔥 Total Zeit für <span id="stress-count">0</span> Requests: <span id="stress-ms">0</span> ms</h4>
+        <pre id="stress-result" style="background: #1e1e24; color: #a0a0b0; padding: 15px; border-radius: 6px; display: none; max-height: 200px; overflow-y: auto; font-family: monospace;"></pre>
     </div>
 
 
