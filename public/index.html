@@ -2,7 +2,8 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>at0mic Login Test</title>
+    <title>localhost:3001</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body style="font-family: sans-serif; padding: 20px;">
 
@@ -13,8 +14,213 @@
     <button id="btn-api" style="padding: 10px; font-size: 16px; display: none;">Geheime Daten laden</button>
 
     <h3 id="user-info" style="color: green;"></h3>
-    <pre id="api-result" style="background: #eee; padding: 10px; display: none;"></pre>
+
+    <!-- Unser AST Playground Block (anfangs versteckt) -->
+<!-- Unser Objekt Manager Block -->
+    <div id="object-manager" style="display: none; margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 8px;">
+        <h3>Objekt Manager 🗂️</h3>
+        
+        <!-- Auswahl: Was wollen wir tun? -->
+        <div style="margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+            <label style="margin-right: 15px; cursor: pointer;">
+                <input type="radio" name="creationType" value="root" checked> 🟢 Neue Root-Domain
+            </label>
+            <label style="cursor: pointer;">
+                <input type="radio" name="creationType" value="hook"> 🔗 An bestehendes Objekt anhängen
+            </label>
+        </div>
+
+        <!-- FORM 1: Root Domain -->
+        <div id="form-root">
+            <label style="font-weight: bold;">Neue Domain:</label><br>
+            <input type="text" id="new-domain-input" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px;" placeholder="z.B. dev/admin/user">
+            <br>
+            <button id="btn-create-domain" style="padding: 10px; font-size: 16px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px;">Domain erstellen</button>
+        </div>
+
+        <!-- FORM 2: Hook (Abhängiges Objekt) -->
+        <div id="form-hook" style="display: none;">
+            <label style="font-weight: bold;">Ziel-Objekt auswählen:</label><br>
+            <select id="parent-object-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px;">
+                <option value="">-- Lade Objekte... --</option>
+            </select>
+            <br>
+            
+            <label style="font-weight: bold;">An welchem Schritt (Path) einhaken?</label><br>
+            <select id="path-selector-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px;">
+                <option value="">Wähle zuerst ein Ziel-Objekt...</option>
+            </select>
+            <br>
+
+            <!-- NEU: Das Identifier / Namens-Feld -->
+            <label style="font-weight: bold;">Name / Identifier (optional):</label><br>
+            <input type="text" id="hook-identifier-input" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 15px; border-radius: 4px;" placeholder="z.B. main-button (Leer lassen für UUID)">
+            <br>
+
+            <button id="btn-create-hook" style="padding: 10px; font-size: 16px; background: #17a2b8; color: white; border: none; cursor: pointer; border-radius: 4px;">Als Ast anhängen</button>
+        </div>
+        
+        <hr style="margin: 20px 0;">
+
+        <!-- Anzeige aller Objekte -->
+        <label style="font-weight: bold;">Vorhandene Objekte ansehen:</label><br>
+        <select id="object-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px;">
+            <option value="">-- Objekte werden geladen... --</option>
+        </select>
+        <button id="btn-reload-objects" style="padding: 10px; font-size: 16px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; margin-left: 10px;">🔄 Reload</button>
+        
+        <pre id="object-details" style="background: #e9ecef; padding: 10px; display: none; margin-top: 15px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word;"></pre>
+    </div>
+
+
+
+
+<!-- NEU: AST Generator V2 (Smart) -->
+<!-- NEU: AST Generator V2 (Smart Bundle) -->
+<div id="ast-playground-v2" style="display: none; margin-top: 20px; border: 1px solid #ff9900; padding: 15px; border-radius: 8px; background: #fffdfa;">
+    <h3 style="color: #ff9900;">AST Generator V2 (Bundle Injection) 🧠📦</h3>
+    
+    <label style="font-weight: bold;">Ziel-Objekt auswählen:</label><br>
+    <select id="ast-v2-object-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 20px; border-radius: 4px; font-size: 16px;">
+        <option value="">-- Objekte werden geladen... --</option>
+    </select>
+    <br>
+
+    <p style="margin-bottom: 10px; font-size: 14px; color: #555;">Fülle nur die Felder aus, die du injizieren möchtest (Rest einfach leer lassen):</p>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 15px; max-width: 1400px; align-items: flex-start;">
+        
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #e34c26; margin-bottom: 5px;">HTML:</label>
+            <textarea id="ast-v2-html" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #e34c26; border-radius: 4px;" placeholder="<div>...</div>"></textarea>
+        </div>
+        
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #264de4; margin-bottom: 5px;">CSS:</label>
+            <textarea id="ast-v2-css" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #264de4; border-radius: 4px;" placeholder=".class { ... }"></textarea>
+        </div>
+        
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #f0db4f; margin-bottom: 5px;">JavaScript:</label>
+            <textarea id="ast-v2-js" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #e2cc45; border-radius: 4px;" placeholder="const x = 1;"></textarea>
+        </div>
+        
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #6c757d; margin-bottom: 5px;">Server Side (SSF):</label>
+            <textarea id="ast-v2-ssf" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #6c757d; border-radius: 4px;" placeholder="db.query(...)"></textarea>
+        </div>
+
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #17a2b8; margin-bottom: 5px;">Data (JSON):</label>
+            <textarea id="ast-v2-data" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #17a2b8; border-radius: 4px;" placeholder='{"key": "value"}'></textarea>
+        </div>
+
+        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
+            <label style="font-weight: bold; color: #9c27b0; margin-bottom: 5px;">Syntax (JSON):</label>
+            <textarea id="ast-v2-syntax" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #9c27b0; border-radius: 4px;" placeholder='{"rules": []}'></textarea>
+        </div>
+    </div>
+    
+    <button id="btn-parse-v2" style="padding: 10px 20px; font-size: 16px; margin-top: 20px; background: #ff9900; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; max-width: 800px;">⚡ AST Bundle in die Datenbank feuern!</button>
+</div>
+
+
+
+
+
+    <div id="ast-playground" style="display: none; margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 8px;">
+        <h3>AST Generator Playground 🛠️ (alt)</h3>
+        
+        <!-- Input für Target Object -->
+        <label style="font-weight: bold;">Target Object:</label><br>
+        <input type="text" id="target-object" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px;" placeholder="z.B. dev/admin/user/test">
+        <br>
+        
+        <!-- Input für Current Object -->
+        <label style="font-weight: bold;">Current Object:</label><br>
+        <input type="text" id="current-object" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 15px; border-radius: 4px;" placeholder="z.B. dev/admin/user">
+        <br>
+
+        <!-- Das Dropdown Menü -->
+        <select id="code-type" style="padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px;">
+            <option value="javascript">JavaScript</option>
+            <option value="ssf">Server Side Functions (SSF)</option>
+            <option value="html">HTML</option>
+            <option value="css">CSS</option>
+            <option value="syntax">Syntax (JSON)</option>
+            <option value="data">Data (JSON)</option>
+        </select>
+        <br>
+
+        <textarea id="code-input" rows="5" style="width: 100%; max-width: 500px; font-family: monospace; padding: 8px;" placeholder="Gib hier deinen Code ein... z.B. const x = 42;"></textarea>
+        <br>
+        
+        <button id="btn-parse" style="padding: 10px; font-size: 16px; margin-top: 10px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px;">Code evaluieren & umwandeln!</button>
+    </div>
+
+    <pre id="api-result" style="background: #eee; padding: 10px; display: none; margin-top: 20px; white-space: pre-wrap; word-wrap: break-word;"></pre>
+
+
+    <!-- NEU: Visueller Syntax Canvas -->
+    <div id="visual-canvas-container" style="display: none; margin-top: 40px; border: 1px solid #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa;">
+        <h3>Syntax Canvas (Drag & Drop) 🧩</h3>
+        <p style="font-size: 14px; color: #555;">Wähle ein Objekt, um es auf das Canvas zu legen. Ziehe Blöcke ineinander, um "children" zu erzeugen.</p>
+        
+        <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+            <select id="canvas-object-dropdown" style="padding: 8px; border-radius: 4px; font-size: 16px; min-width: 300px;">
+                <option value="">-- Objekt zum Canvas hinzufügen --</option>
+            </select>
+            <button id="btn-add-to-canvas" style="padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">➕ Aufs Canvas legen</button>
+            <button id="btn-save-canvas" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: auto; font-weight: bold;">💾 Alle Canvas-Änderungen in DB speichern</button>
+        </div>
+
+        <!-- Hier drin passiert die Magie -->
+        <div id="syntax-canvas-area" class="dropzone"></div>
+    </div>
+
+<!-- NEU: Tree Explorer -->
+    <div id="tree-explorer-container" style="display: none; margin-top: 40px; border: 1px solid #17a2b8; padding: 15px; border-radius: 8px; background: #f8f9fa;">
+        <h3 style="color: #17a2b8;">Tree Explorer 🌲</h3>
+        <p style="font-size: 14px; color: #555;">Löse einen kompletten Objekt-Baum rekursiv auf. Inklusive Step/Timestamp-Matching und Performance-Tracking.</p>
+        
+        <!-- 1. Die bestehende Suche über UUID -->
+        <label style="font-weight: bold; font-size: 14px;">Ab Root-Objekt auflösen:</label>
+        <div style="margin-bottom: 15px; margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+            <select id="tree-object-dropdown" style="padding: 8px; border-radius: 4px; font-size: 16px; min-width: 300px; border: 1px solid #ccc;">
+                <option value="">-- Root-Objekt auswählen --</option>
+            </select>
+            <button id="btn-resolve-tree" style="padding: 8px 15px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baum analysieren!</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
+
+        <!-- 2. NEU: Die Suche über den Browser-Pfad -->
+        <label style="font-weight: bold; font-size: 14px;">Oder über tiefen Pfad (Browser-URL) auflösen:</label>
+        <div style="margin-bottom: 20px; margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="tree-path-input" placeholder="z.B. app/home/home2" style="padding: 8px; border-radius: 4px; font-size: 16px; min-width: 300px; border: 1px solid #ccc;">
+            <button id="btn-resolve-path" style="padding: 8px 15px; background: #6f42c1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Pfad analysieren!</button>
+        </div>
+
+        <h4 id="tree-performance" style="color: #28a745; display: none;">⏱️ Ausführungszeit: <span id="tree-ms">0</span> ms</h4>
+        <pre id="tree-result" style="background: #1e1e24; color: #a0a0b0; padding: 15px; border-radius: 6px; display: none; max-height: 500px; overflow-y: auto; font-family: monospace;"></pre>
+
+
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
+
+        <!-- 3. NEU: Der Node.js Stresstest -->
+        <label style="font-weight: bold; font-size: 14px;">Paralleler Stresstest (Node.js Event Loop Test):</label>
+        <p style="font-size: 12px; color: #555;">Feuert N Abfragen in derselben Millisekunde parallel auf den Server ab (Promise.all).</p>
+        <div style="margin-bottom: 20px; margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+            <input type="number" id="stress-count-input" value="10" min="1" max="100" style="padding: 8px; border-radius: 4px; font-size: 16px; width: 80px; border: 1px solid #ccc;">
+            <button id="btn-stress-test" style="padding: 8px 15px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Stresstest starten!</button>
+        </div>
+
+        <h4 id="stress-performance" style="color: #dc3545; display: none;">🔥 Total Zeit für <span id="stress-count">0</span> Requests: <span id="stress-ms">0</span> ms</h4>
+        <pre id="stress-result" style="background: #1e1e24; color: #a0a0b0; padding: 15px; border-radius: 6px; display: none; max-height: 200px; overflow-y: auto; font-family: monospace;"></pre>
+    </div>
+
 
     <script src="app.js"></script>
+    <script src="canvas.js"></script>
 </body>
 </html>
