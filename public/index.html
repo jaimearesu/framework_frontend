@@ -220,23 +220,69 @@
     </div>
 
 
-    <div class="container">
-        <h1>Objekt-Rollen Viewer</h1>
+
+
+
+
+
+
+<style>
+        :root { --black: #2d3436; --red: #d63031; --blue: #0984e3; --bg: #f5f6fa; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: 10rem auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .header-controls { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #eee; }
+        .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        select, input[type="text"] { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; min-width: 250px; }
+        button { padding: 0.5rem 1rem; background: var(--blue); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { opacity: 0.9; }
         
-        <div class="control-group">
-            <label for="object-select">Objekt auswählen:</label>
-            <select id="object-select">
-                <option value="">Lade Objekte...</option>
-            </select>
+        /* Domain Bundles */
+        .domain-bundle { margin-bottom: 2rem; }
+        .domain-title { background: #eee; padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        
+        /* Triplet Cards */
+        .triplet-card { border: 1px solid #e1e1e1; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+        .triplet-header { font-size: 0.85rem; color: #666; margin-bottom: 1rem; font-family: monospace; }
+        .roles-grid { display: flex; gap: 1.5rem; }
+        
+        /* Checkbox Styling */
+        .role-checkbox { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: bold; }
+        .role-checkbox input { width: 18px; height: 18px; cursor: pointer; }
+        .role-black { color: var(--black); }
+        .role-red { color: var(--red); }
+        .role-blue { color: var(--blue); }
+        
+        .toast { position: fixed; bottom: 20px; right: 20px; padding: 1rem; background: #333; color: white; border-radius: 4px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    </style>
+    <div class="container">
+        <h1>Rollen-Verwaltung (Triplets)</h1>
+        
+        <div class="header-controls">
+            <div class="control-group">
+                <label for="object-select">Ziel-Objekt auswählen:</label>
+                <select id="object-select">
+                    <option value="">Lade Objekte...</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Neues Triplet erschaffen (wird deiner Heimat-Domain zugewiesen):</label>
+                <div>
+                    <button id="btn-create-triplet">Erschaffen</button>
+                </div>
+            </div>
         </div>
 
-        <div id="roles-container" class="roles-container">
-            <p class="placeholder">Bitte wähle ein Objekt aus, um seine Rollen-Bundles zu sehen.</p>
+        <div id="roles-container">
+            <p style="color: #666;">Bitte wähle ein Objekt aus, um seine Triplets zu verwalten.</p>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <div id="toast" class="toast"></div>
+
     <script src="roles.js"></script>
+
+    <script src="app.js"></script>
     <script src="canvas.js"></script>
 </body>
 </html>
