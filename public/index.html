@@ -5,6 +5,34 @@
     <title>localhost:3001</title>
     <link rel="stylesheet" href="style.css">
 </head>
+<style>
+        :root { --black: #2d3436; --red: #d63031; --blue: #0984e3; --bg: #f5f6fa; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: 10rem auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .header-controls { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #eee; }
+        .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        select, input[type="text"] { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; min-width: 250px; }
+        button { padding: 0.5rem 1rem; background: var(--blue); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { opacity: 0.9; }
+        
+        /* Domain Bundles */
+        .domain-bundle { margin-bottom: 2rem; }
+        .domain-title { background: #eee; padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        
+        /* Triplet Cards */
+        .triplet-card { border: 1px solid #e1e1e1; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+        .triplet-header { font-size: 0.85rem; color: #666; margin-bottom: 1rem; font-family: monospace; }
+        .roles-grid { display: flex; gap: 1.5rem; }
+        
+        /* Checkbox Styling */
+        .role-checkbox { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: bold; }
+        .role-checkbox input { width: 18px; height: 18px; cursor: pointer; }
+        .role-black { color: var(--black); }
+        .role-red { color: var(--red); }
+        .role-blue { color: var(--blue); }
+        
+        .toast { position: fixed; bottom: 20px; right: 20px; padding: 1rem; background: #333; color: white; border-radius: 4px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    </style>
 <body style="font-family: sans-serif; padding: 20px;">
 
     <h1>Willkommen beim at0mic Frontend! 🚀</h1>
@@ -15,8 +43,6 @@
 
     <h3 id="user-info" style="color: green;"></h3>
 
-    <!-- Unser AST Playground Block (anfangs versteckt) -->
-<!-- Unser Objekt Manager Block -->
     <div id="object-manager" style="display: none; margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 8px;">
         <h3>Objekt Manager 🗂️</h3>
         
@@ -72,11 +98,6 @@
         <pre id="object-details" style="background: #e9ecef; padding: 10px; display: none; margin-top: 15px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word;"></pre>
     </div>
 
-
-
-
-<!-- NEU: AST Generator V2 (Smart) -->
-<!-- NEU: AST Generator V2 (Smart Bundle) -->
 <div id="ast-playground-v2" style="display: none; margin-top: 20px; border: 1px solid #ff9900; padding: 15px; border-radius: 8px; background: #fffdfa;">
     <h3 style="color: #ff9900;">AST Generator V2 (Bundle Injection) 🧠📦</h3>
     
@@ -123,11 +144,6 @@
     
     <button id="btn-parse-v2" style="padding: 10px 20px; font-size: 16px; margin-top: 20px; background: #ff9900; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; max-width: 800px;">⚡ AST Bundle in die Datenbank feuern!</button>
 </div>
-
-
-
-
-
     <div id="ast-playground" style="display: none; margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 8px;">
         <h3>AST Generator Playground 🛠️ (alt)</h3>
         
@@ -218,42 +234,6 @@
         <h4 id="stress-performance" style="color: #dc3545; display: none;">🔥 Total Zeit für <span id="stress-count">0</span> Requests: <span id="stress-ms">0</span> ms</h4>
         <pre id="stress-result" style="background: #1e1e24; color: #a0a0b0; padding: 15px; border-radius: 6px; display: none; max-height: 200px; overflow-y: auto; font-family: monospace;"></pre>
     </div>
-
-
-
-
-
-
-
-
-<style>
-        :root { --black: #2d3436; --red: #d63031; --blue: #0984e3; --bg: #f5f6fa; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); padding: 20px; color: #333; }
-        .container { max-width: 1000px; margin: 10rem auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .header-controls { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #eee; }
-        .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
-        select, input[type="text"] { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; min-width: 250px; }
-        button { padding: 0.5rem 1rem; background: var(--blue); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { opacity: 0.9; }
-        
-        /* Domain Bundles */
-        .domain-bundle { margin-bottom: 2rem; }
-        .domain-title { background: #eee; padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
-        
-        /* Triplet Cards */
-        .triplet-card { border: 1px solid #e1e1e1; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
-        .triplet-header { font-size: 0.85rem; color: #666; margin-bottom: 1rem; font-family: monospace; }
-        .roles-grid { display: flex; gap: 1.5rem; }
-        
-        /* Checkbox Styling */
-        .role-checkbox { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: bold; }
-        .role-checkbox input { width: 18px; height: 18px; cursor: pointer; }
-        .role-black { color: var(--black); }
-        .role-red { color: var(--red); }
-        .role-blue { color: var(--blue); }
-        
-        .toast { position: fixed; bottom: 20px; right: 20px; padding: 1rem; background: #333; color: white; border-radius: 4px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-    </style>
     <div class="container">
         <h1>Rollen-Verwaltung (Triplets)</h1>
         
@@ -280,8 +260,40 @@
 
     <div id="toast" class="toast"></div>
 
-    <script src="roles.js"></script>
 
+<h2>⚡ Serverless Function Trigger</h2>
+
+    <div class="form-group">
+        <label>Art des Ziels:</label>
+        <label><input type="radio" name="targetType" value="uuid" checked> UUID</label>
+        <label><input type="radio" name="targetType" value="path"> Pfad</label>
+    </div>
+
+    <div class="form-group">
+        <label for="targetInput">Ziel (UUID oder Pfad eingeben):</label>
+        <input type="text" id="targetInput" placeholder="z.B. my-domain/my-parent/my-object oder 1234-abcd...">
+    </div>
+
+    <div class="form-group">
+        <label for="authToken">Auth Token (falls benötigt für 'checkUser'):</label>
+        <input type="text" id="authToken" placeholder="Bearer eyJhbG...">
+    </div>
+
+    <div class="form-group">
+        <label for="bodyInput">Test-Daten (JSON Body):</label>
+        <textarea id="bodyInput">{ "testKey": "Hallo von der UI" }</textarea>
+    </div>
+
+    <button id="executeBtn">Funktion triggern</button>
+
+    <h3>Ergebnis:</h3>
+    <pre id="output">Wartet auf Ausführung...</pre>
+
+    <!-- Verlinkung zur externen JS-Datei -->
+    <script src="tester.js"></script>
+
+
+    <script src="roles.js"></script>
     <script src="app.js"></script>
     <script src="canvas.js"></script>
 </body>

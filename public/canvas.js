@@ -215,7 +215,7 @@ setTimeout(() => {
             const updatedAst = buildAstFromDOM(block);
 
             try {
-                const response = await fetch(`${appConfig.apiUrl}/api/ast/parse-v2`, {
+                const response = await fetch(`${appConfig.apiUrl}/api/ast/parse`, {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },

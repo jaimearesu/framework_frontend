@@ -344,7 +344,7 @@ document.getElementById("btn-parse-v2").addEventListener("click", async () => {
     }
 
     try {
-        const response = await fetch(`${appConfig.apiUrl}/api/ast/parse-v2`, {
+        const response = await fetch(`${appConfig.apiUrl}/api/ast/parse`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
