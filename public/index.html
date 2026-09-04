@@ -2,297 +2,281 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>localhost:3001</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>at0mic Frontend - Dashboard</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<style>
-        :root { --black: #2d3436; --red: #d63031; --blue: #0984e3; --bg: #f5f6fa; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); padding: 20px; color: #333; }
-        .container { max-width: 1000px; margin: 10rem auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .header-controls { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #eee; }
-        .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
-        select, input[type="text"] { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; min-width: 250px; }
-        button { padding: 0.5rem 1rem; background: var(--blue); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { opacity: 0.9; }
-        
-        /* Domain Bundles */
-        .domain-bundle { margin-bottom: 2rem; }
-        .domain-title { background: #eee; padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
-        
-        /* Triplet Cards */
-        .triplet-card { border: 1px solid #e1e1e1; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
-        .triplet-header { font-size: 0.85rem; color: #666; margin-bottom: 1rem; font-family: monospace; }
-        .roles-grid { display: flex; gap: 1.5rem; }
-        
-        /* Checkbox Styling */
-        .role-checkbox { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: bold; }
-        .role-checkbox input { width: 18px; height: 18px; cursor: pointer; }
-        .role-black { color: var(--black); }
-        .role-red { color: var(--red); }
-        .role-blue { color: var(--blue); }
-        
-        .toast { position: fixed; bottom: 20px; right: 20px; padding: 1rem; background: #333; color: white; border-radius: 4px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-    </style>
-<body style="font-family: sans-serif; padding: 20px;">
+<body>
 
-    <h1>Willkommen beim at0mic Frontend! 🚀</h1>
-    
-    <button id="btn-login" style="padding: 10px; font-size: 16px;">Mit Auth0 Einloggen</button>
-    <button id="btn-logout" style="padding: 10px; font-size: 16px; display: none;">Ausloggen</button>
-    <button id="btn-api" style="padding: 10px; font-size: 16px; display: none;">Geheime Daten laden</button>
-
-    <h3 id="user-info" style="color: green;"></h3>
-
-    <div id="object-manager" style="display: none; margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 8px;">
-        <h3>Objekt Manager 🗂️</h3>
-        
-        <!-- Auswahl: Was wollen wir tun? -->
-        <div style="margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px;">
-            <label style="margin-right: 15px; cursor: pointer;">
-                <input type="radio" name="creationType" value="root" checked> 🟢 Neue Root-Domain
-            </label>
-            <label style="cursor: pointer;">
-                <input type="radio" name="creationType" value="hook"> 🔗 An bestehendes Objekt anhängen
-            </label>
-        </div>
-
-        <!-- FORM 1: Root Domain -->
-        <div id="form-root">
-            <label style="font-weight: bold;">Neue Domain:</label><br>
-            <input type="text" id="new-domain-input" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px;" placeholder="z.B. dev/admin/user">
-            <br>
-            <button id="btn-create-domain" style="padding: 10px; font-size: 16px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px;">Domain erstellen</button>
-        </div>
-
-        <!-- FORM 2: Hook (Abhängiges Objekt) -->
-        <div id="form-hook" style="display: none;">
-            <label style="font-weight: bold;">Ziel-Objekt auswählen:</label><br>
-            <select id="parent-object-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px;">
-                <option value="">-- Lade Objekte... --</option>
-            </select>
-            <br>
-            
-            <label style="font-weight: bold;">An welchem Schritt (Path) einhaken?</label><br>
-            <select id="path-selector-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px;">
-                <option value="">Wähle zuerst ein Ziel-Objekt...</option>
-            </select>
-            <br>
-
-            <!-- NEU: Das Identifier / Namens-Feld -->
-            <label style="font-weight: bold;">Name / Identifier (optional):</label><br>
-            <input type="text" id="hook-identifier-input" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 15px; border-radius: 4px;" placeholder="z.B. main-button (Leer lassen für UUID)">
-            <br>
-
-            <button id="btn-create-hook" style="padding: 10px; font-size: 16px; background: #17a2b8; color: white; border: none; cursor: pointer; border-radius: 4px;">Als Ast anhängen</button>
-        </div>
-        
-        <hr style="margin: 20px 0;">
-
-        <!-- Anzeige aller Objekte -->
-        <label style="font-weight: bold;">Vorhandene Objekte ansehen:</label><br>
-        <select id="object-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px;">
-            <option value="">-- Objekte werden geladen... --</option>
-        </select>
-        <button id="btn-reload-objects" style="padding: 10px; font-size: 16px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; margin-left: 10px;">🔄 Reload</button>
-        
-        <pre id="object-details" style="background: #e9ecef; padding: 10px; display: none; margin-top: 15px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word;"></pre>
-    </div>
-
-<div id="ast-playground-v2" style="display: none; margin-top: 20px; border: 1px solid #ff9900; padding: 15px; border-radius: 8px; background: #fffdfa;">
-    <h3 style="color: #ff9900;">AST Generator V2 (Bundle Injection) 🧠📦</h3>
-    
-    <label style="font-weight: bold;">Ziel-Objekt auswählen:</label><br>
-    <select id="ast-v2-object-dropdown" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 20px; border-radius: 4px; font-size: 16px;">
-        <option value="">-- Objekte werden geladen... --</option>
-    </select>
-    <br>
-
-    <p style="margin-bottom: 10px; font-size: 14px; color: #555;">Fülle nur die Felder aus, die du injizieren möchtest (Rest einfach leer lassen):</p>
-
-    <div style="display: flex; flex-wrap: wrap; gap: 15px; max-width: 1400px; align-items: flex-start;">
-        
-        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
-            <label style="font-weight: bold; color: #e34c26; margin-bottom: 5px;">HTML:</label>
-            <textarea id="ast-v2-html" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #e34c26; border-radius: 4px;" placeholder="<div>...</div>"></textarea>
-        </div>
-        
-        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
-            <label style="font-weight: bold; color: #264de4; margin-bottom: 5px;">CSS:</label>
-            <textarea id="ast-v2-css" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #264de4; border-radius: 4px;" placeholder=".class { ... }"></textarea>
-        </div>
-        
-        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
-            <label style="font-weight: bold; color: #f0db4f; margin-bottom: 5px;">JavaScript:</label>
-            <textarea id="ast-v2-js" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #e2cc45; border-radius: 4px;" placeholder="const x = 1;"></textarea>
-        </div>
-        
-        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
-            <label style="font-weight: bold; color: #6c757d; margin-bottom: 5px;">Server Side (SSF):</label>
-            <textarea id="ast-v2-ssf" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #6c757d; border-radius: 4px;" placeholder="db.query(...)"></textarea>
-        </div>
-
-        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
-            <label style="font-weight: bold; color: #17a2b8; margin-bottom: 5px;">Data (JSON):</label>
-            <textarea id="ast-v2-data" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #17a2b8; border-radius: 4px;" placeholder='{"key": "value"}'></textarea>
-        </div>
-
-        <div style="flex: 1 1 240px; display: flex; flex-direction: column;">
-            <label style="font-weight: bold; color: #9c27b0; margin-bottom: 5px;">Syntax (JSON):</label>
-            <textarea id="ast-v2-syntax" rows="4" style="box-sizing: border-box; width: 100%; min-width: 200px; font-family: monospace; padding: 8px; border: 1px solid #9c27b0; border-radius: 4px;" placeholder='{"rules": []}'></textarea>
-        </div>
-    </div>
-    
-    <button id="btn-parse-v2" style="padding: 10px 20px; font-size: 16px; margin-top: 20px; background: #ff9900; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; max-width: 800px;">⚡ AST Bundle in die Datenbank feuern!</button>
-</div>
-    <div id="ast-playground" style="display: none; margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 8px;">
-        <h3>AST Generator Playground 🛠️ (alt)</h3>
-        
-        <!-- Input für Target Object -->
-        <label style="font-weight: bold;">Target Object:</label><br>
-        <input type="text" id="target-object" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 10px; border-radius: 4px;" placeholder="z.B. dev/admin/user/test">
-        <br>
-        
-        <!-- Input für Current Object -->
-        <label style="font-weight: bold;">Current Object:</label><br>
-        <input type="text" id="current-object" style="width: 100%; max-width: 500px; padding: 8px; margin-bottom: 15px; border-radius: 4px;" placeholder="z.B. dev/admin/user">
-        <br>
-
-        <!-- Das Dropdown Menü -->
-        <select id="code-type" style="padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 16px;">
-            <option value="javascript">JavaScript</option>
-            <option value="ssf">Server Side Functions (SSF)</option>
-            <option value="html">HTML</option>
-            <option value="css">CSS</option>
-            <option value="syntax">Syntax (JSON)</option>
-            <option value="data">Data (JSON)</option>
-        </select>
-        <br>
-
-        <textarea id="code-input" rows="5" style="width: 100%; max-width: 500px; font-family: monospace; padding: 8px;" placeholder="Gib hier deinen Code ein... z.B. const x = 42;"></textarea>
-        <br>
-        
-        <button id="btn-parse" style="padding: 10px; font-size: 16px; margin-top: 10px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px;">Code evaluieren & umwandeln!</button>
-    </div>
-
-    <pre id="api-result" style="background: #eee; padding: 10px; display: none; margin-top: 20px; white-space: pre-wrap; word-wrap: break-word;"></pre>
-
-
-    <!-- NEU: Visueller Syntax Canvas -->
-    <div id="visual-canvas-container" style="display: none; margin-top: 40px; border: 1px solid #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa;">
-        <h3>Syntax Canvas (Drag & Drop) 🧩</h3>
-        <p style="font-size: 14px; color: #555;">Wähle ein Objekt, um es auf das Canvas zu legen. Ziehe Blöcke ineinander, um "children" zu erzeugen.</p>
-        
-        <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
-            <select id="canvas-object-dropdown" style="padding: 8px; border-radius: 4px; font-size: 16px; min-width: 300px;">
-                <option value="">-- Objekt zum Canvas hinzufügen --</option>
-            </select>
-            <button id="btn-add-to-canvas" style="padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">➕ Aufs Canvas legen</button>
-            <button id="btn-save-canvas" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: auto; font-weight: bold;">💾 Alle Canvas-Änderungen in DB speichern</button>
-        </div>
-
-        <!-- Hier drin passiert die Magie -->
-        <div id="syntax-canvas-area" class="dropzone"></div>
-    </div>
-
-<!-- NEU: Tree Explorer -->
-    <div id="tree-explorer-container" style="display: none; margin-top: 40px; border: 1px solid #17a2b8; padding: 15px; border-radius: 8px; background: #f8f9fa;">
-        <h3 style="color: #17a2b8;">Tree Explorer 🌲</h3>
-        <p style="font-size: 14px; color: #555;">Löse einen kompletten Objekt-Baum rekursiv auf. Inklusive Step/Timestamp-Matching und Performance-Tracking.</p>
-        
-        <!-- 1. Die bestehende Suche über UUID -->
-        <label style="font-weight: bold; font-size: 14px;">Ab Root-Objekt auflösen:</label>
-        <div style="margin-bottom: 15px; margin-top: 5px; display: flex; gap: 10px; align-items: center;">
-            <select id="tree-object-dropdown" style="padding: 8px; border-radius: 4px; font-size: 16px; min-width: 300px; border: 1px solid #ccc;">
-                <option value="">-- Root-Objekt auswählen --</option>
-            </select>
-            <button id="btn-resolve-tree" style="padding: 8px 15px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baum analysieren!</button>
-        </div>
-
-        <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
-
-        <!-- 2. NEU: Die Suche über den Browser-Pfad -->
-        <label style="font-weight: bold; font-size: 14px;">Oder über tiefen Pfad (Browser-URL) auflösen:</label>
-        <div style="margin-bottom: 20px; margin-top: 5px; display: flex; gap: 10px; align-items: center;">
-            <input type="text" id="tree-path-input" placeholder="z.B. app/home/home2" style="padding: 8px; border-radius: 4px; font-size: 16px; min-width: 300px; border: 1px solid #ccc;">
-            <button id="btn-resolve-path" style="padding: 8px 15px; background: #6f42c1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Pfad analysieren!</button>
-        </div>
-
-        <h4 id="tree-performance" style="color: #28a745; display: none;">⏱️ Ausführungszeit: <span id="tree-ms">0</span> ms</h4>
-        <pre id="tree-result" style="background: #1e1e24; color: #a0a0b0; padding: 15px; border-radius: 6px; display: none; max-height: 500px; overflow-y: auto; font-family: monospace;"></pre>
-
-
-        <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
-
-        <!-- 3. NEU: Der Node.js Stresstest -->
-        <label style="font-weight: bold; font-size: 14px;">Paralleler Stresstest (Node.js Event Loop Test):</label>
-        <p style="font-size: 12px; color: #555;">Feuert N Abfragen in derselben Millisekunde parallel auf den Server ab (Promise.all).</p>
-        <div style="margin-bottom: 20px; margin-top: 5px; display: flex; gap: 10px; align-items: center;">
-            <input type="number" id="stress-count-input" value="10" min="1" max="100" style="padding: 8px; border-radius: 4px; font-size: 16px; width: 80px; border: 1px solid #ccc;">
-            <button id="btn-stress-test" style="padding: 8px 15px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Stresstest starten!</button>
-        </div>
-
-        <h4 id="stress-performance" style="color: #dc3545; display: none;">🔥 Total Zeit für <span id="stress-count">0</span> Requests: <span id="stress-ms">0</span> ms</h4>
-        <pre id="stress-result" style="background: #1e1e24; color: #a0a0b0; padding: 15px; border-radius: 6px; display: none; max-height: 200px; overflow-y: auto; font-family: monospace;"></pre>
-    </div>
-    <div class="container">
-        <h1>Rollen-Verwaltung (Triplets)</h1>
-        
-        <div class="header-controls">
-            <div class="control-group">
-                <label for="object-select">Ziel-Objekt auswählen:</label>
-                <select id="object-select">
-                    <option value="">Lade Objekte...</option>
-                </select>
+    <!-- Header / Navigation -->
+    <header class="app-header">
+        <div class="header-content">
+            <h1>🚀 at0mic Frontend</h1>
+            <div class="auth-controls">
+                <h3 id="user-info" class="user-info-text"></h3>
+                <button id="btn-login" class="btn btn-primary">Mit Auth0 Einloggen</button>
+                <button id="btn-logout" class="btn btn-secondary" style="display: none;">Ausloggen</button>
+                <button id="btn-api" class="btn btn-outline" style="display: none;">Geheime Daten laden</button>
             </div>
+        </div>
+    </header>
 
-            <div class="control-group">
-                <label>Neues Triplet erschaffen (wird deiner Heimat-Domain zugewiesen):</label>
-                <div>
-                    <button id="btn-create-triplet">Erschaffen</button>
+    <main class="dashboard-grid">
+
+        <!-- OBJEKT MANAGER -->
+        <section id="object-manager" class="card" style="display: none;">
+            <div class="card-header">
+                <h2>🗂️ Objekt Manager</h2>
+            </div>
+            <div class="card-body">
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="creationType" value="root" checked> 🟢 Neue Root-Domain
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="creationType" value="hook"> 🔗 An bestehendes Objekt anhängen
+                    </label>
+                </div>
+
+                <!-- Form 1: Root -->
+                <div id="form-root" class="form-section">
+                    <label>Neue Domain:</label>
+                    <input type="text" id="new-domain-input" placeholder="z.B. dev/admin/user">
+                    <button id="btn-create-domain" class="btn btn-success">Domain erstellen</button>
+                </div>
+
+                <!-- Form 2: Hook -->
+                <div id="form-hook" class="form-section" style="display: none;">
+                    <label>Ziel-Objekt auswählen:</label>
+                    <select id="parent-object-dropdown">
+                        <option value="">-- Lade Objekte... --</option>
+                    </select>
+                    
+                    <label>An welchem Schritt (Path) einhaken?</label>
+                    <select id="path-selector-dropdown">
+                        <option value="">Wähle zuerst ein Ziel-Objekt...</option>
+                    </select>
+
+                    <label>Name / Identifier (optional):</label>
+                    <input type="text" id="hook-identifier-input" placeholder="z.B. main-button (Leer lassen für UUID)">
+                    
+                    <button id="btn-create-hook" class="btn btn-info">Als Ast anhängen</button>
+                </div>
+                
+                <hr class="divider">
+
+                <div class="form-section">
+                    <label>Vorhandene Objekte ansehen:</label>
+                    <div class="input-group">
+                        <select id="object-dropdown">
+                            <option value="">-- Objekte werden geladen... --</option>
+                        </select>
+                        <button id="btn-reload-objects" class="btn btn-secondary">🔄 Reload</button>
+                    </div>
+                    <pre id="object-details" class="code-block" style="display: none;"></pre>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div id="roles-container">
-            <p style="color: #666;">Bitte wähle ein Objekt aus, um seine Triplets zu verwalten.</p>
-        </div>
-    </div>
+        <!-- AST V2 -->
+        <section id="ast-playground-v2" class="card border-warning" style="display: none;">
+            <div class="card-header warning-header">
+                <h2>🧠📦 AST Generator V2 (Bundle Injection)</h2>
+            </div>
+            <div class="card-body">
+                <label>Ziel-Objekt auswählen:</label>
+                <select id="ast-v2-object-dropdown">
+                    <option value="">-- Objekte werden geladen... --</option>
+                </select>
+                
+                <p class="hint-text">Fülle nur die Felder aus, die du injizieren möchtest (Rest leer lassen):</p>
+
+                <div class="code-grid">
+                    <div class="code-column">
+                        <label class="color-html">HTML:</label>
+                        <textarea id="ast-v2-html" rows="5" placeholder="<div>...</div>" class="border-html"></textarea>
+                    </div>
+                    <div class="code-column">
+                        <label class="color-css">CSS:</label>
+                        <textarea id="ast-v2-css" rows="5" placeholder=".class { ... }" class="border-css"></textarea>
+                    </div>
+                    <div class="code-column">
+                        <label class="color-js">JavaScript:</label>
+                        <textarea id="ast-v2-js" rows="5" placeholder="const x = 1;" class="border-js"></textarea>
+                    </div>
+                    <div class="code-column">
+                        <label class="color-ssf">Server Side (SSF):</label>
+                        <textarea id="ast-v2-ssf" rows="5" placeholder="db.query(...)" class="border-ssf"></textarea>
+                    </div>
+                    <div class="code-column">
+                        <label class="color-data">Data (JSON):</label>
+                        <textarea id="ast-v2-data" rows="5" placeholder='{"key": "value"}' class="border-data"></textarea>
+                    </div>
+                    <div class="code-column">
+                        <label class="color-syntax">Syntax (JSON):</label>
+                        <textarea id="ast-v2-syntax" rows="5" placeholder='{"rules": []}' class="border-syntax"></textarea>
+                    </div>
+                </div>
+                
+                <button id="btn-parse-v2" class="btn btn-warning btn-block mt-4">⚡ AST Bundle in die Datenbank feuern!</button>
+            </div>
+        </section>
+
+        <!-- TREE EXPLORER -->
+        <section id="tree-explorer-container" class="card border-info" style="display: none;">
+            <div class="card-header info-header">
+                <h2>🌲 Tree Explorer</h2>
+                <p class="hint-text-light">Löse einen kompletten Objekt-Baum rekursiv auf.</p>
+            </div>
+            <div class="card-body">
+                <label>Ab Root-Objekt auflösen:</label>
+                <div class="input-group">
+                    <select id="tree-object-dropdown">
+                        <option value="">-- Root-Objekt auswählen --</option>
+                    </select>
+                    <button id="btn-resolve-tree" class="btn btn-info">Baum analysieren!</button>
+                </div>
+
+                <hr class="divider">
+
+                <label>Oder über tiefen Pfad (Browser-URL) auflösen:</label>
+                <div class="input-group">
+                    <input type="text" id="tree-path-input" placeholder="z.B. app/home/home2">
+                    <button id="btn-resolve-path" class="btn btn-purple">Pfad analysieren!</button>
+                </div>
+
+                <h4 id="tree-performance" class="performance-success" style="display: none;">⏱️ Ausführungszeit: <span id="tree-ms">0</span> ms</h4>
+                <pre id="tree-result" class="code-block-dark" style="display: none;"></pre>
+
+                <hr class="divider">
+
+                <label>Paralleler Stresstest (Node.js Event Loop Test):</label>
+                <p class="hint-text">Feuert N Abfragen in derselben Millisekunde parallel auf den Server ab (Promise.all).</p>
+                <div class="input-group">
+                    <input type="number" id="stress-count-input" value="10" min="1" max="100" style="max-width: 100px;">
+                    <button id="btn-stress-test" class="btn btn-danger">Stresstest starten!</button>
+                </div>
+
+                <h4 id="stress-performance" class="performance-danger" style="display: none;">🔥 Total Zeit für <span id="stress-count">0</span> Requests: <span id="stress-ms">0</span> ms</h4>
+                <pre id="stress-result" class="code-block-dark" style="display: none;"></pre>
+            </div>
+        </section>
+
+        <!-- ROLLEN / TRIPLETS -->
+        <section class="card">
+            <div class="card-header">
+                <h2>🎭 Rollen-Verwaltung (Triplets)</h2>
+            </div>
+            <div class="card-body">
+                <div class="flex-between">
+                    <div class="form-section flex-1">
+                        <label for="object-select">Ziel-Objekt auswählen:</label>
+                        <select id="object-select">
+                            <option value="">Lade Objekte...</option>
+                        </select>
+                    </div>
+                    <div class="form-section ml-4">
+                        <label>Neues Triplet erschaffen:</label>
+                        <button id="btn-create-triplet" class="btn btn-primary mt-2">Erschaffen</button>
+                    </div>
+                </div>
+                <div id="roles-container" class="mt-4">
+                    <p class="hint-text">Bitte wähle ein Objekt aus, um seine Triplets zu verwalten.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SERVERLESS TRIGGER -->
+        <section class="card">
+            <div class="card-header">
+                <h2>⚡ Serverless Function Trigger</h2>
+            </div>
+            <div class="card-body">
+                <div class="radio-group mb-4">
+                    <label class="radio-label">Art des Ziels:</label>
+                    <label class="radio-label"><input type="radio" name="targetType" value="uuid" checked> UUID</label>
+                    <label class="radio-label"><input type="radio" name="targetType" value="path"> Pfad</label>
+                </div>
+
+                <div class="form-section">
+                    <label for="targetInput">Ziel (UUID oder Pfad):</label>
+                    <input type="text" id="targetInput" placeholder="z.B. my-domain/my-parent/my-object oder 1234-abcd...">
+                </div>
+
+                <div class="form-section">
+                    <label for="authToken">Auth Token (falls benötigt):</label>
+                    <input type="text" id="authToken" placeholder="Bearer eyJhbG...">
+                </div>
+
+                <div class="form-section">
+                    <label for="bodyInput">Test-Daten (JSON Body):</label>
+                    <textarea id="bodyInput" rows="3">{ "testKey": "Hallo von der UI" }</textarea>
+                </div>
+
+                <button id="executeBtn" class="btn btn-primary">Funktion triggern</button>
+
+                <h4 class="mt-4">Ergebnis:</h4>
+                <pre id="output" class="code-block">Wartet auf Ausführung...</pre>
+            </div>
+        </section>
+
+        <!-- AST PLAYGROUND (ALT) -->
+        <section id="ast-playground" class="card border-gray" style="display: none;">
+            <div class="card-header gray-header">
+                <h2>🛠️ AST Generator Playground (alt)</h2>
+            </div>
+            <div class="card-body">
+                <div class="form-section">
+                    <label>Target Object:</label>
+                    <input type="text" id="target-object" placeholder="z.B. dev/admin/user/test">
+                </div>
+                <div class="form-section">
+                    <label>Current Object:</label>
+                    <input type="text" id="current-object" placeholder="z.B. dev/admin/user">
+                </div>
+                <div class="form-section">
+                    <label>Code Typ:</label>
+                    <select id="code-type">
+                        <option value="javascript">JavaScript</option>
+                        <option value="ssf">Server Side Functions (SSF)</option>
+                        <option value="html">HTML</option>
+                        <option value="css">CSS</option>
+                        <option value="syntax">Syntax (JSON)</option>
+                        <option value="data">Data (JSON)</option>
+                    </select>
+                </div>
+                <textarea id="code-input" rows="5" placeholder="Gib hier deinen Code ein..."></textarea>
+                <button id="btn-parse" class="btn btn-primary mt-2">Code evaluieren & umwandeln!</button>
+            </div>
+        </section>
+
+        <pre id="api-result" class="code-block" style="display: none;"></pre>
+
+        <!-- VISUAL CANVAS (UNANGETASTET) -->
+        <section id="visual-canvas-container" class="card border-canvas" style="display: none;">
+            <div class="card-header canvas-header">
+                <h2>🧩 Syntax Canvas (Drag & Drop)</h2>
+                <p class="hint-text-light">Wähle ein Objekt, um es auf das Canvas zu legen. Ziehe Blöcke ineinander, um "children" zu erzeugen.</p>
+            </div>
+            <div class="card-body">
+                <div class="canvas-toolbar">
+                    <select id="canvas-object-dropdown">
+                        <option value="">-- Objekt zum Canvas hinzufügen --</option>
+                    </select>
+                    <button id="btn-add-to-canvas" class="btn btn-primary">➕ Aufs Canvas legen</button>
+                    <button id="btn-save-canvas" class="btn btn-success ml-auto">💾 Alle Canvas-Änderungen in DB speichern</button>
+                </div>
+                <!-- Hier drin passiert die Magie -->
+                <div id="syntax-canvas-area" class="dropzone mt-4"></div>
+            </div>
+        </section>
+
+    </main>
 
     <div id="toast" class="toast"></div>
 
-
-<h2>⚡ Serverless Function Trigger</h2>
-
-    <div class="form-group">
-        <label>Art des Ziels:</label>
-        <label><input type="radio" name="targetType" value="uuid" checked> UUID</label>
-        <label><input type="radio" name="targetType" value="path"> Pfad</label>
-    </div>
-
-    <div class="form-group">
-        <label for="targetInput">Ziel (UUID oder Pfad eingeben):</label>
-        <input type="text" id="targetInput" placeholder="z.B. my-domain/my-parent/my-object oder 1234-abcd...">
-    </div>
-
-    <div class="form-group">
-        <label for="authToken">Auth Token (falls benötigt für 'checkUser'):</label>
-        <input type="text" id="authToken" placeholder="Bearer eyJhbG...">
-    </div>
-
-    <div class="form-group">
-        <label for="bodyInput">Test-Daten (JSON Body):</label>
-        <textarea id="bodyInput">{ "testKey": "Hallo von der UI" }</textarea>
-    </div>
-
-    <button id="executeBtn">Funktion triggern</button>
-
-    <h3>Ergebnis:</h3>
-    <pre id="output">Wartet auf Ausführung...</pre>
-
-    <!-- Verlinkung zur externen JS-Datei -->
+    <!-- Scripts -->
     <script src="tester.js"></script>
-
-
     <script src="roles.js"></script>
     <script src="app.js"></script>
     <script src="canvas.js"></script>
