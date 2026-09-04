@@ -191,7 +191,7 @@ setTimeout(() => {
         }
     });
 
-    document.getElementById("btn-save-canvas").addEventListener("click", async () => {
+document.getElementById("btn-save-canvas").addEventListener("click", async () => {
         const buildAstFromDOM = (blockElement) => {
             const ast = JSON.parse(blockElement.dataset.astBase);
             const childrenZone = blockElement.querySelector(":scope > .block-children");
@@ -215,12 +215,13 @@ setTimeout(() => {
             const updatedAst = buildAstFromDOM(block);
 
             try {
-                const response = await fetch(`${appConfig.apiUrl}/api/ast/parse`, {
+                // NEU: UUID im URL-Pfad
+                const response = await fetch(`${appConfig.apiUrl}/api/ast/${uuid}`, {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
+                    // UUID aus Body entfernt!
                     body: JSON.stringify({ 
-                        objectUuid: uuid, 
                         snippets: [{ type: 'syntax', code: JSON.stringify(updatedAst) }] 
                     })
                 });

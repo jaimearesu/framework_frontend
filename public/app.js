@@ -12,13 +12,14 @@ window.onload = async () => {
 // UI aktualisieren (Buttons ein/ausblenden)
 const updateUI = async () => {
     try {
+        // HINWEIS: Falls dein Auth-Endpoint auch zu /api/objects/me gewandert ist, hier anpassen!
         const response = await fetch(`${appConfig.apiUrl}/api/me`, {
             credentials: 'include' 
         });
         
         const data = await response.json();
 
-        // 1. Alle Container IMMER einblenden (unabhängig vom Login-Status)
+        // 1. Alle Container IMMER einblenden
         document.getElementById("ast-playground").style.display = "block";
         document.getElementById("object-manager").style.display = "block";
         document.getElementById("ast-playground-v2").style.display = "block";
@@ -39,7 +40,7 @@ const updateUI = async () => {
     } catch (error) {
         console.error("Fehler beim Prüfen des Auth-Status:", error);
         
-        // Fallback: Auch bei einem Fehler die Container sichtbar lassen
+        // Fallback:
         document.getElementById("ast-playground").style.display = "block";
         document.getElementById("object-manager").style.display = "block";
         document.getElementById("ast-playground-v2").style.display = "block";
@@ -56,6 +57,7 @@ document.getElementById("btn-logout").addEventListener("click", () => window.loc
 // Api Button (Alt)
 document.getElementById("btn-api").addEventListener("click", async () => {
     try {
+        // NEU: Zeigt jetzt REST-konform ALLE Objekte
         const response = await fetch(`${appConfig.apiUrl}/api/objects`, {
             method: 'GET',
             credentials: 'include', 
@@ -83,11 +85,12 @@ document.getElementById("btn-parse").addEventListener("click", async () => {
     }
 
     try {
-        const response = await fetch(`${appConfig.apiUrl}/api/ast/parse`, {
+        // NEU: UUID im URL-Pfad, Payload als 'snippets' Array formatiert
+        const response = await fetch(`${appConfig.apiUrl}/api/ast/${targetObject}`, {
             method: 'POST',
             credentials: 'include', 
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code, type, targetObject, currentObject }) 
+            body: JSON.stringify({ snippets: [{ type: type, code: code }] }) 
         });
 
         const data = await response.json();
@@ -102,7 +105,8 @@ document.getElementById("btn-parse").addEventListener("click", async () => {
 // --- OBJEKT MANAGER LOGIK ---
 const loadObjects = async () => {
     try {
-        const response = await fetch(`${appConfig.apiUrl}/api/objects/all`, { credentials: 'include' });
+        // NEU: /all wurde zu /
+        const response = await fetch(`${appConfig.apiUrl}/api/objects`, { credentials: 'include' });
         allObjects = await response.json();
         
         const dropdownView = document.getElementById("object-dropdown");
@@ -213,13 +217,13 @@ document.getElementById("btn-create-hook").addEventListener("click", async () =>
     const refToSave = parentObj.domain || parentObj.domain_ref; 
 
     try {
-        const response = await fetch(`${appConfig.apiUrl}/api/objects/link`, {
+        // NEU: parentUuid ist jetzt in der URL
+        const response = await fetch(`${appConfig.apiUrl}/api/objects/${parentUuid}/links`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 domainRef: refToSave,
-                parentUuid: parentUuid,
                 pathStep: pathStep,
                 identifier: identifier 
             })
@@ -292,11 +296,12 @@ document.getElementById("btn-parse-v2").addEventListener("click", async () => {
     if (snippets.length === 0) return alert("Bitte gib mindestens einen Code ein!");
 
     try {
-        const response = await fetch(`${appConfig.apiUrl}/api/ast/parse`, {
+        // NEU: objectUuid ist jetzt im Pfad
+        const response = await fetch(`${appConfig.apiUrl}/api/ast/${objectUuid}`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ objectUuid, snippets }) 
+            body: JSON.stringify({ snippets }) 
         });
 
         const data = await response.json();
@@ -331,7 +336,8 @@ document.getElementById("btn-resolve-tree").addEventListener("click", async () =
     if (!uuid) return alert("Bitte wähle ein Objekt aus!");
 
     try {
-        const response = await fetch(`${appConfig.apiUrl}/api/ast/tree/${uuid}`, { credentials: 'include' });
+        // NEU: /tree ist nun ein Sub-Ressourcen Pfad
+        const response = await fetch(`${appConfig.apiUrl}/api/ast/${uuid}/tree`, { credentials: 'include' });
         const data = await response.json();
 
         if (data.success) {
@@ -353,6 +359,7 @@ document.getElementById("btn-resolve-path").addEventListener("click", async () =
     if (!pathValue) return alert("Bitte gib einen Pfad ein!");
 
     try {
+        // Bleibt gleich, ist konform
         const response = await fetch(`${appConfig.apiUrl}/api/ast/tree/path/${encodeURIComponent(pathValue)}`, { 
             credentials: 'include' 
         });
@@ -389,7 +396,8 @@ document.getElementById("btn-stress-test").addEventListener("click", async () =>
     for(let i = 0; i < count; i++) {
         const randomUuid = options[Math.floor(Math.random() * options.length)].value;
         promises.push(
-            fetch(`${appConfig.apiUrl}/api/ast/tree/${randomUuid}`, { credentials: 'include' })
+            // NEU: Angepasster Pfad
+            fetch(`${appConfig.apiUrl}/api/ast/${randomUuid}/tree`, { credentials: 'include' })
                 .then(res => res.json())
         );
     }

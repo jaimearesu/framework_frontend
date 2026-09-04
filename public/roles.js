@@ -12,12 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const rolesContainer = document.getElementById('roles-container');
     const createTripletBtn = document.getElementById('btn-create-triplet');
 
-    let myTriplets = []; // Speichert die Triplets, bei denen du Admin bist
+    let myTriplets = []; 
 
-    // 1. Objekte für Dropdown laden (Bleibt quasi gleich)
+    // 1. Objekte laden
     async function loadObjects() {
         try {
-            const res = await fetch(`${API_BASE_URL}/objects/all`, fetchConfig);
+            // NEU: /all -> /
+            const res = await fetch(`${API_BASE_URL}/objects`, fetchConfig);
             if (!res.ok) return;
             const objects = await res.json();
             
@@ -34,14 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Deine administrierten Triplets laden
     async function loadMyTriplets() {
         try {
-            const res = await fetch(`${API_BASE_URL}/roles/my-triplets`, fetchConfig);
+            // NEU: /my-triplets -> /triplets/me
+            const res = await fetch(`${API_BASE_URL}/roles/triplets/me`, fetchConfig);
             if (res.ok) myTriplets = await res.json();
         } catch (error) {
             showToast("Fehler beim Laden deiner Triplets");
         }
     }
 
-    // Dropdown füllt das Input-Feld
     objectSelect.addEventListener('change', (e) => {
         if (e.target.value) targetUuidInput.value = e.target.value;
     });
@@ -57,13 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
         rolesContainer.innerHTML = '<p>Lade Berechtigungen...</p>';
 
         try {
-            // Wir holen die Rollen, die das Zielobjekt aktuell hat
             const res = await fetch(`${API_BASE_URL}/objects/${targetUuid}/roles`, fetchConfig);
             if (!res.ok) throw new Error('Konnte Rollen des Ziels nicht laden');
             
             const targetBundles = await res.json(); 
             
-            // Formatieren: In einem Set speichern, was das Ziel bereits hat
             const targetActiveRoles = new Set();
             if (targetBundles) {
                 Object.values(targetBundles).forEach(rolesArray => {
@@ -79,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. UI Rendern: Zeigt DEINE Triplets und hakt an, was das Ziel schon hat
+    // 4. UI Rendern
     function renderAdminTriplets(targetUuid, targetActiveRoles) {
         if (myTriplets.length === 0) {
             rolesContainer.innerHTML = '<p>Du administrierst noch keine Triplets. Erschaffe zuerst eins!</p>';
@@ -89,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
         rolesContainer.innerHTML = `<h3>Verteile Rollen für Objekt: ${targetUuid.substring(0,8)}...</h3>`;
 
         myTriplets.forEach(triplet => {
-            // Prüfen, ob das Zielobjekt die Rollen für DIESES Triplet hat
             const hasBlack = targetActiveRoles.has(`${triplet.triplet_uuid}-black`);
             const hasRed = targetActiveRoles.has(`${triplet.triplet_uuid}-red`);
             const hasBlue = targetActiveRoles.has(`${triplet.triplet_uuid}-blue`);
@@ -125,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    // 5. API Calls für Grant / Revoke (Exakt dein Code)
+    // 5. API Calls für Grant (PUT) / Revoke (DELETE)
     async function handleRoleToggle(e) {
         const checkbox = e.target;
         const targetObjectUuid = checkbox.dataset.target;
@@ -133,13 +131,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const roleType = checkbox.dataset.type;
         const isChecked = checkbox.checked;
 
-        const endpoint = isChecked ? '/roles/grant' : '/roles/revoke';
+        // NEU: RESTful URL und Methode zusammenbauen
+        let url = `${API_BASE_URL}/roles/${targetObjectUuid}/triplets/${tripletUuid}`;
+        let method = '';
+        let bodyPayload = null;
+
+        if (isChecked) {
+            method = 'PUT';
+            bodyPayload = JSON.stringify({ roleType });
+        } else {
+            method = 'DELETE';
+            url += `/${roleType}`; // DELETE hängt den roleType an die URL an
+        }
         
         try {
-            const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+            const res = await fetch(url, {
                 ...fetchConfig,
-                method: 'POST',
-                body: JSON.stringify({ targetObjectUuid, tripletUuid, roleType })
+                method: method,
+                body: bodyPayload
             });
 
             const result = await res.json();
@@ -155,11 +164,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 6. Neues Triplet erschaffen (Exakt dein Code)
+    // 6. Neues Triplet erschaffen
     createTripletBtn.addEventListener('click', async (e) => {
         e.preventDefault(); 
         try {
-            const res = await fetch(`${API_BASE_URL}/roles/triplet`, {
+            // NEU: /triplet -> /triplets
+            const res = await fetch(`${API_BASE_URL}/roles/triplets`, {
                 ...fetchConfig,
                 method: 'POST',
                 body: JSON.stringify({}) 
@@ -170,7 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             showToast("Triplet erfolgreich für deine Domain erstellt!");
             
-            // Nach dem Erstellen die eigenen Triplets neu laden!
             await loadMyTriplets();
             if (targetUuidInput.value) loadTargetBtn.click();
             
@@ -180,7 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function showToast(msg) {
-        // ... (Dein Toast Code)
         console.log("TOAST:", msg);
     }
 

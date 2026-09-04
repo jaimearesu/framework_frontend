@@ -10,7 +10,6 @@ document.getElementById('executeBtn').addEventListener('click', async () => {
         return;
     }
 
-    // JSON-Body validieren
     let requestBody = {};
     if (bodyInput) {
         try {
@@ -21,16 +20,18 @@ document.getElementById('executeBtn').addEventListener('click', async () => {
         }
     }
 
-    // ACHTUNG: Hier ist der Port 3000 fest eingetragen
-    const baseUrl = 'http://localhost:3000/api/run';
+    // NEU: Basis URL auf 'functions' geändert
+    const baseUrl = 'http://localhost:3000/api/functions';
+    
+    // NEU: '/executions' angehängt (Erstellen einer Ausführung)
     const endpoint = targetType === 'path' 
-        ? `${baseUrl}/path/${targetInput}` 
-        : `${baseUrl}/${targetInput}`;
+        ? `${baseUrl}/path/${targetInput}/executions` 
+        : `${baseUrl}/${targetInput}/executions`;
 
-    // Header vorbereiten (inkl. Auth falls vorhanden)
     const headers = {
         'Content-Type': 'application/json'
     };
+    
     if (authToken) {
         headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
     }
@@ -46,8 +47,6 @@ document.getElementById('executeBtn').addEventListener('click', async () => {
         });
 
         const data = await response.json();
-        
-        // Formatiere die JSON-Antwort schön für die Anzeige
         outputElement.textContent = JSON.stringify(data, null, 2);
     } catch (error) {
         outputElement.textContent = `Netzwerkfehler: ${error.message}\n\nHinweis: Falls CORS-Fehler auftreten, stelle sicher, dass in deiner server.js 'cors' aktiviert ist (app.use(cors())).`;
