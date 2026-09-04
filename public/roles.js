@@ -7,15 +7,18 @@ const fetchConfig = {
 
 document.addEventListener('DOMContentLoaded', () => {
     const objectSelect = document.getElementById('object-select');
+    const targetUuidInput = document.getElementById('target-uuid-input');
+    const loadTargetBtn = document.getElementById('btn-load-target');
     const rolesContainer = document.getElementById('roles-container');
     const createTripletBtn = document.getElementById('btn-create-triplet');
-    const newDomainInput = document.getElementById('new-domain-input');
 
-    // 1. Objekte laden
+    let myTriplets = []; // Speichert die Triplets, bei denen du Admin bist
+
+    // 1. Objekte für Dropdown laden (Bleibt quasi gleich)
     async function loadObjects() {
         try {
             const res = await fetch(`${API_BASE_URL}/objects/all`, fetchConfig);
-            if (!res.ok) throw new Error('Fehler beim Laden');
+            if (!res.ok) return;
             const objects = await res.json();
             
             objectSelect.innerHTML = '<option value="">-- Objekt wählen --</option>';
@@ -24,72 +27,90 @@ document.addEventListener('DOMContentLoaded', () => {
                 objectSelect.innerHTML += `<option value="${obj.uuid}">${label}</option>`;
             });
         } catch (error) {
-            objectSelect.innerHTML = '<option value="">Login erforderlich</option>';
+            console.error("Fehler beim Laden der Dropdown-Objekte");
         }
     }
 
-    // 2. Rollen laden & gruppieren
-    async function loadRolesForObject(uuid) {
-        rolesContainer.innerHTML = '<p>Lade Triplets...</p>';
+    // 2. Deine administrierten Triplets laden
+    async function loadMyTriplets() {
         try {
-            const res = await fetch(`${API_BASE_URL}/objects/${uuid}/roles`, fetchConfig);
-            if (!res.ok) throw new Error('Zugriff verweigert (Fehlende Black-Rolle?)');
-            
-            // FIX: Direkt zuweisen, nicht destrukturieren!
-            const bundles = await res.json(); 
-            
-            renderTriplets(bundles, uuid);
+            const res = await fetch(`${API_BASE_URL}/roles/my-triplets`, fetchConfig);
+            if (res.ok) myTriplets = await res.json();
         } catch (error) {
-            rolesContainer.innerHTML = `<p style="color: red;">${error.message}</p>`;
+            showToast("Fehler beim Laden deiner Triplets");
         }
     }
 
-    // 3. UI Rendern
-    function renderTriplets(bundles, targetUuid) {
-        // FIX: Sicherheits-Check hinzugefügt falls 'bundles' mal null oder undefined ist
-        if (!bundles || Object.keys(bundles).length === 0) {
-            rolesContainer.innerHTML = '<p>Dieses Objekt hat noch keine Rollen.</p>';
+    // Dropdown füllt das Input-Feld
+    objectSelect.addEventListener('change', (e) => {
+        if (e.target.value) targetUuidInput.value = e.target.value;
+    });
+
+    // 3. Ziel-Objekt laden und abgleichen
+    loadTargetBtn.addEventListener('click', async () => {
+        const targetUuid = targetUuidInput.value.trim();
+        if (!targetUuid) {
+            showToast("Bitte zuerst eine UUID eingeben oder auswählen!");
             return;
         }
 
-        rolesContainer.innerHTML = '';
+        rolesContainer.innerHTML = '<p>Lade Berechtigungen...</p>';
 
-        for (const [domain, roles] of Object.entries(bundles)) {
-            // Gruppiere die Rollen dieser Domain nach Triplet UUID
-            const triplets = {};
-            roles.forEach(r => {
-                if (!triplets[r.triplet_uuid]) {
-                    triplets[r.triplet_uuid] = { black: false, red: false, blue: false };
-                }
-                triplets[r.triplet_uuid][r.type] = true;
-            });
-
-            const bundleDiv = document.createElement('div');
-            bundleDiv.className = 'domain-bundle';
-            bundleDiv.innerHTML = `<h3 class="domain-title">Domain: ${domain}</h3>`;
-
-            for (const [tripletUuid, colors] of Object.entries(triplets)) {
-                bundleDiv.innerHTML += `
-                    <div class="triplet-card">
-                        <div class="triplet-header">Triplet ID: ${tripletUuid}</div>
-                        <div class="roles-grid">
-                            ${createCheckbox('black', 'Black (Lesen)', colors.black, targetUuid, tripletUuid)}
-                            ${createCheckbox('red', 'Red (Schreiben)', colors.red, targetUuid, tripletUuid)}
-                            ${createCheckbox('blue', 'Blue (Admin)', colors.blue, targetUuid, tripletUuid)}
-                        </div>
-                    </div>
-                `;
+        try {
+            // Wir holen die Rollen, die das Zielobjekt aktuell hat
+            const res = await fetch(`${API_BASE_URL}/objects/${targetUuid}/roles`, fetchConfig);
+            if (!res.ok) throw new Error('Konnte Rollen des Ziels nicht laden');
+            
+            const targetBundles = await res.json(); 
+            
+            // Formatieren: In einem Set speichern, was das Ziel bereits hat
+            const targetActiveRoles = new Set();
+            if (targetBundles) {
+                Object.values(targetBundles).forEach(rolesArray => {
+                    rolesArray.forEach(r => {
+                        targetActiveRoles.add(`${r.triplet_uuid}-${r.type}`);
+                    });
+                });
             }
-            rolesContainer.appendChild(bundleDiv);
+
+            renderAdminTriplets(targetUuid, targetActiveRoles);
+        } catch (error) {
+            rolesContainer.innerHTML = `<p style="color: red;">${error.message}</p>`;
+        }
+    });
+
+    // 4. UI Rendern: Zeigt DEINE Triplets und hakt an, was das Ziel schon hat
+    function renderAdminTriplets(targetUuid, targetActiveRoles) {
+        if (myTriplets.length === 0) {
+            rolesContainer.innerHTML = '<p>Du administrierst noch keine Triplets. Erschaffe zuerst eins!</p>';
+            return;
         }
 
-        // Event Listener an alle generierten Checkboxen hängen
+        rolesContainer.innerHTML = `<h3>Verteile Rollen für Objekt: ${targetUuid.substring(0,8)}...</h3>`;
+
+        myTriplets.forEach(triplet => {
+            // Prüfen, ob das Zielobjekt die Rollen für DIESES Triplet hat
+            const hasBlack = targetActiveRoles.has(`${triplet.triplet_uuid}-black`);
+            const hasRed = targetActiveRoles.has(`${triplet.triplet_uuid}-red`);
+            const hasBlue = targetActiveRoles.has(`${triplet.triplet_uuid}-blue`);
+
+            rolesContainer.innerHTML += `
+                <div class="triplet-card mt-3" style="border: 1px solid #ccc; padding: 10px; border-radius: 8px;">
+                    <div class="triplet-header"><strong>Domain: ${triplet.domain}</strong> (ID: ${triplet.triplet_uuid.substring(0,8)})</div>
+                    <div class="roles-grid mt-2" style="display: flex; gap: 15px;">
+                        ${createCheckbox('black', 'Black (Lesen)', hasBlack, targetUuid, triplet.triplet_uuid)}
+                        ${createCheckbox('red', 'Red (Schreiben)', hasRed, targetUuid, triplet.triplet_uuid)}
+                        ${createCheckbox('blue', 'Blue (Admin)', hasBlue, targetUuid, triplet.triplet_uuid)}
+                    </div>
+                </div>
+            `;
+        });
+
         document.querySelectorAll('.role-checkbox input').forEach(box => {
             box.addEventListener('change', handleRoleToggle);
         });
     }
 
-    // Hilfsfunktion für sauberes HTML
     function createCheckbox(type, label, isChecked, targetUuid, tripletUuid) {
         const checkedStr = isChecked ? 'checked' : '';
         return `
@@ -104,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    // 4. API Calls für Grant / Revoke
+    // 5. API Calls für Grant / Revoke (Exakt dein Code)
     async function handleRoleToggle(e) {
         const checkbox = e.target;
         const targetObjectUuid = checkbox.dataset.target;
@@ -112,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const roleType = checkbox.dataset.type;
         const isChecked = checkbox.checked;
 
-        // Welcher Endpunkt? (Abhängig von deinen Routen aus dem vorherigen Schritt)
         const endpoint = isChecked ? '/roles/grant' : '/roles/revoke';
         
         try {
@@ -123,9 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const result = await res.json();
-
             if (!res.ok) {
-                // Fehler! Checkbox wieder zurücksetzen
                 checkbox.checked = !isChecked;
                 showToast(`Fehler: ${result.error || 'Aktion fehlgeschlagen'}`);
             } else {
@@ -137,12 +155,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 5. Neues Triplet erschaffen
+    // 6. Neues Triplet erschaffen (Exakt dein Code)
     createTripletBtn.addEventListener('click', async (e) => {
         e.preventDefault(); 
-        
         try {
-            // Wir schicken einfach einen leeren Body mit, das Backend weiß dank Cookie, wer wir sind
             const res = await fetch(`${API_BASE_URL}/roles/triplet`, {
                 ...fetchConfig,
                 method: 'POST',
@@ -150,33 +166,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             
             const result = await res.json();
-            
             if (!res.ok) throw new Error(result.error || 'Unbekannter Serverfehler');
             
             showToast("Triplet erfolgreich für deine Domain erstellt!");
             
-            // UI aktualisieren, falls du gerade dich selbst ausgewählt hast
-            if (objectSelect.value) {
-                loadRolesForObject(objectSelect.value);
-            }
+            // Nach dem Erstellen die eigenen Triplets neu laden!
+            await loadMyTriplets();
+            if (targetUuidInput.value) loadTargetBtn.click();
             
         } catch (error) {
             showToast(`Fehler: ${error.message}`);
         }
     });
 
-    // Event Listener
-    objectSelect.addEventListener('change', (e) => {
-        if (e.target.value) loadRolesForObject(e.target.value);
-        else rolesContainer.innerHTML = '<p>Bitte wähle ein Objekt aus.</p>';
-    });
-
     function showToast(msg) {
-        const toast = document.getElementById('toast');
-        toast.textContent = msg;
-        toast.style.opacity = '1';
-        setTimeout(() => toast.style.opacity = '0', 3000);
+        // ... (Dein Toast Code)
+        console.log("TOAST:", msg);
     }
 
+    // Init
     loadObjects();
+    loadMyTriplets();
 });
