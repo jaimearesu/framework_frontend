@@ -20,10 +20,13 @@ document.getElementById('executeBtn').addEventListener('click', async () => {
         }
     }
 
-    // NEU: Basis URL auf 'functions' geändert
-    const baseUrl = 'http://localhost:3000/api/functions';
+    // Automatische Umgebungserkennung anhand der aktuellen Browser-URL
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const baseUrl = isLocalhost 
+        ? 'http://localhost:3000/api/functions' 
+        : 'https://api.at0mic.ch/api/functions'; // HTTPS für die Produktion!
     
-    // NEU: '/executions' angehängt (Erstellen einer Ausführung)
+    // '/executions' angehängt (Erstellen einer Ausführung)
     const endpoint = targetType === 'path' 
         ? `${baseUrl}/path/${targetInput}/executions` 
         : `${baseUrl}/${targetInput}/executions`;
