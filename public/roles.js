@@ -1,88 +1,198 @@
 const API_BASE_URL = 'http://localhost:3000/api';
 
-// WICHTIG: credentials: 'include' sorgt dafür, dass das Auth0 Session-Cookie mitgesendet wird!
 const fetchConfig = {
-    method: 'GET',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include' 
 };
 
 document.addEventListener('DOMContentLoaded', () => {
     const objectSelect = document.getElementById('object-select');
+    const targetUuidInput = document.getElementById('target-uuid-input');
+    const loadTargetBtn = document.getElementById('btn-load-target');
     const rolesContainer = document.getElementById('roles-container');
+    const createTripletBtn = document.getElementById('btn-create-triplet');
 
-    // 1. Alle Objekte für das Dropdown laden
+    let myTriplets = []; 
+
+    // 1. Objekte laden
     async function loadObjects() {
         try {
-            const response = await fetch(`${API_BASE_URL}/objects/all`, fetchConfig);
-            if (!response.ok) throw new Error('Fehler beim Laden der Objekte');
+            // NEU: /all -> /
+            const res = await fetch(`${API_BASE_URL}/objects`, fetchConfig);
+            if (!res.ok) return;
+            const objects = await res.json();
             
-            const objects = await response.json();
-            
-            objectSelect.innerHTML = '<option value="">-- Wähle ein Objekt --</option>';
+            objectSelect.innerHTML = '<option value="">-- Objekt wählen --</option>';
             objects.forEach(obj => {
-                const label = obj.domain ? `${obj.domain} (${obj.uuid})` : `User: ${obj.uuid}`;
+                const label = obj.domain ? `${obj.domain} (${obj.uuid.substring(0,8)}...)` : `Objekt: ${obj.uuid.substring(0,8)}...`;
                 objectSelect.innerHTML += `<option value="${obj.uuid}">${label}</option>`;
             });
         } catch (error) {
-            console.error(error);
-            objectSelect.innerHTML = '<option value="">Fehler beim Laden (Bist du eingeloggt?)</option>';
+            console.error("Fehler beim Laden der Dropdown-Objekte");
         }
     }
 
-    // 2. Rollen für ein ausgewähltes Objekt laden und rendern
-    async function loadRolesForObject(uuid) {
-        rolesContainer.innerHTML = '<p class="placeholder">Lade Rollen...</p>';
+    // 2. Deine administrierten Triplets laden
+    async function loadMyTriplets() {
         try {
-            const response = await fetch(`${API_BASE_URL}/objects/${uuid}/roles`, fetchConfig);
-            if (!response.ok) throw new Error('Fehler beim Laden der Rollen');
-            
-            const bundles = await response.json();
-            renderBundles(bundles);
+            // NEU: /my-triplets -> /triplets/me
+            const res = await fetch(`${API_BASE_URL}/roles/triplets/me`, fetchConfig);
+            if (res.ok) myTriplets = await res.json();
         } catch (error) {
-            console.error(error);
-            rolesContainer.innerHTML = '<p class="placeholder" style="color: red;">Fehler beim Laden der Rollen.</p>';
+            showToast("Fehler beim Laden deiner Triplets");
         }
     }
 
-    // 3. HTML für die Bundles generieren
-    function renderBundles(bundles) {
-        if (Object.keys(bundles).length === 0) {
-            rolesContainer.innerHTML = '<p class="placeholder">Dieses Objekt hat noch keine Rollen.</p>';
+    objectSelect.addEventListener('change', (e) => {
+        if (e.target.value) targetUuidInput.value = e.target.value;
+    });
+
+    // 3. Ziel-Objekt laden und abgleichen
+    loadTargetBtn.addEventListener('click', async () => {
+        const targetUuid = targetUuidInput.value.trim();
+        if (!targetUuid) {
+            showToast("Bitte zuerst eine UUID eingeben oder auswählen!");
             return;
         }
 
-        rolesContainer.innerHTML = ''; // Container leeren
+        rolesContainer.innerHTML = '<p>Lade Berechtigungen...</p>';
 
-        for (const [domain, roles] of Object.entries(bundles)) {
-            const bundleDiv = document.createElement('div');
-            bundleDiv.className = 'domain-bundle';
+        try {
+            const res = await fetch(`${API_BASE_URL}/objects/${targetUuid}/roles`, fetchConfig);
+            if (!res.ok) throw new Error('Konnte Rollen des Ziels nicht laden');
             
-            let html = `<h3>Domain: <strong>${domain}</strong></h3><div class="roles-grid">`;
+            const targetBundles = await res.json(); 
             
-            roles.forEach(role => {
-                // role.type ist z.B. 'black', was exakt auf unsere CSS-Klassen passt
-                html += `<div class="role-box ${role.type}" title="Role UUID: ${role.role_uuid}">
-                            ${role.type.toUpperCase()}
-                         </div>`;
-            });
-            
-            html += '</div>';
-            bundleDiv.innerHTML = html;
-            rolesContainer.appendChild(bundleDiv);
-        }
-    }
+            const targetActiveRoles = new Set();
+            if (targetBundles) {
+                Object.values(targetBundles).forEach(rolesArray => {
+                    rolesArray.forEach(r => {
+                        targetActiveRoles.add(`${r.triplet_uuid}-${r.type}`);
+                    });
+                });
+            }
 
-    // Event Listener für das Dropdown
-    objectSelect.addEventListener('change', (e) => {
-        const uuid = e.target.value;
-        if (uuid) {
-            loadRolesForObject(uuid);
-        } else {
-            rolesContainer.innerHTML = '<p class="placeholder">Bitte wähle ein Objekt aus, um seine Rollen-Bundles zu sehen.</p>';
+            renderAdminTriplets(targetUuid, targetActiveRoles);
+        } catch (error) {
+            rolesContainer.innerHTML = `<p style="color: red;">${error.message}</p>`;
         }
     });
 
-    // Start!
+    // 4. UI Rendern
+    function renderAdminTriplets(targetUuid, targetActiveRoles) {
+        if (myTriplets.length === 0) {
+            rolesContainer.innerHTML = '<p>Du administrierst noch keine Triplets. Erschaffe zuerst eins!</p>';
+            return;
+        }
+
+        rolesContainer.innerHTML = `<h3>Verteile Rollen für Objekt: ${targetUuid.substring(0,8)}...</h3>`;
+
+        myTriplets.forEach(triplet => {
+            const hasBlack = targetActiveRoles.has(`${triplet.triplet_uuid}-black`);
+            const hasRed = targetActiveRoles.has(`${triplet.triplet_uuid}-red`);
+            const hasBlue = targetActiveRoles.has(`${triplet.triplet_uuid}-blue`);
+
+            rolesContainer.innerHTML += `
+                <div class="triplet-card mt-3" style="border: 1px solid #ccc; padding: 10px; border-radius: 8px;">
+                    <div class="triplet-header"><strong>Domain: ${triplet.domain}</strong> (ID: ${triplet.triplet_uuid.substring(0,8)})</div>
+                    <div class="roles-grid mt-2" style="display: flex; gap: 15px;">
+                        ${createCheckbox('black', 'Black (Lesen)', hasBlack, targetUuid, triplet.triplet_uuid)}
+                        ${createCheckbox('red', 'Red (Schreiben)', hasRed, targetUuid, triplet.triplet_uuid)}
+                        ${createCheckbox('blue', 'Blue (Admin)', hasBlue, targetUuid, triplet.triplet_uuid)}
+                    </div>
+                </div>
+            `;
+        });
+
+        document.querySelectorAll('.role-checkbox input').forEach(box => {
+            box.addEventListener('change', handleRoleToggle);
+        });
+    }
+
+    function createCheckbox(type, label, isChecked, targetUuid, tripletUuid) {
+        const checkedStr = isChecked ? 'checked' : '';
+        return `
+            <label class="role-checkbox role-${type}">
+                <input type="checkbox" 
+                       data-target="${targetUuid}" 
+                       data-triplet="${tripletUuid}" 
+                       data-type="${type}" 
+                       ${checkedStr}>
+                ${label}
+            </label>
+        `;
+    }
+
+    // 5. API Calls für Grant (PUT) / Revoke (DELETE)
+    async function handleRoleToggle(e) {
+        const checkbox = e.target;
+        const targetObjectUuid = checkbox.dataset.target;
+        const tripletUuid = checkbox.dataset.triplet;
+        const roleType = checkbox.dataset.type;
+        const isChecked = checkbox.checked;
+
+        // NEU: RESTful URL und Methode zusammenbauen
+        let url = `${API_BASE_URL}/roles/${targetObjectUuid}/triplets/${tripletUuid}`;
+        let method = '';
+        let bodyPayload = null;
+
+        if (isChecked) {
+            method = 'PUT';
+            bodyPayload = JSON.stringify({ roleType });
+        } else {
+            method = 'DELETE';
+            url += `/${roleType}`; // DELETE hängt den roleType an die URL an
+        }
+        
+        try {
+            const res = await fetch(url, {
+                ...fetchConfig,
+                method: method,
+                body: bodyPayload
+            });
+
+            const result = await res.json();
+            if (!res.ok) {
+                checkbox.checked = !isChecked;
+                showToast(`Fehler: ${result.error || 'Aktion fehlgeschlagen'}`);
+            } else {
+                showToast(`Rolle ${roleType} erfolgreich ${isChecked ? 'zugewiesen' : 'entfernt'}.`);
+            }
+        } catch (error) {
+            checkbox.checked = !isChecked;
+            showToast('Netzwerkfehler');
+        }
+    }
+
+    // 6. Neues Triplet erschaffen
+    createTripletBtn.addEventListener('click', async (e) => {
+        e.preventDefault(); 
+        try {
+            // NEU: /triplet -> /triplets
+            const res = await fetch(`${API_BASE_URL}/roles/triplets`, {
+                ...fetchConfig,
+                method: 'POST',
+                body: JSON.stringify({}) 
+            });
+            
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Unbekannter Serverfehler');
+            
+            showToast("Triplet erfolgreich für deine Domain erstellt!");
+            
+            await loadMyTriplets();
+            if (targetUuidInput.value) loadTargetBtn.click();
+            
+        } catch (error) {
+            showToast(`Fehler: ${error.message}`);
+        }
+    });
+
+    function showToast(msg) {
+        console.log("TOAST:", msg);
+    }
+
+    // Init
     loadObjects();
+    loadMyTriplets();
 });
