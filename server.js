@@ -15,9 +15,14 @@ app.get('/config.json', (req, res) => {
     });
 });
 
+app.get('/bigdata', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'bigdata.html'));
+});
+
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
 
 app.listen(PORT, () => {
     console.log(`[FRONTEND] Server läuft auf Port ${PORT}`);

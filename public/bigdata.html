@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>at0mic Backend Toolkit</title>
+    <link rel="stylesheet" href="bigdata.css">
+</head>
+<body>
+    <header>
+        <h1>at0mic Toolkit</h1>
+        <div class="env-selector">
+            <label for="backendUrl">Backend:</label>
+            <select id="backendUrl">
+                <option value="auto">Auto-Detect</option>
+                <option value="http://localhost:3000">localhost:3000 (Dev)</option>
+                <option value="https://api.at0mic.ch">api.at0mic.ch (Prod)</option>
+            </select>
+        </div>
+    </header>
+
+    <main>
+        <section class="card global-input">
+            <h2>Globaler Kontext</h2>
+            <div class="input-group">
+                <label for="objectUuid">Quell-Objekt UUID (Source):</label>
+                <input type="text" id="objectUuid" placeholder="z.B. 123e4567-e89b-12d3-a456-426614174000">
+            </div>
+        </section>
+
+        <div class="grid">
+            <!-- Core Data Modul -->
+            <section class="card">
+                <h2>1. Core Data (Faker.js Generator)</h2>
+                <p>Generiere realistische Test-Daten und speichere sie als JSONB.</p>
+                
+                <div class="input-group">
+                    <label for="recordCount">Anzahl der Datensätze:</label>
+                    <input type="number" id="recordCount" value="5" min="1" max="1000">
+                </div>
+                
+                <div class="input-group">
+                    <button id="generateJsonBtn" class="btn-secondary">Test-Daten generieren</button>
+                    <textarea id="coreDataJson" rows="10" placeholder='Klicke auf "Test-Daten generieren"...'></textarea>
+                </div>
+                <button id="sendCoreDataBtn" class="btn-primary">Core Data senden</button>
+            </section>
+
+            <!-- Relations Modul -->
+            <section class="card">
+                <h2>2. Object Relations</h2>
+                <p>Verknüpfe das Quell-Objekt mit einem anderen.</p>
+                <div class="input-group">
+                    <label for="targetUuid">Ziel-Objekt UUID (Target):</label>
+                    <input type="text" id="targetUuid" placeholder="UUID des Zielobjekts">
+                </div>
+                <div class="input-group">
+                    <label for="relationType">Relation Type:</label>
+                    <input type="text" id="relationType" placeholder="z.B. belongs_to, works_in, drives">
+                </div>
+                <button id="sendRelationBtn" class="btn-primary">Relation erstellen</button>
+            </section>
+            <!-- Core Data GET Modul -->
+            <section class="card">
+                <h2>3. Core Data Abrufen (GET)</h2>
+                <p>Hole JSON-Daten per UUID oder Objekt-Pfad.</p>
+                <div class="input-group">
+                    <label for="searchMode">Suchmodus:</label>
+                    <select id="searchMode">
+                        <option value="uuid">Über UUID</option>
+                        <option value="path">Über Pfad (TreeService)</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="searchValue">UUID oder Pfad (z.B. user/admin):</label>
+                    <input type="text" id="searchValue" placeholder="UUID oder dev/admin/user eingeben">
+                </div>
+                <button id="getCoreDataBtn" class="btn-primary">Daten abrufen</button>
+            </section>
+        </div>
+    
+        <section class="card console-card">
+            <h2>Server Response</h2>
+            <pre id="consoleOutput">// Antworten vom Server erscheinen hier...</pre>
+        </section>
+    </main>
+
+    <script src="bigdata.js" type="module"></script>
+</body>
+</html>
