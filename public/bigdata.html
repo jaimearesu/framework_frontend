@@ -38,6 +38,14 @@
                 <button id="getCoreDataBtn" class="btn-secondary">Core Data abrufen (GET)</button>
                 <button id="getRelationsBtn" class="btn-secondary">Relationen abrufen (GET)</button>
             </div>
+            <!-- NEU: Pagination Controls -->
+            <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center; background: var(--card-bg); padding: 10px; border-radius: 4px; border: 1px solid var(--border);">
+                <label for="pageLimit">Limit:</label>
+                <input type="number" id="pageLimit" value="5" min="1" max="100" style="width: 80px;">
+                <button id="prevPageBtn" class="btn-secondary" style="width: auto;" disabled>⬅ Zurück</button>
+                <button id="nextPageBtn" class="btn-secondary" style="width: auto;" disabled>Weiter ➡</button>
+                <span id="pageInfo" style="margin-left: 10px; color: var(--text-muted); font-size: 0.85rem;"></span>
+            </div>
         </section>
 
         <div class="grid">

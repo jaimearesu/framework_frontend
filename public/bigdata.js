@@ -135,3 +135,71 @@ document.getElementById('getRelationsBtn').addEventListener('click', () => {
     const endpoint = buildEndpoint('/api/relations', mode, sourceVal);
     sendRequest(endpoint, 'GET');
 });
+
+// Globale State-Variablen für die Cursor
+let currentCursors = { first: null, last: null };
+
+// Eigene Fetch-Funktion für paginiertes Core Data
+const fetchPaginatedCoreData = async (direction = null) => {
+    const mode = document.getElementById('globalMode').value;
+    const sourceVal = document.getElementById('globalSource').value.trim();
+    const limit = document.getElementById('pageLimit').value || 10;
+    
+    if (!sourceVal) return alert('Bitte eine Quelle angeben!');
+    
+    let endpoint = buildEndpoint('/api/core-data', mode, sourceVal);
+    let queryParams = `?limit=${limit}`;
+
+    if (direction === 'next' && currentCursors.last) {
+        queryParams += `&direction=next&cursorId=${currentCursors.last.id}&cursorDate=${encodeURIComponent(currentCursors.last.date)}`;
+    } else if (direction === 'prev' && currentCursors.first) {
+        queryParams += `&direction=prev&cursorId=${currentCursors.first.id}&cursorDate=${encodeURIComponent(currentCursors.first.date)}`;
+    }
+
+    try {
+        const baseUrl = getBaseUrl();
+        const response = await fetch(`${baseUrl}${endpoint}${queryParams}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        
+        const resData = await response.json();
+        logToConsole(resData, !response.ok);
+
+        // State updaten anhand des neuen META-Blocks
+        if (resData.success && resData.meta) {
+            const meta = resData.meta;
+            
+            // Cursors ganz bequem übernehmen
+            currentCursors.first = meta.cursors.first;
+            currentCursors.last = meta.cursors.last;
+            
+            // Berechne Seiten (rein fürs Display)
+            const totalPages = Math.ceil(meta.total_count / meta.limit) || 1;
+            
+            if (meta.returned_count > 0) {
+                document.getElementById('nextPageBtn').disabled = false;
+                document.getElementById('prevPageBtn').disabled = (direction === null && !currentCursors.first);
+                
+                document.getElementById('pageInfo').textContent = 
+                    `Zeige ${meta.returned_count} von ${meta.total_count} Datensätzen (ca. ${totalPages} Seiten).`;
+            } else {
+                document.getElementById('pageInfo').textContent = `Keine weiteren Daten gefunden. (Gesamt: ${meta.total_count})`;
+                if (direction === 'next') document.getElementById('nextPageBtn').disabled = true;
+                if (direction === 'prev') document.getElementById('prevPageBtn').disabled = true;
+            }
+        }
+
+    } catch (error) {
+        logToConsole({ error: "Fehler beim Laden", details: error.message }, true);
+    }
+};
+
+// Event-Listener anpassen/hinzufügen
+document.getElementById('getCoreDataBtn').addEventListener('click', () => {
+    currentCursors = { first: null, last: null }; // Reset beim initialen Laden
+    fetchPaginatedCoreData(null);
+});
+document.getElementById('nextPageBtn').addEventListener('click', () => fetchPaginatedCoreData('next'));
+document.getElementById('prevPageBtn').addEventListener('click', () => fetchPaginatedCoreData('prev'));
