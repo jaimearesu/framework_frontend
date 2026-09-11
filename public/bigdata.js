@@ -11,13 +11,19 @@ const getBaseUrl = () => {
         : 'https://api.at0mic.ch';
 };
 
+// Helper für die Konsolen-Ausgabe im Browser
 const logToConsole = (data, isError = false) => {
     const consoleEl = document.getElementById('consoleOutput');
     consoleEl.style.color = isError ? 'var(--error)' : 'var(--success)';
     consoleEl.textContent = JSON.stringify(data, null, 2);
 };
 
-// Faker.js Generator Logik
+// Helper Funktion, um die Endpunkte anhand des Modus (UUID oder Path) zu bauen
+const buildEndpoint = (base, mode, value) => {
+    return mode === 'uuid' ? `${base}/${value}` : `${base}/path/${value}`;
+};
+
+// Faker.js Generator Logik für Core Data
 document.getElementById('generateJsonBtn').addEventListener('click', () => {
     const countInput = document.getElementById('recordCount').value;
     const count = parseInt(countInput, 10) || 1;
@@ -27,7 +33,6 @@ document.getElementById('generateJsonBtn').addEventListener('click', () => {
     // Wir generieren die gewünschte Anzahl an Datensätzen
     for (let i = 0; i < count; i++) {
         dummyDataArray.push({
-            // Faker zaubert uns realistische Daten!
             employee_id: faker.string.uuid(),
             first_name: faker.person.firstName(),
             last_name: faker.person.lastName(),
@@ -46,69 +51,87 @@ document.getElementById('generateJsonBtn').addEventListener('click', () => {
     logToConsole({ message: `${count} Datensätze generiert. Bereit zum Senden!` });
 });
 
-// Helper Funktion für Requests
+// Zentrale Fetch-Funktion für alle API-Requests
 const sendRequest = async (endpoint, method, body = null) => {
     const baseUrl = getBaseUrl();
     try {
         const options = {
             method,
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
+            credentials: 'include' // Wichtig für Auth0 Cookies!
         };
         
         if (body) options.body = JSON.stringify(body);
 
+        logToConsole({ message: `Sende Request an: ${baseUrl}${endpoint}...` });
+
         const response = await fetch(`${baseUrl}${endpoint}`, options);
         const data = await response.json();
+        
         logToConsole(data, !response.ok);
     } catch (error) {
         logToConsole({ error: "Netzwerkfehler", details: error.message }, true);
     }
 };
 
-// 1. Core Data Senden
+// 1. Core Data Senden (POST)
 document.getElementById('sendCoreDataBtn').addEventListener('click', () => {
-    const uuid = document.getElementById('objectUuid').value.trim();
+    const mode = document.getElementById('globalMode').value;
+    const sourceVal = document.getElementById('globalSource').value.trim();
     const jsonString = document.getElementById('coreDataJson').value.trim();
     
-    if (!uuid) return alert('Bitte Quell-Objekt UUID (oben) eingeben!');
-    if (!jsonString) return alert('Bitte zuerst JSON-Daten generieren!');
-
+    if (!sourceVal || !jsonString) return alert('Quelle (Globaler Kontext) und JSON-Daten werden benötigt!');
+    
     try {
         const jsonData = JSON.parse(jsonString);
-        // Wir senden das riesige Array an unseren Endpoint
-        sendRequest(`/api/core-data/${uuid}`, 'POST', { data: jsonData });
+        const endpoint = buildEndpoint('/api/core-data', mode, sourceVal);
+        sendRequest(endpoint, 'POST', { data: jsonData });
     } catch (e) {
-        alert('Das JSON ist ungültig!');
+        alert('Das eingegebene JSON ist ungültig!');
     }
 });
 
-// 2. Relation Erstellen
+// 2. Relation Senden (POST)
 document.getElementById('sendRelationBtn').addEventListener('click', () => {
-    const sourceUuid = document.getElementById('objectUuid').value.trim();
-    const targetUuid = document.getElementById('targetUuid').value.trim();
+    const sourceMode = document.getElementById('globalMode').value;
+    const sourceVal = document.getElementById('globalSource').value.trim();
+    
+    const targetMode = document.getElementById('targetMode').value;
+    const targetVal = document.getElementById('targetValue').value.trim();
     const relationType = document.getElementById('relationType').value.trim();
     
-    if (!sourceUuid || !targetUuid || !relationType) {
-        return alert('Bitte Source, Target und Relation Type ausfüllen!');
+    if (!sourceVal || !targetVal || !relationType) {
+        return alert('Bitte alle Felder ausfüllen: Globale Quelle, Ziel-Objekt und Relation Type!');
     }
 
-    sendRequest(`/api/relations/${sourceUuid}`, 'POST', { 
-        targetUuid, 
-        relationType 
-    });
+    const endpoint = buildEndpoint('/api/relations', sourceMode, sourceVal);
+    
+    // Unser Backend akzeptiert targetUuid ODER targetPath, je nach Modus
+    const body = { relationType };
+    if (targetMode === 'uuid') body.targetUuid = targetVal;
+    if (targetMode === 'path') body.targetPath = targetVal;
+
+    sendRequest(endpoint, 'POST', body);
 });
 
-// 3. Core Data Abrufen (GET)
+// 3. GET Core Data (Abrufen)
 document.getElementById('getCoreDataBtn').addEventListener('click', () => {
-    const mode = document.getElementById('searchMode').value;
-    const searchValue = document.getElementById('searchValue').value.trim();
+    const mode = document.getElementById('globalMode').value;
+    const sourceVal = document.getElementById('globalSource').value.trim();
     
-    if (!searchValue) return alert('Bitte UUID oder Pfad eingeben!');
+    if (!sourceVal) return alert('Bitte eine Quelle (UUID oder Pfad) im Globalen Kontext angeben!');
+    
+    const endpoint = buildEndpoint('/api/core-data', mode, sourceVal);
+    sendRequest(endpoint, 'GET');
+});
 
-    const endpoint = mode === 'uuid' 
-        ? `/api/core-data/${searchValue}` 
-        : `/api/core-data/path/${searchValue}`;
-
+// 4. GET Relationen (Abrufen)
+document.getElementById('getRelationsBtn').addEventListener('click', () => {
+    const mode = document.getElementById('globalMode').value;
+    const sourceVal = document.getElementById('globalSource').value.trim();
+    
+    if (!sourceVal) return alert('Bitte eine Quelle (UUID oder Pfad) im Globalen Kontext angeben!');
+    
+    const endpoint = buildEndpoint('/api/relations', mode, sourceVal);
     sendRequest(endpoint, 'GET');
 });

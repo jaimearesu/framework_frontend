@@ -21,10 +21,22 @@
 
     <main>
         <section class="card global-input">
-            <h2>Globaler Kontext</h2>
+            <h2>Globaler Kontext (Quell-Objekt)</h2>
             <div class="input-group">
-                <label for="objectUuid">Quell-Objekt UUID (Source):</label>
-                <input type="text" id="objectUuid" placeholder="z.B. 123e4567-e89b-12d3-a456-426614174000">
+                <label for="globalMode">Identifikator Typ:</label>
+                <select id="globalMode">
+                    <option value="uuid">UUID</option>
+                    <option value="path">Pfad (z.B. user/admin)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="globalSource">UUID oder Pfad:</label>
+                <input type="text" id="globalSource" placeholder="Wert eingeben...">
+            </div>
+            <!-- NEU: GET Button direkt im Global Context -->
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button id="getCoreDataBtn" class="btn-secondary">Core Data abrufen (GET)</button>
+                <button id="getRelationsBtn" class="btn-secondary">Relationen abrufen (GET)</button>
             </div>
         </section>
 
@@ -49,33 +61,22 @@
             <!-- Relations Modul -->
             <section class="card">
                 <h2>2. Object Relations</h2>
-                <p>Verknüpfe das Quell-Objekt mit einem anderen.</p>
                 <div class="input-group">
-                    <label for="targetUuid">Ziel-Objekt UUID (Target):</label>
-                    <input type="text" id="targetUuid" placeholder="UUID des Zielobjekts">
-                </div>
-                <div class="input-group">
-                    <label for="relationType">Relation Type:</label>
-                    <input type="text" id="relationType" placeholder="z.B. belongs_to, works_in, drives">
-                </div>
-                <button id="sendRelationBtn" class="btn-primary">Relation erstellen</button>
-            </section>
-            <!-- Core Data GET Modul -->
-            <section class="card">
-                <h2>3. Core Data Abrufen (GET)</h2>
-                <p>Hole JSON-Daten per UUID oder Objekt-Pfad.</p>
-                <div class="input-group">
-                    <label for="searchMode">Suchmodus:</label>
-                    <select id="searchMode">
-                        <option value="uuid">Über UUID</option>
-                        <option value="path">Über Pfad (TreeService)</option>
+                    <label for="targetMode">Ziel Typ:</label>
+                    <select id="targetMode">
+                        <option value="uuid">UUID</option>
+                        <option value="path">Pfad</option>
                     </select>
                 </div>
                 <div class="input-group">
-                    <label for="searchValue">UUID oder Pfad (z.B. user/admin):</label>
-                    <input type="text" id="searchValue" placeholder="UUID oder dev/admin/user eingeben">
+                    <label for="targetValue">Ziel UUID oder Pfad:</label>
+                    <input type="text" id="targetValue" placeholder="Ziel Wert eingeben...">
                 </div>
-                <button id="getCoreDataBtn" class="btn-primary">Daten abrufen</button>
+                <div class="input-group">
+                    <label for="relationType">Relation Type:</label>
+                    <input type="text" id="relationType" placeholder="z.B. works_in">
+                </div>
+                <button id="sendRelationBtn" class="btn-primary">Relation erstellen</button>
             </section>
         </div>
     
