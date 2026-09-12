@@ -65,7 +65,6 @@
                 </div>
                 <button id="sendCoreDataBtn" class="btn-primary">Core Data senden</button>
             </section>
-
             <!-- Relations Modul -->
             <section class="card">
                 <h2>2. Object Relations</h2>
@@ -85,6 +84,38 @@
                     <input type="text" id="relationType" placeholder="z.B. works_in">
                 </div>
                 <button id="sendRelationBtn" class="btn-primary">Relation erstellen</button>
+            </section>
+            <section class="card">
+                <h2>3. JSON DSL Search</h2>
+                <p>Führe strukturierte Abfragen auf deine JSONB-Daten aus.</p>
+                
+                <div class="input-group">
+                    <label for="dslSearchQuery">DSL Query (JSON):</label>
+                    <textarea id="dslSearchQuery" rows="7" style="font-family: monospace;">{
+            "filter": {
+                "department": "Music"
+            },
+            "sort": {
+                "field": "created_at",
+                "order": "DESC"
+            }
+            }</textarea>
+                </div>
+                <button id="searchCoreDataBtn" class="btn-primary" style="background-color: #9c27b0;">Suche ausführen (POST)</button>
+            </section>
+            <section class="card">
+                <h2>4. Datensatz löschen (DELETE)</h2>
+                <p>Lösche einen spezifischen Datensatz anhand seiner <code>_sys_id</code> aus dem aktuellen Container.</p>
+                
+                <div class="input-group">
+                    <label for="recordToDelete">Record UUID (_sys_id):</label>
+                    <input type="text" id="recordToDelete" placeholder="z.B. 898d4940-d441-443a-a67d-...">
+                </div>
+                
+                <!-- Roter Button für destruktive Aktionen -->
+                <button id="deleteRecordBtn" class="btn-primary" style="background-color: #f44336; border-color: #d32f2f;">
+                    Datensatz endgültig löschen
+                </button>
             </section>
         </div>
     

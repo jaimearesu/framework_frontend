@@ -147,9 +147,22 @@ const fetchPaginatedCoreData = async (direction = null) => {
     
     if (!sourceVal) return alert('Bitte eine Quelle angeben!');
     
-    let endpoint = buildEndpoint('/api/core-data', mode, sourceVal);
+    // 1. NEU: Wir holen das JSON aus der neuen DSL-Such-Box (falls vorhanden)
+    let queryData = {};
+    const dslString = document.getElementById('dslSearchQuery')?.value.trim();
+    if (dslString) {
+        try {
+            queryData = JSON.parse(dslString);
+        } catch (e) {
+            return alert('Das eingegebene Such-JSON ist ungültig! Bitte überprüfe die Syntax.');
+        }
+    }
+
+    // 2. NEU: Endpunkt auf die POST-Search-Route ändern
+    let endpoint = buildEndpoint('/api/core-data/search', mode, sourceVal);
     let queryParams = `?limit=${limit}`;
 
+    // Cursors berechnen (Bleibt gleich)
     if (direction === 'next' && currentCursors.last) {
         queryParams += `&direction=next&cursorId=${currentCursors.last.id}&cursorDate=${encodeURIComponent(currentCursors.last.date)}`;
     } else if (direction === 'prev' && currentCursors.first) {
@@ -159,9 +172,10 @@ const fetchPaginatedCoreData = async (direction = null) => {
     try {
         const baseUrl = getBaseUrl();
         const response = await fetch(`${baseUrl}${endpoint}${queryParams}`, {
-            method: 'GET',
+            method: 'POST', // 3. NEU: Methode von GET auf POST ändern!
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
+            credentials: 'include',
+            body: JSON.stringify(queryData) // 4. NEU: Das DSL-JSON an den Server schicken
         });
         
         const resData = await response.json();
@@ -196,10 +210,45 @@ const fetchPaginatedCoreData = async (direction = null) => {
     }
 };
 
-// Event-Listener anpassen/hinzufügen
-document.getElementById('getCoreDataBtn').addEventListener('click', () => {
-    currentCursors = { first: null, last: null }; // Reset beim initialen Laden
+// ==========================================
+// EVENT LISTENERS FÜR SUCHE & PAGINATION
+// ==========================================
+
+// Initiales Laden (Reset der Cursors) - für "Suche ausführen" UND "Core Data abrufen"
+const triggerNewSearch = () => {
+    currentCursors = { first: null, last: null }; 
     fetchPaginatedCoreData(null);
-});
+};
+
+// Beide Buttons machen jetzt exakt das Gleiche: Sie starten eine frische Suche inkl. Pagination
+document.getElementById('getCoreDataBtn').addEventListener('click', triggerNewSearch);
+document.getElementById('searchCoreDataBtn').addEventListener('click', triggerNewSearch);
+
+// Pagination Buttons
 document.getElementById('nextPageBtn').addEventListener('click', () => fetchPaginatedCoreData('next'));
 document.getElementById('prevPageBtn').addEventListener('click', () => fetchPaginatedCoreData('prev'));
+
+
+// ==========================================
+// 6. DATENSATZ LÖSCHEN (DELETE)
+// ==========================================
+document.getElementById('deleteRecordBtn').addEventListener('click', () => {
+    const mode = document.getElementById('globalMode').value;
+    const sourceVal = document.getElementById('globalSource').value.trim();
+    const recordUuid = document.getElementById('recordToDelete').value.trim();
+    
+    if (!sourceVal) return alert('Bitte eine Quelle (UUID oder Pfad) im Globalen Kontext angeben!');
+    if (!recordUuid) return alert('Bitte die _sys_id des zu löschenden Datensatzes eingeben!');
+    
+    const basePath = '/api/core-data';
+    const endpoint = mode === 'uuid' 
+        ? `${basePath}/${sourceVal}/record/${recordUuid}` 
+        : `${basePath}/path/${sourceVal}/record/${recordUuid}`;
+    
+    if (confirm(`Möchtest du den Datensatz ${recordUuid} wirklich löschen?`)) {
+        sendRequest(endpoint, 'DELETE').then(() => {
+            // Optional: Nach dem Löschen die aktuelle Seite automatisch neu laden
+            fetchPaginatedCoreData(null);
+        });
+    }
+});
