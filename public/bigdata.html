@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>at0mic Backend Toolkit</title>
+    <link rel="stylesheet" href="bigdata.css">
+</head>
+<body>
+    <header>
+        <h1>at0mic Toolkit</h1>
+        <div class="env-selector">
+            <label for="backendUrl">Backend:</label>
+            <select id="backendUrl">
+                <option value="auto">Auto-Detect</option>
+                <option value="http://localhost:3000">localhost:3000 (Dev)</option>
+                <option value="https://api.at0mic.ch">api.at0mic.ch (Prod)</option>
+            </select>
+        </div>
+    </header>
+
+    <main>
+        <section class="card global-input">
+            <h2>Globaler Kontext (Quell-Objekt)</h2>
+            <div class="input-group">
+                <label for="globalMode">Identifikator Typ:</label>
+                <select id="globalMode">
+                    <option value="uuid">UUID</option>
+                    <option value="path">Pfad (z.B. user/admin)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="globalSource">UUID oder Pfad:</label>
+                <input type="text" id="globalSource" placeholder="Wert eingeben...">
+            </div>
+            <!-- NEU: GET Button direkt im Global Context -->
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button id="getCoreDataBtn" class="btn-secondary">Core Data abrufen (GET)</button>
+                <button id="getRelationsBtn" class="btn-secondary">Relationen abrufen (GET)</button>
+            </div>
+            <!-- NEU: Pagination Controls -->
+            <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center; background: var(--card-bg); padding: 10px; border-radius: 4px; border: 1px solid var(--border);">
+                <label for="pageLimit">Limit:</label>
+                <input type="number" id="pageLimit" value="5" min="1" max="100" style="width: 80px;">
+                <button id="prevPageBtn" class="btn-secondary" style="width: auto;" disabled>⬅ Zurück</button>
+                <button id="nextPageBtn" class="btn-secondary" style="width: auto;" disabled>Weiter ➡</button>
+                <span id="pageInfo" style="margin-left: 10px; color: var(--text-muted); font-size: 0.85rem;"></span>
+            </div>
+        </section>
+
+        <div class="grid">
+            <!-- Core Data Modul -->
+            <section class="card">
+                <h2>1. Core Data (Faker.js Generator)</h2>
+                <p>Generiere realistische Test-Daten und speichere sie als JSONB.</p>
+                
+                <div class="input-group">
+                    <label for="recordCount">Anzahl der Datensätze:</label>
+                    <input type="number" id="recordCount" value="5" min="1" max="1000">
+                </div>
+                
+                <div class="input-group">
+                    <button id="generateJsonBtn" class="btn-secondary">Test-Daten generieren</button>
+                    <textarea id="coreDataJson" rows="10" placeholder='Klicke auf "Test-Daten generieren"...'></textarea>
+                </div>
+                <button id="sendCoreDataBtn" class="btn-primary">Core Data senden</button>
+            </section>
+            <!-- Relations Modul -->
+            <section class="card">
+                <h2>2. Object Relations</h2>
+                <div class="input-group">
+                    <label for="targetMode">Ziel Typ:</label>
+                    <select id="targetMode">
+                        <option value="uuid">UUID</option>
+                        <option value="path">Pfad</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="targetValue">Ziel UUID oder Pfad:</label>
+                    <input type="text" id="targetValue" placeholder="Ziel Wert eingeben...">
+                </div>
+                <div class="input-group">
+                    <label for="relationType">Relation Type:</label>
+                    <input type="text" id="relationType" placeholder="z.B. works_in">
+                </div>
+                <button id="sendRelationBtn" class="btn-primary">Relation erstellen</button>
+            </section>
+            <section class="card">
+                <h2>3. JSON DSL Search</h2>
+                <p>Führe strukturierte Abfragen auf deine JSONB-Daten aus.</p>
+                
+                <div class="input-group">
+                    <label for="dslSearchQuery">DSL Query (JSON):</label>
+                    <textarea id="dslSearchQuery" rows="7" style="font-family: monospace;">{
+            "filter": {
+                "department": "Music"
+            },
+            "sort": {
+                "field": "created_at",
+                "order": "DESC"
+            }
+            }</textarea>
+                </div>
+                <button id="searchCoreDataBtn" class="btn-primary" style="background-color: #9c27b0;">Suche ausführen (POST)</button>
+            </section>
+            <section class="card">
+                <h2>4. Datensatz löschen (DELETE)</h2>
+                <p>Lösche einen spezifischen Datensatz anhand seiner <code>_sys_id</code> aus dem aktuellen Container.</p>
+                
+                <div class="input-group">
+                    <label for="recordToDelete">Record UUID (_sys_id):</label>
+                    <input type="text" id="recordToDelete" placeholder="z.B. 898d4940-d441-443a-a67d-...">
+                </div>
+                
+                <!-- Roter Button für destruktive Aktionen -->
+                <button id="deleteRecordBtn" class="btn-primary" style="background-color: #f44336; border-color: #d32f2f;">
+                    Datensatz endgültig löschen
+                </button>
+            </section>
+        </div>
+    
+        <section class="card console-card">
+            <h2>Server Response</h2>
+            <pre id="consoleOutput">// Antworten vom Server erscheinen hier...</pre>
+        </section>
+    </main>
+
+    <script src="bigdata.js" type="module"></script>
+</body>
+</html>
