@@ -164,9 +164,9 @@ const fetchPaginatedCoreData = async (direction = null) => {
 
     // Cursors berechnen (Bleibt gleich)
     if (direction === 'next' && currentCursors.last) {
-        queryParams += `&direction=next&cursorId=${currentCursors.last.id}&cursorDate=${encodeURIComponent(currentCursors.last.date)}`;
+        queryParams += `&direction=next&cursorId=${currentCursors.last.id}&cursorValue=${encodeURIComponent(currentCursors.last.value)}`;
     } else if (direction === 'prev' && currentCursors.first) {
-        queryParams += `&direction=prev&cursorId=${currentCursors.first.id}&cursorDate=${encodeURIComponent(currentCursors.first.date)}`;
+        queryParams += `&direction=prev&cursorId=${currentCursors.first.id}&cursorValue=${encodeURIComponent(currentCursors.first.value)}`;
     }
 
     try {
