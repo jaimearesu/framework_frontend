@@ -261,7 +261,7 @@ const renderConcepts = () =>
 const STAGES = [
     { n: 1, title: 'Grundgerüst', text: 'Design, Menü, API-Client, Login-Status, Übersicht, Test-Modus', done: true },
     { n: 2, title: 'Objekte + Code & DNA', text: 'Anlegen, Baum, Code-Editor, DNA mit Vorschau', done: true },
-    { n: 3, title: 'SSF-Studio', text: 'Ausführen, Beispiel-Bibliothek, Werkzeug-Referenz' },
+    { n: 3, title: 'SSF-Studio', text: 'Ausführen, Beispiel-Bibliothek, Werkzeug-Referenz', done: true },
     { n: 4, title: 'Daten, Relationen, Rechte, Tresor', text: 'Such-Spielplatz, Joins, Rollen, Schlüssel' },
     { n: 5, title: 'Systemcheck', text: '„Teste alles“ und Feinschliff' }
 ];

@@ -322,8 +322,8 @@ export default {
                         'info',
                         'Ausführen & Beispiele:',
                         ' Im ',
-                        h('a', { href: href('ssf') }, 'SSF-Studio'),
-                        ' (Etappe 3) mit 9 Beispielen.'
+                        h('a', { href: href('ssf', uuid) }, 'SSF-Studio'),
+                        ' – mit 9 Beispielen und allen Werkzeugen.'
                     )
                 );
                 return;
