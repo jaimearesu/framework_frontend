@@ -50,7 +50,7 @@ public/
 ├── js/pages/             eine Datei pro Seite
 ├── js/ssf/               SSF-Studio: Beispiele, Werkzeug-Referenz, Fehler-Tipps, Spielwiese
 ├── js/data/              Such-Beispiele (Query-DSL) und Testdaten
-└── legacy/               die alte Oberfläche (bis der Umbau fertig ist)
+└── js/check/             Systemcheck: Prüf-Motor (runner.js) und alle Prüfungen (checks.js)
 tests/                    automatische Tests der Hilfsfunktionen
 ```
 
@@ -65,10 +65,17 @@ tests/                    automatische Tests der Hilfsfunktionen
 | `npm test`       | Tests der Hilfsfunktionen            |
 | `npm run format` | alle Dateien einheitlich formatieren |
 
-## Umbau (5 Etappen)
+## Systemcheck
+
+Unter **Systemcheck** (oder „Teste alles“ unten im Menü) prüft das Cockpit mit einem Klick das ganze
+Backend: Verbindung, Objekte, Code, Daten & Suche, Joins, Rechte, SSFs, Tresor und Sicherheit als Fremder.
+Dabei entsteht eine Domain `check-…` mit Test-Daten. Es gibt noch keine Route zum Löschen von Objekten,
+darum läuft der Check standardmässig im **Test-Modus**; im Live-Modus muss man ihn ausdrücklich bestätigen.
+
+## Umbau (5 Etappen, abgeschlossen)
 
 - [x] **1 Grundgerüst:** Design, Menü, API-Client, Login-Status, Übersicht, Test-Modus, Anfragen-Protokoll
 - [x] **2 Objekte + Code & DNA:** Objekt-Baum, Details, Rollen, Kind anhängen (mit DNA-Eintrag), Pfad auflösen, Code-Editor (CodeMirror) mit Live-Vorschau, DNA-Prüfung mit Baum
 - [x] **3 SSF-Studio:** Spielwiese per Klick, Editor, Ausführen (POST mit Body / GET mit Ziel / als Fremder), Ergebnis mit HTML-Vorschau und Fehler-Tipps, 9 Beispiele, Referenz aller 15 Werkzeuge, Grenzen
 - [x] **4 Daten & Suche, Relationen, Rechte, Tresor:** 15 Such-Beispiele, Tabelle/JSON, Blättern, Löschen, Testdaten; Relationen mit Join-Erklärung; Triplets, Rollen vergeben/entziehen, „Was sieht ein Fremder?“; Tresor (Werte nie sichtbar, im Protokoll geschwärzt)
-- [ ] **5 Systemcheck** ("Teste alles") und Feinschliff
+- [x] **5 Systemcheck:** „Teste alles“ mit 51 Prüfungen in 9 Gruppen (inkl. Sicherheit als Fremder), Bericht zum Kopieren; Schnellstart auf der Übersicht; alte Oberfläche entfernt

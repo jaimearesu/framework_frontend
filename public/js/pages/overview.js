@@ -5,7 +5,7 @@
 //   1. Status: Backend, Datenbank, SSF-Sandbox, wer du bist
 //   2. Deine Objekte (die neusten)
 //   3. So funktioniert at0mic – die Grundbegriffe in einfachen Worten
-//   4. Stand des Umbaus
+//   4. Schnellstart – in welcher Reihenfolge man alles ausprobiert
 // ---------------------------------------------------------------------
 import { api } from '../core/api.js';
 import { getMode, apiBase } from '../core/config.js';
@@ -256,26 +256,32 @@ const renderConcepts = () =>
     );
 
 // ------------------------------------------------------------------
-// 4. STAND DES UMBAUS
+// 4. SCHNELLSTART
 // ------------------------------------------------------------------
-const STAGES = [
-    { n: 1, title: 'Grundgerüst', text: 'Design, Menü, API-Client, Login-Status, Übersicht, Test-Modus', done: true },
-    { n: 2, title: 'Objekte + Code & DNA', text: 'Anlegen, Baum, Code-Editor, DNA mit Vorschau', done: true },
-    { n: 3, title: 'SSF-Studio', text: 'Ausführen, Beispiel-Bibliothek, Werkzeug-Referenz', done: true },
-    { n: 4, title: 'Daten, Relationen, Rechte, Tresor', text: 'Such-Spielplatz, Joins, Rollen, Schlüssel', done: true },
-    { n: 5, title: 'Systemcheck', text: '„Teste alles“ und Feinschliff' }
+const QUICKSTART = [
+    { title: 'Oben rechts auf „Test“ schalten', text: 'Dann probierst du alles in der Test-Datenbank aus.', to: null },
+    { title: 'Spielwiese einrichten', text: 'Im SSF-Studio mit einem Klick: Domain, SSF, Produkte, Lager.', to: 'ssf' },
+    { title: 'Beispiele ausführen', text: '9 SSF-Beispiele von „Hallo Welt“ bis „Grenzen erleben“.', to: 'ssf' },
+    { title: 'Suchen und blättern', text: '15 Such-Beispiele auf den Produkten der Spielwiese.', to: 'daten' },
+    { title: 'Objekt ansehen', text: 'Baum, Vorschau mit Kindern, Rollen, Code.', to: 'objekte' },
+    { title: 'Teste alles', text: 'Der Systemcheck prüft das ganze Backend in unter einer Minute.', to: 'systemcheck' }
 ];
 
-const renderStages = () =>
+const renderQuickstart = () =>
     h(
         'ol',
         { class: 'stages' },
-        STAGES.map(st =>
+        QUICKSTART.map((st, i) =>
             h(
                 'li',
-                { class: st.done ? 'done' : '' },
-                h('span', { class: 'stage-n' }, st.done ? icon('check', { size: 16 }) : String(st.n)),
-                h('div', {}, h('strong', {}, `Etappe ${st.n}: ${st.title}`), h('p', { class: 'muted small' }, st.text))
+                {},
+                h('span', { class: 'stage-n' }, String(i + 1)),
+                h(
+                    'div',
+                    {},
+                    st.to ? h('a', { href: href(st.to) }, h('strong', {}, st.title)) : h('strong', {}, st.title),
+                    h('p', { class: 'muted small' }, st.text)
+                )
             )
         )
     );
@@ -314,8 +320,12 @@ export default {
                     objectsBox
                 ),
                 card(
-                    { title: 'Stand des Umbaus', icon: 'layers', subtitle: 'Das neue Cockpit entsteht in 5 Etappen.' },
-                    renderStages()
+                    {
+                        title: 'Schnellstart',
+                        icon: 'layers',
+                        subtitle: 'In dieser Reihenfolge lernst du at0mic am schnellsten kennen.'
+                    },
+                    renderQuickstart()
                 )
             ),
             card(

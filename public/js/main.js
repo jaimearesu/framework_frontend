@@ -38,8 +38,7 @@ const renderNav = () => {
                     'a',
                     { class: 'nav-link', href: href(r.id), dataset: { route: r.id } },
                     h('span', { class: 'nav-icon' }, icon(r.icon)),
-                    h('span', {}, r.title),
-                    r.stage ? h('span', { class: 'nav-soon', title: `kommt in Etappe ${r.stage}` }, 'bald') : null
+                    h('span', {}, r.title)
                 )
             )
         );

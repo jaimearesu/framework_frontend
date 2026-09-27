@@ -9,10 +9,7 @@
 //   group        -> Menü-Gruppe
 //   intro        -> ein Satz, worum es geht (wird oben auf der Seite gezeigt)
 //   load         -> lädt den Code der Seite erst, wenn man sie öffnet
-//   stage        -> in welcher Etappe des Umbaus die Seite dazukommt
-//                   (solange sie fehlt, zeigt das Cockpit "kommt bald")
 // ---------------------------------------------------------------------
-const comingSoon = () => import('../pages/comingSoon.js');
 
 export const GROUPS = ['Start', 'Bauen', 'Daten', 'Sicherheit', 'Prüfen'];
 
@@ -87,8 +84,7 @@ export const ROUTES = [
         icon: 'check',
         group: 'Prüfen',
         intro: 'Ein Klick – und das Cockpit prüft das ganze Backend Schritt für Schritt.',
-        stage: 5,
-        load: comingSoon
+        load: () => import('../pages/systemcheck.js')
     }
 ];
 

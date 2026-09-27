@@ -26,9 +26,9 @@ app.get('/config.json', (req, res) => {
     });
 });
 
-// Die alte Oberfläche bleibt während des Umbaus unter /legacy/ erreichbar
+// Frühere Adresse der Daten-Seite -> neue Seite im Cockpit
 app.get('/bigdata', (req, res) => {
-    res.redirect('/legacy/bigdata.html');
+    res.redirect('/#/daten');
 });
 
 app.get('*', (req, res) => {

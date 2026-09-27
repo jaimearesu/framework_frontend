@@ -1026,3 +1026,154 @@ details.raw summary {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* ---------- Systemcheck ---------- */
+.check-hero .card-body {
+    gap: 14px;
+}
+.check-hero-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.btn.big {
+    padding: 11px 22px;
+    font-size: 15px;
+}
+.progress-bar {
+    height: 8px;
+    border-radius: 99px;
+    background: var(--surface-2);
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width 0.25s ease;
+}
+.progress-bar.active .progress-fill {
+    background: linear-gradient(90deg, var(--accent), #b25cff, var(--accent));
+    background-size: 200% 100%;
+    animation: progress-move 1.2s linear infinite;
+}
+@keyframes progress-move {
+    to {
+        background-position: -200% 0;
+    }
+}
+.check-summary {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-weight: 600;
+}
+.sum {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.sum.pass {
+    color: var(--ok);
+}
+.sum.fail {
+    color: var(--error);
+}
+.sum.skip {
+    color: var(--warn);
+}
+.sum.zero {
+    color: var(--faint);
+}
+.check-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+}
+.check-group {
+    padding: 12px 12px 8px;
+    border-top: 3px solid var(--border-strong);
+}
+.check-group.pass {
+    border-top-color: var(--ok);
+}
+.check-group.fail {
+    border-top-color: var(--error);
+}
+.check-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px 6px;
+}
+.check-group-head h2 {
+    font-size: 14.5px;
+}
+.check-row summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    list-style: none;
+    font-size: 13.5px;
+}
+.check-row summary::-webkit-details-marker {
+    display: none;
+}
+.check-row summary:hover {
+    background: var(--surface-2);
+}
+.check-icon {
+    display: inline-flex;
+    color: var(--faint);
+}
+.check-row.pass .check-icon {
+    color: var(--ok);
+}
+.check-row.fail .check-icon {
+    color: var(--error);
+}
+.check-row.skip .check-icon {
+    color: var(--warn);
+}
+.check-row.running .check-icon {
+    color: var(--accent);
+    animation: spin 0.8s linear infinite;
+}
+.check-title {
+    flex-shrink: 0;
+}
+.check-detail {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+}
+.check-body {
+    padding: 4px 8px 10px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.check-error {
+    color: var(--error);
+    font-size: 13px;
+}
+@media (max-width: 1100px) {
+    .check-groups {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+@media (max-width: 560px) {
+    .check-detail {
+        display: none;
+    }
+}
