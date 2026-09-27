@@ -189,17 +189,24 @@ const fetchPaginatedCoreData = async (direction = null) => {
             currentCursors.first = meta.cursors.first;
             currentCursors.last = meta.cursors.last;
             
+            // Das Backend zählt höchstens bis 10'000 (sonst wird es bei Millionen
+            // Datensätzen langsam). Ist die Grenze erreicht, steht total_count_capped = true.
+            const totalText = meta.total_count_capped
+                ? `mehr als ${meta.total_count.toLocaleString('de-CH')}`
+                : meta.total_count.toLocaleString('de-CH');
+
             // Berechne Seiten (rein fürs Display)
             const totalPages = Math.ceil(meta.total_count / meta.limit) || 1;
-            
+            const pagesText = meta.total_count_capped ? `über ${totalPages} Seiten` : `ca. ${totalPages} Seiten`;
+
             if (meta.returned_count > 0) {
                 document.getElementById('nextPageBtn').disabled = false;
                 document.getElementById('prevPageBtn').disabled = (direction === null && !currentCursors.first);
-                
-                document.getElementById('pageInfo').textContent = 
-                    `Zeige ${meta.returned_count} von ${meta.total_count} Datensätzen (ca. ${totalPages} Seiten).`;
+
+                document.getElementById('pageInfo').textContent =
+                    `Zeige ${meta.returned_count} von ${totalText} Datensätzen (${pagesText}).`;
             } else {
-                document.getElementById('pageInfo').textContent = `Keine weiteren Daten gefunden. (Gesamt: ${meta.total_count})`;
+                document.getElementById('pageInfo').textContent = `Keine weiteren Daten gefunden. (Gesamt: ${totalText})`;
                 if (direction === 'next') document.getElementById('nextPageBtn').disabled = true;
                 if (direction === 'prev') document.getElementById('prevPageBtn').disabled = true;
             }
