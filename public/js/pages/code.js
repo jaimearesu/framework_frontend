@@ -36,6 +36,7 @@ import { pageHeader } from '../core/page.js';
 import { createEditor } from '../core/editor.js';
 import { analyzeDna, addChildToDna } from '../core/dna.js';
 import { renderDnaTree } from '../core/tree.js';
+import { buildPreviewDocument, createPreviewFrame, previewConsole } from '../core/preview.js';
 import {
     loadObjects,
     loadObjectNames,
@@ -76,14 +77,6 @@ const templates = o => ({
     ),
     data: JSON.stringify({ titel: 'Mein Objekt', sprache: 'de', einstellungen: { farbe: '#6d5dfc' } }, null, 2)
 });
-
-// HTML + CSS + JS zu einer Vorschau-Seite zusammensetzen.
-// Das Ergebnis läuft in einem abgeschotteten Rahmen (sandbox) ohne Zugriff
-// auf das Cockpit, deine Cookies oder das Backend.
-const previewDocument = buffers =>
-    `<!doctype html><html><head><meta charset="utf-8"><style>${buffers.css || ''}</style></head><body>${
-        buffers.html || ''
-    }<script>${(buffers.javascript || '').replace(/<\/script/gi, '<\\/script')}<\/script></body></html>`;
 
 export default {
     async render(root, { params, query }) {
@@ -284,14 +277,14 @@ export default {
 
         // ---------- Seitenleiste (je nach Code-Art) ----------
         let previewTimer = null;
-        const previewFrame = h('iframe', {
-            class: 'preview-frame',
-            title: 'Vorschau',
-            // allow-scripts OHNE allow-same-origin: der Code läuft, kommt aber nicht ans Cockpit heran
-            sandbox: 'allow-scripts allow-modals'
-        });
+        // Vorschau (siehe core/preview.js): abgeschotteter Rahmen + Fehleranzeige darunter
+        const pConsole = previewConsole();
+        const preview = createPreviewFrame({ onMessage: pConsole.add });
+        const previewFrame = preview.frame;
         const updatePreview = () => {
-            previewFrame.srcdoc = previewDocument(current());
+            pConsole.clear();
+            const b = current();
+            preview.show(buildPreviewDocument({ html: b.html, css: b.css, js: b.javascript }));
         };
 
         const renderSide = () => {
@@ -302,9 +295,10 @@ export default {
                     h(
                         'p',
                         { class: 'muted small' },
-                        'Aktualisiert sich beim Tippen. Läuft abgeschottet – ohne Zugriff auf deine Daten.'
+                        'Nur dieses Objekt, aktualisiert beim Tippen. Läuft abgeschottet – Anfragen ans Backend sind hier blockiert. Mit allen Kindern: beim Objekt unter „Vorschau“.'
                     ),
-                    previewFrame
+                    previewFrame,
+                    pConsole.el
                 );
                 updatePreview();
                 return;
@@ -328,8 +322,8 @@ export default {
                         'info',
                         'Ausführen & Beispiele:',
                         ' Im ',
-                        h('a', { href: href('ssf') }, 'SSF-Studio'),
-                        ' (Etappe 3) mit 9 Beispielen.'
+                        h('a', { href: href('ssf', uuid) }, 'SSF-Studio'),
+                        ' – mit 9 Beispielen und allen Werkzeugen.'
                     )
                 );
                 return;
@@ -602,6 +596,7 @@ export default {
             window.removeEventListener('beforeunload', onBeforeUnload);
             clearTimeout(sideTimer);
             clearTimeout(previewTimer);
+            preview.destroy();
         };
     }
 };

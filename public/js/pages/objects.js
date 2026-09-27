@@ -49,6 +49,13 @@ import {
 } from '../core/objects.js';
 import { addChildToDna } from '../core/dna.js';
 import { renderDnaTree } from '../core/tree.js';
+import {
+    buildPreviewDocument,
+    createPreviewFrame,
+    previewConsole,
+    splitHtmlDocument,
+    placeChildren
+} from '../core/preview.js';
 
 // Passendes Objekt zu einem DNA-Knoten finden (für anklickbare Bäume)
 const finderFor = objects => (domain, source) =>
@@ -237,7 +244,101 @@ const renderInfoTab = async (box, o, objects) => {
               )
             : h('span', { class: 'muted' }, 'kein Code')
     );
+
+    // Kleine Vorschau direkt in der Übersicht (mit Kindern)
+    const previewBox = h('div');
+    box.append(h('h3', { class: 'sub-title' }, 'Vorschau'), previewBox);
+    renderComposedPreview(previewBox, o, objects, { height: '280px', compact: true });
 };
+
+// ------------------------------------------------------------------
+// VORSCHAU MIT KINDERN
+// Setzt das Objekt so zusammen, wie die DNA es beschreibt: eigenes HTML,
+// darin (oder danach) das HTML der Kinder, dazu alles CSS und JS.
+// Regel für die Plätze der Kinder: siehe core/preview.js
+// ------------------------------------------------------------------
+let currentPreview = null; // nur eine Vorschau gleichzeitig (Zuhörer aufräumen)
+const MAX_PREVIEW_OBJECTS = 40;
+
+const composeObject = async (rootObject, objects) => {
+    const find = finderFor(objects);
+    const codeCache = new Map();
+    const used = [];
+    const missing = [];
+    const getCode = async uuid => {
+        if (!codeCache.has(uuid)) codeCache.set(uuid, loadCode(uuid));
+        return (await codeCache.get(uuid)).code;
+    };
+
+    // Aufgelöster Baum (falls es keinen gibt: nur das Objekt selbst)
+    const treeRes = await api.get(`/api/ast/${rootObject.uuid}/tree`);
+    const tree = treeRes.ok ? treeRes.data?.tree : null;
+
+    const visit = async (node, obj) => {
+        if (used.length >= MAX_PREVIEW_OBJECTS) return { html: '', css: [], js: [] };
+        used.push(obj);
+        const code = await getCode(obj.uuid);
+        const own = splitHtmlDocument(code.html || '');
+        const parts = [];
+        const css = [code.css || ''];
+        const js = [code.javascript || ''];
+        for (const child of Array.isArray(node?.children) ? node.children : []) {
+            const childObj = find(child.domain, child.source);
+            if (!childObj) {
+                missing.push(child.identifier || JSON.stringify(child.source));
+                continue;
+            }
+            const sub = await visit(child, childObj);
+            parts.push({ identifier: child.identifier, html: sub.html });
+            css.push(...sub.css);
+            js.push(...sub.js);
+        }
+        return { html: placeChildren(own.body, parts), head: own.head, css, js };
+    };
+
+    const result = await visit(tree, rootObject);
+    return { ...result, used, missing };
+};
+
+const renderComposedPreview = async (box, o, objects, { height = '520px', compact = false } = {}) => {
+    currentPreview?.destroy();
+    mount(box, spinner('Setze das Objekt zusammen …'));
+    const composed = await composeObject(o, objects);
+    const pConsole = previewConsole();
+    currentPreview = createPreviewFrame({ onMessage: pConsole.add, height });
+
+    mount(
+        box,
+        compact
+            ? null
+            : h(
+                  'p',
+                  { class: 'muted small' },
+                  'So sieht das Objekt aus, wenn man es mit allen Kindern aus der DNA zusammensetzt. Jedes Kind kommt an seinen Platz ',
+                  h('code', {}, '<div data-slot="name"></div>'),
+                  ' im HTML des Eltern-Objekts – oder, falls es keinen gibt, der Reihe nach darunter. (Das ist die Vorschau-Regel des Cockpits; die Engine selbst liefert noch kein fertiges HTML aus.)'
+              ),
+        h(
+            'div',
+            { class: 'row gap-s wrap small muted' },
+            `${composed.used.length} Objekt${composed.used.length === 1 ? '' : 'e'} zusammengesetzt: `,
+            h(
+                'span',
+                { class: 'chip-list' },
+                composed.used.map(u => h('a', { class: 'chip', href: href('code', u.uuid) }, objectLabel(u)))
+            )
+        ),
+        composed.missing.length
+            ? callout('warn', 'Nicht sichtbar:', ` ${composed.missing.join(', ')} (keine Rechte oder nicht gefunden).`)
+            : null,
+        currentPreview.frame,
+        pConsole.el
+    );
+    currentPreview.show(buildPreviewDocument({ html: composed.html, css: composed.css, js: composed.js }));
+};
+
+// --- Reiter "Vorschau" ---
+const renderPreviewTab = (box, o, objects) => renderComposedPreview(box, o, objects, { height: '560px' });
 
 // --- Reiter "Baum" ---
 const renderTreeTab = async (box, o, objects) => {
@@ -437,13 +538,17 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
     const body = h('div', { class: 'tab-body' });
     const TABS = [
         { id: 'info', label: 'Übersicht' },
+        { id: 'vorschau', label: 'Vorschau' },
         { id: 'baum', label: 'Baum' },
         { id: 'rollen', label: 'Rollen' },
         { id: 'kind', label: 'Kind anhängen' }
     ];
     const show = id => {
         onTab(id);
+        currentPreview?.destroy(); // alte Vorschau abmelden
+        currentPreview = null;
         if (id === 'info') renderInfoTab(body, o, objects);
+        else if (id === 'vorschau') renderPreviewTab(body, o, objects);
         else if (id === 'baum') renderTreeTab(body, o, objects);
         else if (id === 'rollen') renderRolesTab(body, o);
         else renderLinkTab(body, o, { onCreated: uuid => reload(uuid) });
@@ -529,123 +634,125 @@ const pathResolverCard = objects => {
 // ==================================================================
 let lastTab = 'info';
 
-export default {
-    async render(root, { params, query }) {
-        const selectedUuid = params[0] || null;
-        const createBox = h('div');
-        const listBox = h('div', { class: 'obj-tree-box' }, spinner());
-        const detailBox = h('div', { class: 'card detail' });
-        const bottom = h('div');
-        let filter = '';
+const renderPage = async (root, { params, query }) => {
+    const selectedUuid = params[0] || null;
+    const createBox = h('div');
+    const listBox = h('div', { class: 'obj-tree-box' }, spinner());
+    const detailBox = h('div', { class: 'card detail' });
+    const bottom = h('div');
+    let filter = '';
 
-        // Neu laden – mit uuid: danach dieses (neue) Objekt anzeigen
-        const reload = uuid => {
-            invalidateObjects();
-            if (uuid && uuid !== selectedUuid) {
-                lastTab = 'info'; // neues Objekt: mit der Übersicht beginnen
-                location.hash = href('objekte', uuid);
-            } else window.dispatchEvent(new HashChangeEvent('hashchange'));
-        };
+    // Neu laden – mit uuid: danach dieses (neue) Objekt anzeigen
+    const reload = uuid => {
+        invalidateObjects();
+        if (uuid && uuid !== selectedUuid) {
+            lastTab = 'info'; // neues Objekt: mit der Übersicht beginnen
+            location.hash = href('objekte', uuid);
+        } else window.dispatchEvent(new HashChangeEvent('hashchange'));
+    };
 
-        const filterInput = h('input', {
-            class: 'input small',
-            type: 'search',
-            placeholder: 'Suchen …',
-            'aria-label': 'Objekte filtern'
-        });
+    const filterInput = h('input', {
+        class: 'input small',
+        type: 'search',
+        placeholder: 'Suchen …',
+        'aria-label': 'Objekte filtern'
+    });
 
-        root.append(
-            pageHeader({
-                intro: 'Alles in at0mic ist ein Objekt. Wurzeln sind eigene Domains, darunter hängen Kinder. Klick ein Objekt an, um Details, Baum und Rollen zu sehen.',
-                actions: [
-                    h(
-                        'button',
-                        {
-                            class: 'btn primary',
-                            type: 'button',
-                            onclick: () => createBox.classList.toggle('hidden-box')
-                        },
-                        icon('box'),
-                        'Neue Domain'
-                    ),
-                    busyButton('Aktualisieren', async () => reload(), { className: 'btn ghost', iconName: 'refresh' })
-                ]
-            }),
-            createBox,
-            h(
-                'div',
-                { class: 'split' },
+    root.append(
+        pageHeader({
+            intro: 'Alles in at0mic ist ein Objekt. Wurzeln sind eigene Domains, darunter hängen Kinder. Klick ein Objekt an, um Details, Baum und Rollen zu sehen.',
+            actions: [
                 h(
-                    'section',
-                    { class: 'card list-panel' },
-                    h('div', { class: 'list-panel-head' }, filterInput),
-                    listBox
+                    'button',
+                    {
+                        class: 'btn primary',
+                        type: 'button',
+                        onclick: () => createBox.classList.toggle('hidden-box')
+                    },
+                    icon('box'),
+                    'Neue Domain'
                 ),
-                detailBox
-            ),
-            bottom
-        );
+                busyButton('Aktualisieren', async () => reload(), { className: 'btn ghost', iconName: 'refresh' })
+            ]
+        }),
+        createBox,
+        h(
+            'div',
+            { class: 'split' },
+            h('section', { class: 'card list-panel' }, h('div', { class: 'list-panel-head' }, filterInput), listBox),
+            detailBox
+        ),
+        bottom
+    );
 
-        const res = await loadObjects({ fresh: query.fresh === '1' });
-        if (!res.ok) {
-            mount(listBox, callout('error', 'Konnte Objekte nicht laden:', ' ', res.error));
-            mount(detailBox, emptyState({ icon: 'server', title: 'Keine Daten' }));
-            return;
-        }
-        const objects = res.data;
-        await loadObjectNames(objects); // Namen der Kinder aus den DNA-Bäumen
+    const res = await loadObjects({ fresh: query.fresh === '1' });
+    if (!res.ok) {
+        mount(listBox, callout('error', 'Konnte Objekte nicht laden:', ' ', res.error));
+        mount(detailBox, emptyState({ icon: 'server', title: 'Keine Daten' }));
+        return;
+    }
+    const objects = res.data;
+    await loadObjectNames(objects); // Namen der Kinder aus den DNA-Bäumen
 
-        mount(createBox, createDomainCard({ onCreated: uuid => reload(uuid) }));
-        if (objects.length) createBox.classList.add('hidden-box');
+    mount(createBox, createDomainCard({ onCreated: uuid => reload(uuid) }));
+    if (objects.length) createBox.classList.add('hidden-box');
 
+    renderForest(listBox, objects, selectedUuid, filter);
+    filterInput.addEventListener('input', () => {
+        filter = filterInput.value;
         renderForest(listBox, objects, selectedUuid, filter);
-        filterInput.addEventListener('input', () => {
-            filter = filterInput.value;
-            renderForest(listBox, objects, selectedUuid, filter);
-        });
-        mount(bottom, pathResolverCard(objects));
+    });
+    mount(bottom, pathResolverCard(objects));
 
-        // Kopfzeile der Liste: Anzahl
-        listBox.before(
-            h('div', { class: 'muted small list-count' }, `${formatNumber(objects.length)} Objekte sichtbar`)
+    // Kopfzeile der Liste: Anzahl
+    listBox.before(h('div', { class: 'muted small list-count' }, `${formatNumber(objects.length)} Objekte sichtbar`));
+
+    if (!objects.length) {
+        mount(
+            detailBox,
+            emptyState({
+                icon: 'box',
+                title: 'Noch keine Objekte',
+                text: 'Leg oben deine erste Domain an. Als anonymer Besucher wirst du dabei automatisch Gast.'
+            })
         );
+        return;
+    }
 
-        if (!objects.length) {
-            mount(
-                detailBox,
-                emptyState({
-                    icon: 'box',
-                    title: 'Noch keine Objekte',
-                    text: 'Leg oben deine erste Domain an. Als anonymer Besucher wirst du dabei automatisch Gast.'
-                })
-            );
-            return;
-        }
+    const selected = objects.find(o => o.uuid === selectedUuid);
+    if (!selected) {
+        mount(
+            detailBox,
+            selectedUuid
+                ? callout(
+                      'warn',
+                      'Objekt nicht gefunden.',
+                      ' Es existiert nicht, oder du hast darauf keine Leserechte (black).'
+                  )
+                : emptyState({
+                      icon: 'arrowRight',
+                      title: 'Wähle links ein Objekt',
+                      text: 'Dann siehst du hier Details, Baum, Rollen und kannst Kinder anhängen.'
+                  })
+        );
+        return;
+    }
+    renderDetail(detailBox, selected, objects, {
+        tab: query.tab || lastTab,
+        onTab: id => {
+            lastTab = id;
+        },
+        reload
+    });
+};
 
-        const selected = objects.find(o => o.uuid === selectedUuid);
-        if (!selected) {
-            mount(
-                detailBox,
-                selectedUuid
-                    ? callout(
-                          'warn',
-                          'Objekt nicht gefunden.',
-                          ' Es existiert nicht, oder du hast darauf keine Leserechte (black).'
-                      )
-                    : emptyState({
-                          icon: 'arrowRight',
-                          title: 'Wähle links ein Objekt',
-                          text: 'Dann siehst du hier Details, Baum, Rollen und kannst Kinder anhängen.'
-                      })
-            );
-            return;
-        }
-        renderDetail(detailBox, selected, objects, {
-            tab: query.tab || lastTab,
-            onTab: id => {
-                lastTab = id;
-            },
-            reload
-        });
+export default {
+    async render(root, ctx) {
+        await renderPage(root, ctx);
+        // Beim Verlassen der Seite: Vorschau-Zuhörer abmelden
+        return () => {
+            currentPreview?.destroy();
+            currentPreview = null;
+        };
     }
 };

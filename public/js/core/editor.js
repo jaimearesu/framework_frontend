@@ -105,6 +105,12 @@ export const createEditor = async (
             focus: () => ta.focus(),
             refresh: () => {},
             goToLine: () => {},
+            // Text an der Cursor-Stelle einfügen
+            insertText: text => {
+                ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, 'end');
+                ta.focus();
+                notify();
+            },
             onChange: fn => listeners.add(fn)
         };
     }
@@ -148,6 +154,11 @@ export const createEditor = async (
             if (!line) return;
             cm.setCursor({ line: line - 1, ch: 0 });
             cm.scrollIntoView({ line: line - 1, ch: 0 }, 80);
+            cm.focus();
+        },
+        // Text an der Cursor-Stelle einfügen (zählt als Änderung)
+        insertText: text => {
+            cm.replaceSelection(text);
             cm.focus();
         },
         onChange: fn => listeners.add(fn)

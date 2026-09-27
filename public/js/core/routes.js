@@ -47,8 +47,7 @@ export const ROUTES = [
         icon: 'bolt',
         group: 'Bauen',
         intro: 'Server-Funktionen schreiben, ausführen und aus der Beispiel-Bibliothek lernen.',
-        stage: 3,
-        load: comingSoon
+        load: () => import('../pages/ssf.js')
     },
     {
         id: 'daten',

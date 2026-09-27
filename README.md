@@ -48,6 +48,7 @@ public/
 │   ├── editor.js         Code-Editor (CodeMirror von cdnjs, sonst einfaches Textfeld)
 │   └── format.js · icons.js · events.js · storage.js · page.js
 ├── js/pages/             eine Datei pro Seite
+├── js/ssf/               SSF-Studio: Beispiele, Werkzeug-Referenz, Fehler-Tipps, Spielwiese
 └── legacy/               die alte Oberfläche (bis der Umbau fertig ist)
 tests/                    automatische Tests der Hilfsfunktionen
 ```
@@ -67,6 +68,6 @@ tests/                    automatische Tests der Hilfsfunktionen
 
 - [x] **1 Grundgerüst:** Design, Menü, API-Client, Login-Status, Übersicht, Test-Modus, Anfragen-Protokoll
 - [x] **2 Objekte + Code & DNA:** Objekt-Baum, Details, Rollen, Kind anhängen (mit DNA-Eintrag), Pfad auflösen, Code-Editor (CodeMirror) mit Live-Vorschau, DNA-Prüfung mit Baum
-- [ ] **3 SSF-Studio** mit Beispiel-Bibliothek und Werkzeug-Referenz
+- [x] **3 SSF-Studio:** Spielwiese per Klick, Editor, Ausführen (POST mit Body / GET mit Ziel / als Fremder), Ergebnis mit HTML-Vorschau und Fehler-Tipps, 9 Beispiele, Referenz aller 15 Werkzeuge, Grenzen
 - [ ] **4 Daten & Suche, Relationen, Rechte, Tresor**
 - [ ] **5 Systemcheck** ("Teste alles") und Feinschliff
