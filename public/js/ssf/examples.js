@@ -247,11 +247,13 @@ const url = 'https://api.open-meteo.com/v1/forecast'
     + '&current=temperature_2m,wind_speed_10m';
 
 // Schlüssel aus dem Tresor (falls vorhanden). Anlegen: Seite "Tresor", Name WETTER_KEY.
-const headers = {};
 const hatSchluessel = await api.secrets.has('WETTER_KEY');
-if (hatSchluessel) headers['X-Api-Key'] = await api.secrets.get('WETTER_KEY');
+const schluessel = hatSchluessel ? await api.secrets.get('WETTER_KEY') : null;
 
-const antwort = await api.http.fetch(url, { headers });
+// open-meteo braucht keinen Schlüssel (und lehnt fremde Header ab) – darum schicken
+// wir ihn hier NICHT mit. Bei einer API, die einen braucht, sähe es so aus:
+//   api.http.fetch(url, { headers: { Authorization: 'Bearer ' + schluessel } })
+const antwort = await api.http.fetch(url);
 if (!antwort.ok) return { ok: false, status: antwort.status };
 
 const daten = JSON.parse(antwort.body);   // body ist immer Text
@@ -262,7 +264,7 @@ return {
     wind: daten.current.wind_speed_10m + ' km/h',
     tresor: hatSchluessel
         // Der echte Wert erscheint hier NICHT – der Server schwärzt ihn zu ***
-        ? 'Schlüssel benutzt: ' + headers['X-Api-Key']
+        ? 'Gelesener Schlüssel: ' + schluessel
         : 'Kein WETTER_KEY im Tresor – lege einen an und führe nochmals aus.'
 };
 `

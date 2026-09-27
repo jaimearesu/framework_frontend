@@ -805,3 +805,224 @@ details.raw summary {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* ---------- Daten & Suche ---------- */
+.pad-card {
+    padding: 6px 18px 18px;
+}
+.data-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+.dsl-examples {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.dsl-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+.dsl-group .nav-group-title {
+    width: 100%;
+    padding: 0;
+}
+.dsl-example {
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 99px;
+    padding: 3px 11px;
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+.dsl-example:hover {
+    border-color: var(--accent);
+    color: var(--accent-strong);
+}
+.results-head:empty {
+    display: none;
+}
+.pager {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+}
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.data-table th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface-2);
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+.data-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+.data-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.data-table td.obj {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+}
+.data-table tr.row-main {
+    cursor: pointer;
+}
+.data-table tr.row-main:hover td {
+    background: var(--surface-2);
+}
+.data-table tr.row-detail td {
+    background: var(--bg);
+}
+.danger-icon:hover {
+    color: var(--error);
+    background: var(--error-soft);
+}
+
+/* ---------- Relationen ---------- */
+.relations {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.relation {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 13px;
+}
+.rel-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+}
+.preview-rel {
+    padding: 8px 10px;
+    background: var(--surface-2);
+    border-radius: var(--radius-s);
+}
+
+/* ---------- Tresor ---------- */
+.secret-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.secret-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+}
+.secret-icon {
+    display: inline-flex;
+    color: var(--accent);
+}
+.secret-mask {
+    font-family: var(--mono);
+    color: var(--faint);
+    letter-spacing: 2px;
+}
+
+/* ---------- Rechte ---------- */
+.triplet-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.triplet-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+}
+.triplet-list li a {
+    font-weight: 600;
+}
+.role-removable {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+.role-x {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 0 0 3px;
+    opacity: 0.55;
+}
+.role-x:hover {
+    opacity: 1;
+}
+.check-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.check-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: var(--radius-s);
+    font-size: 13.5px;
+}
+.check-list li.pass .icon {
+    color: var(--ok);
+}
+.check-list li.fail {
+    background: var(--error-soft);
+}
+.check-list li.fail .icon {
+    color: var(--error);
+}
+@media (max-width: 1100px) {
+    .data-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

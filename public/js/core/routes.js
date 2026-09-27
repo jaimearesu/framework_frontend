@@ -55,8 +55,7 @@ export const ROUTES = [
         icon: 'search',
         group: 'Daten',
         intro: 'Datensätze ansehen und mit der Such-Sprache (DSL) filtern, sortieren und blättern.',
-        stage: 4,
-        load: comingSoon
+        load: () => import('../pages/data.js')
     },
     {
         id: 'relationen',
@@ -64,8 +63,7 @@ export const ROUTES = [
         icon: 'link',
         group: 'Daten',
         intro: 'Verbindungen zwischen Objekten – die Grundlage für Joins in der Suche.',
-        stage: 4,
-        load: comingSoon
+        load: () => import('../pages/relations.js')
     },
     {
         id: 'rechte',
@@ -73,8 +71,7 @@ export const ROUTES = [
         icon: 'shield',
         group: 'Sicherheit',
         intro: 'Wer darf was? Triplets mit den Rollen black (lesen), red (ändern) und blue (Rechte vergeben).',
-        stage: 4,
-        load: comingSoon
+        load: () => import('../pages/rights.js')
     },
     {
         id: 'tresor',
@@ -82,8 +79,7 @@ export const ROUTES = [
         icon: 'lock',
         group: 'Sicherheit',
         intro: 'Geheime Schlüssel (z.B. API-Keys) für deine SSFs. Einmal gesetzt, nie wieder lesbar.',
-        stage: 4,
-        load: comingSoon
+        load: () => import('../pages/vault.js')
     },
     {
         id: 'systemcheck',
