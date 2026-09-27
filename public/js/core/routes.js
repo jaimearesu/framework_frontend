@@ -31,8 +31,7 @@ export const ROUTES = [
         icon: 'box',
         group: 'Bauen',
         intro: 'Alles in at0mic ist ein Objekt. Hier legst du sie an, hängst Kinder an und siehst den Baum.',
-        stage: 2,
-        load: comingSoon
+        load: () => import('../pages/objects.js')
     },
     {
         id: 'code',
@@ -40,8 +39,7 @@ export const ROUTES = [
         icon: 'code',
         group: 'Bauen',
         intro: 'Der Inhalt eines Objekts: HTML, CSS, JS, SSF, Syntax (DNA) und Daten-Schemas.',
-        stage: 2,
-        load: comingSoon
+        load: () => import('../pages/code.js')
     },
     {
         id: 'ssf',

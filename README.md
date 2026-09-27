@@ -32,7 +32,8 @@ Oben rechts im Cockpit schaltest du zwischen **Live** (echte Datenbank) und **Te
 server.js                 liefert public/ aus und /config.json (Adressen der Backends)
 public/
 ├── index.html            das Gerüst: Menü links, Topbar, Inhalt
-├── css/app.css           das ganze Design (Hell/Dunkel, Handy)
+├── css/app.css           Grund-Design (Farben Hell/Dunkel, Gerüst, Bausteine)
+├── css/pages.css         Formulare, Reiter und die einzelnen Seiten
 ├── js/main.js            Startpunkt: Menü, Live/Test, Seiten wechseln
 ├── js/core/              Bausteine
 │   ├── api.js            der einzige Weg zum Backend (liefert immer { ok, status, data, error, ms })
@@ -41,6 +42,10 @@ public/
 │   ├── routes.js         alle Seiten an einem Ort
 │   ├── ui.js             h() baut sichere HTML-Elemente, Karten, Hinweise, JSON-Anzeige
 │   ├── requestLog.js     Anfragen-Protokoll (Symbol oben rechts)
+│   ├── objects.js        Objekt-Liste als Baum, Namen der Kinder, Code laden/speichern
+│   ├── dna.js            DNA prüfen (wie das Backend) und Kinder einfügen
+│   ├── tree.js           DNA-Baum anzeigen
+│   ├── editor.js         Code-Editor (CodeMirror von cdnjs, sonst einfaches Textfeld)
 │   └── format.js · icons.js · events.js · storage.js · page.js
 ├── js/pages/             eine Datei pro Seite
 └── legacy/               die alte Oberfläche (bis der Umbau fertig ist)
@@ -61,7 +66,7 @@ tests/                    automatische Tests der Hilfsfunktionen
 ## Umbau (5 Etappen)
 
 - [x] **1 Grundgerüst:** Design, Menü, API-Client, Login-Status, Übersicht, Test-Modus, Anfragen-Protokoll
-- [ ] **2 Objekte + Code & DNA**
+- [x] **2 Objekte + Code & DNA:** Objekt-Baum, Details, Rollen, Kind anhängen (mit DNA-Eintrag), Pfad auflösen, Code-Editor (CodeMirror) mit Live-Vorschau, DNA-Prüfung mit Baum
 - [ ] **3 SSF-Studio** mit Beispiel-Bibliothek und Werkzeug-Referenz
 - [ ] **4 Daten & Suche, Relationen, Rechte, Tresor**
 - [ ] **5 Systemcheck** ("Teste alles") und Feinschliff
