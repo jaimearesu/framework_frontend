@@ -216,3 +216,55 @@ export const resultLine = result =>
         h('span', {}, result.ok ? 'OK' : result.error),
         h('span', { class: 'muted small' }, `${result.ms} ms`)
     );
+
+// ---------- Reiter (Tabs) ----------
+// tabs([{ id: 'info', label: 'Übersicht' }, …], { active: 'info', onChange: id => … })
+export const tabs = (items, { active, onChange }) => {
+    const bar = h('div', { class: 'tabs', role: 'tablist' });
+    const select = id => {
+        for (const b of bar.children) {
+            const on = b.dataset.tab === id;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-selected', String(on));
+        }
+        onChange(id);
+    };
+    for (const item of items) {
+        bar.appendChild(
+            h(
+                'button',
+                {
+                    type: 'button',
+                    role: 'tab',
+                    class: 'tab',
+                    dataset: { tab: item.id },
+                    onclick: () => select(item.id)
+                },
+                item.label,
+                item.badge !== undefined && item.badge !== null ? h('span', { class: 'tab-badge' }, item.badge) : null
+            )
+        );
+    }
+    // Anfangszustand markieren (ohne onChange auszulösen)
+    for (const b of bar.children) b.classList.toggle('active', b.dataset.tab === active);
+    bar.select = select;
+    return bar;
+};
+
+// ---------- Formular-Feld mit Beschriftung ----------
+export const field = (label, control, hint) =>
+    h(
+        'label',
+        { class: 'field' },
+        h('span', { class: 'field-label' }, label),
+        control,
+        hint ? h('span', { class: 'field-hint' }, hint) : null
+    );
+
+// Liste "Name: Wert" (z.B. für Objekt-Details)
+export const infoList = rows =>
+    h(
+        'dl',
+        { class: 'info-list' },
+        rows.filter(Boolean).map(([label, value]) => [h('dt', {}, label), h('dd', {}, value ?? '–')])
+    );

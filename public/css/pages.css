@@ -1,0 +1,625 @@
+/* =====================================================================
+   at0mic Cockpit – Stile für Formulare und die einzelnen Seiten
+   (die Grundlagen und Farben stehen in app.css)
+   ---------------------------------------------------------------------
+   1. Formulare, Reiter, Listen
+   2. Objekte-Seite
+   3. DNA-Baum
+   4. Code & DNA (Editor, Vorschau)
+   5. Kleinere Bildschirme
+   ===================================================================== */
+
+/* ---------- 1. Formulare, Reiter, Listen ---------- */
+.grow {
+    flex: 1;
+    min-width: 0;
+}
+.wrap {
+    flex-wrap: wrap;
+}
+.hidden-box {
+    display: none;
+}
+.stack-s {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.input {
+    width: 100%;
+    padding: 8px 11px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-s);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+}
+.input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.input.small {
+    padding: 6px 9px;
+    font-size: 13px;
+}
+.input.mono {
+    font-family: var(--mono);
+    font-size: 13px;
+}
+select.input {
+    cursor: pointer;
+}
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+}
+.field-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted);
+}
+.field-hint {
+    font-size: 12px;
+    color: var(--faint);
+}
+.form-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+.form-row > .btn {
+    margin-top: 23px;
+}
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    cursor: pointer;
+}
+.check input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+.sub-title {
+    font-size: 13.5px;
+    margin: 6px 0 4px;
+}
+
+/* Reiter */
+.tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.tab {
+    position: relative;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 550;
+    padding: 9px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.tab:hover {
+    color: var(--text);
+}
+.tab.active {
+    color: var(--accent-strong);
+    border-bottom-color: var(--accent);
+}
+.tab-badge {
+    margin-left: 6px;
+    font-size: 11px;
+    background: var(--surface-2);
+    border-radius: 99px;
+    padding: 0 6px;
+}
+/* Code-Reiter: grauer Punkt = hat Inhalt, oranger Punkt = ungespeichert */
+.tab.has-content::after,
+.tab.dirty::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--faint);
+}
+.tab.dirty::after {
+    background: var(--warn);
+}
+.tab-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 14px;
+    min-width: 0;
+}
+
+/* Name/Wert-Liste */
+.info-list {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 8px 16px;
+    margin: 0;
+    font-size: 13.5px;
+}
+.info-list dt {
+    color: var(--muted);
+}
+.info-list dd {
+    margin: 0;
+    min-width: 0;
+    word-break: break-word;
+}
+.chip-list {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.chip {
+    display: inline-flex;
+    padding: 1px 9px;
+    border: 1px solid var(--border-strong);
+    border-radius: 99px;
+    font-size: 12.5px;
+    color: var(--text);
+}
+.chip:hover {
+    border-color: var(--accent);
+    text-decoration: none;
+}
+.versions {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.versions li {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+details.raw summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+.steps-log {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ---------- 2. Objekte-Seite ---------- */
+.split {
+    display: grid;
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+.list-panel {
+    position: sticky;
+    top: calc(var(--topbar-h) + 12px);
+    max-height: calc(100vh - var(--topbar-h) - 40px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.list-panel-head {
+    padding: 12px 12px 8px;
+    border-bottom: 1px solid var(--border);
+}
+.list-count {
+    padding: 8px 14px 0;
+}
+.obj-tree-box {
+    overflow-y: auto;
+    padding: 6px 6px 10px;
+}
+.obj-tree,
+.obj-tree ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.obj-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: var(--radius-s);
+    color: var(--text);
+    font-size: 13.5px;
+    text-decoration: none !important;
+}
+.obj-item:hover {
+    background: var(--surface-2);
+}
+.obj-item.active {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-weight: 600;
+}
+.obj-item-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.obj-kids {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface-2);
+    border-radius: 99px;
+    padding: 0 7px;
+}
+.detail {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+.detail-head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.detail-icon {
+    display: inline-flex;
+    padding: 9px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+}
+.detail-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.detail-title h2 {
+    font-size: 19px;
+    word-break: break-word;
+}
+.role-group {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.role-group.protecting {
+    border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
+}
+.role-group-head {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.role-line {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.role-chips {
+    display: inline-flex;
+    gap: 4px;
+}
+
+/* ---------- 3. DNA-Baum ---------- */
+.tree {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 18px;
+    border-left: 1px dashed var(--border-strong);
+}
+.tree.tree-root {
+    padding-left: 0;
+    border-left: 0;
+}
+.tree li {
+    margin: 2px 0;
+}
+.tree summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tree summary::-webkit-details-marker {
+    display: none;
+}
+.tree summary::before {
+    content: '▸';
+    color: var(--muted);
+    font-size: 11px;
+    width: 10px;
+}
+.tree details[open] > summary::before {
+    content: '▾';
+}
+.tree-leaf {
+    padding-left: 16px;
+}
+.tree-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 3px 6px;
+    border-radius: 6px;
+}
+.tree-row:hover {
+    background: var(--surface-2);
+}
+.tree-id {
+    font-weight: 600;
+}
+.tree-source {
+    font-size: 11.5px;
+}
+.tree-count {
+    font-size: 11px;
+    color: var(--muted);
+}
+.tree-open {
+    display: inline-flex;
+    color: var(--accent);
+}
+
+/* ---------- 4. Code & DNA ---------- */
+.code-picker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+}
+.code-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+.code-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+}
+.code-main .tabs {
+    padding: 0 10px;
+}
+.code-main > .callout {
+    margin: 10px 12px 0;
+}
+.editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.save-out {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.save-out:not(:empty) {
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--border);
+}
+.code-side-card {
+    position: sticky;
+    top: calc(var(--topbar-h) + 12px);
+    max-height: calc(100vh - var(--topbar-h) - 40px);
+    overflow-y: auto;
+}
+.code-side {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.side-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+}
+.side-head h3 {
+    font-size: 15px;
+}
+.preview-frame {
+    width: 100%;
+    height: 420px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    background: #fff;
+}
+.issues {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.issues.error {
+    color: var(--error);
+}
+.issues.warn li::marker {
+    color: var(--warn);
+}
+.issues.note {
+    color: var(--muted);
+}
+
+/* Editor (CodeMirror) im at0mic-Look – folgt Hell/Dunkel über die Farb-Variablen */
+.editor {
+    --editor-min: 360px;
+}
+.editor .CodeMirror {
+    height: auto;
+    min-height: var(--editor-min);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    background: var(--surface);
+    color: var(--text);
+}
+.editor .CodeMirror-scroll {
+    min-height: var(--editor-min);
+    max-height: 70vh;
+}
+.editor .CodeMirror-gutters {
+    background: var(--surface-2);
+    border-right: 1px solid var(--border);
+}
+.editor .CodeMirror-linenumber {
+    color: var(--faint);
+}
+.editor .CodeMirror-cursor {
+    border-left-color: var(--text);
+}
+.editor .CodeMirror-activeline-background {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.editor .CodeMirror-selected,
+.editor .CodeMirror-focused .CodeMirror-selected {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.editor .CodeMirror-matchingbracket {
+    color: var(--ok) !important;
+    text-decoration: underline;
+}
+.editor .cm-keyword,
+.editor .cm-builtin {
+    color: var(--j-key);
+}
+.editor .cm-string,
+.editor .cm-string-2 {
+    color: var(--j-string);
+}
+.editor .cm-number {
+    color: var(--j-number);
+}
+.editor .cm-atom {
+    color: var(--j-bool);
+}
+.editor .cm-comment {
+    color: var(--faint);
+    font-style: italic;
+}
+.editor .cm-def,
+.editor .cm-property {
+    color: var(--info);
+}
+.editor .cm-variable-2,
+.editor .cm-variable-3 {
+    color: var(--text);
+}
+.editor .cm-tag {
+    color: var(--role-red);
+}
+.editor .cm-attribute,
+.editor .cm-qualifier {
+    color: var(--j-number);
+}
+.editor-fallback {
+    width: 100%;
+    min-height: var(--editor-min);
+    border: 0;
+    padding: 12px;
+    resize: vertical;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    background: var(--surface);
+    color: var(--text);
+    tab-size: 4;
+}
+.editor-fallback:focus {
+    outline: none;
+}
+
+/* ---------- 5. Kleinere Bildschirme ---------- */
+@media (max-width: 1100px) {
+    .code-layout,
+    .split {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .list-panel {
+        position: static;
+        max-height: 420px;
+    }
+    .code-side-card {
+        position: static;
+        max-height: none;
+    }
+}
+@media (max-width: 560px) {
+    .form-row,
+    .form-grid {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .form-row > .btn {
+        margin-top: 0;
+    }
+    .info-list {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
+    }
+    .info-list dd {
+        margin-bottom: 8px;
+    }
+}
+
+/* Knöpfe in Reitern nicht auf volle Breite ziehen */
+.tab-body > .btn,
+.tab-body > div > .btn {
+    align-self: flex-start;
+}
+
+/* Handy: Knöpfe im Objekt-Kopf unter den Titel, damit der Name Platz hat */
+@media (max-width: 560px) {
+    .detail-head > .row {
+        width: 100%;
+    }
+    .detail {
+        padding: 14px;
+    }
+}
