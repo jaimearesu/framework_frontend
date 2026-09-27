@@ -220,6 +220,53 @@
 
                 <h4 class="mt-4">Ergebnis:</h4>
                 <pre id="output" class="code-block">Wartet auf Ausführung...</pre>
+
+                <hr class="divider">
+
+                <h3 class="ssf-target-title">🎯 Funktion mit Target ausführen (GET)</h3>
+                <p class="hint-text">Funktion und Target werden gleich adressiert: beide per UUID oder beide per Pfad. Der Auth Token von oben wird mitverwendet.</p>
+
+                <div class="radio-group mb-4">
+                    <label class="radio-label">Adressierung:</label>
+                    <label class="radio-label"><input type="radio" name="ssfTargetMode" value="uuid" checked> UUID</label>
+                    <label class="radio-label"><input type="radio" name="ssfTargetMode" value="path"> Pfad</label>
+                </div>
+
+                <div class="ssf-target-grid">
+                    <div class="form-section ssf-field">
+                        <label for="ssf-fn-input">Funktion:</label>
+                        <select id="ssf-fn-select" class="ssf-uuid-only">
+                            <option value="">-- Objekt auswählen --</option>
+                        </select>
+                        <input type="text" id="ssf-fn-input" placeholder="UUID der Funktion">
+                    </div>
+
+                    <div class="form-section ssf-field">
+                        <label for="ssf-target-input">Target:</label>
+                        <select id="ssf-target-select" class="ssf-uuid-only">
+                            <option value="">-- Objekt auswählen --</option>
+                        </select>
+                        <input type="text" id="ssf-target-input" placeholder="UUID des Targets">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <label for="ssf-query-input">Query-Parameter (optional, GET hat keinen Body):</label>
+                    <input type="text" id="ssf-query-input" placeholder="z.B. lang=de&limit=5">
+                </div>
+
+                <div class="ssf-url-preview">
+                    <span class="ssf-method">GET</span>
+                    <code id="ssf-url-preview">– Funktion und Target ausfüllen –</code>
+                </div>
+
+                <div class="ssf-actions">
+                    <button id="btn-ssf-reload" class="btn btn-secondary">🔄 Objekte laden</button>
+                    <button id="btn-ssf-execute-target" class="btn btn-primary">Mit Target ausführen</button>
+                </div>
+
+                <div id="ssf-target-meta" class="ssf-meta" style="display: none;"></div>
+                <pre id="ssf-target-output" class="code-block">Wartet auf Ausführung...</pre>
             </div>
         </section>
 
