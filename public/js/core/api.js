@@ -77,7 +77,17 @@ export const errorMessage = (data, status) => {
 
 let counter = 0;
 
-export const request = async (method, path, { body, query, anonymous = false, base } = {}) => {
+// Geheime Felder für das Protokoll schwärzen (reine Funktion, getestet).
+// Beispiel: { value: 'abc' } -> { value: '***' }
+export const maskSecrets = (body, fields = ['value', 'password', 'secret', 'token']) => {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+    const copy = { ...body };
+    for (const f of fields) if (f in copy) copy[f] = '***';
+    return copy;
+};
+
+// sensitive: true -> der gesendete Inhalt erscheint im Protokoll nur geschwärzt
+export const request = async (method, path, { body, query, anonymous = false, base, sensitive = false } = {}) => {
     const url = buildUrl(base ?? apiBase(), path, query);
     const hasBody = body !== undefined;
     const started = performance.now();
@@ -89,7 +99,7 @@ export const request = async (method, path, { body, query, anonymous = false, ba
         path: path + (url.includes('?') ? url.slice(url.indexOf('?')) : ''),
         url,
         anonymous,
-        requestBody: hasBody ? body : undefined
+        requestBody: hasBody ? (sensitive ? maskSecrets(body) : body) : undefined
     };
 
     let result;
