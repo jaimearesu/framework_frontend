@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>at0mic Frontend</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Header / Navigation -->
+    <header class="app-header">
+        <div class="header-content">
+            <h1>🚀 at0mic Frontend</h1>
+            <div class="auth-controls">
+                <h3 id="user-info" class="user-info-text"></h3>
+                <button id="btn-login" class="btn btn-primary">Mit Auth0 Einloggen</button>
+                <button id="btn-logout" class="btn btn-secondary" style="display: none;">Ausloggen</button>
+                <button id="btn-api" class="btn btn-outline" style="display: none;">Geheime Daten laden</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard-grid">
+
+        <!-- OBJEKT MANAGER -->
+        <section id="object-manager" class="card" style="display: none;">
+            <div class="card-header">
+                <h2>🗂️ Objekt Manager</h2>
+            </div>
+            <div class="card-body">
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="creationType" value="root" checked> 🟢 Neue Root-Domain
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="creationType" value="hook"> 🔗 An bestehendes Objekt anhängen
+                    </label>
+                </div>
+
+                <!-- Form 1: Root -->
+                <div id="form-root" class="form-section">
+                    <label>Neue Domain:</label>
+                    <input type="text" id="new-domain-input" placeholder="z.B. dev/admin/user">
+                    <button id="btn-create-domain" class="btn btn-success">Domain erstellen</button>
+                </div>
+
+                <!-- Form 2: Hook -->
+                <div id="form-hook" class="form-section" style="display: none;">
+                    <label>Ziel-Objekt auswählen:</label>
+                    <select id="parent-object-dropdown">
+                        <option value="">-- Lade Objekte... --</option>
+                    </select>
+                    
+                    <label>An welchem Schritt (Path) einhaken?</label>
+                    <select id="path-selector-dropdown">
+                        <option value="">Wähle zuerst ein Ziel-Objekt...</option>
+                    </select>
+
+                    <label>Name / Identifier (optional):</label>
+                    <input type="text" id="hook-identifier-input" placeholder="z.B. main-button (Leer lassen für UUID)">
+                    
+                    <button id="btn-create-hook" class="btn btn-info">Als Ast anhängen</button>
+                </div>
+                
+                <hr class="divider">
+
+                <div class="form-section">
+                    <label>Vorhandene Objekte ansehen:</label>
+                    <div class="input-group">
+                        <select id="object-dropdown">
+                            <option value="">-- Objekte werden geladen... --</option>
+                        </select>
+                        <button id="btn-reload-objects" class="btn btn-secondary">🔄 Reload</button>
+                    </div>
+                    <pre id="object-details" class="code-block" style="display: none;"></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- AST V2 -->
+        <section id="ast-playground-v2" class="card border-warning" style="display: none;">
+            <div class="card-header warning-header">
+                <h2>🧠📦 AST Generator V2 (Bundle Injection)</h2>
+            </div>
+            <div class="card-body">
+                <label>Ziel-Objekt auswählen:</label>
+                <select id="ast-v2-object-dropdown">
+                    <option value="">-- Objekte werden geladen... --</option>
+                </select>
+                
+                <p class="hint-text">Fülle nur die Felder aus, die du injizieren möchtest (Rest leer lassen):</p>
+
+                <div class="code-grid">
+                    <div class="code-column">
+                        <label class="color-html">HTML:</label>
+                        <textarea id="ast-v2-html" rows="5" placeholder="<div>...</div>" class="border-html"></textarea>
+                    </div>
+                    <div class="code-column">
+                        <label class="color-css">CSS:</label>
+                        <textarea id="ast-v2-css" rows="5" placeholder=".class { ... }" class="border-css"></textarea>
+                    </div>
+                    <div class="code-column">
+                        <label class="color-js">JavaScript:</label>
+                        <textarea id="ast-v2-js" rows="5" placeholder="const x = 1;" class="border-js"></textarea>
+                    </div>
+                    <div class="code-column">
+                        <label class="color-ssf">Server Side (SSF):</label>
+                        <textarea id="ast-v2-ssf" rows="5" placeholder="db.query(...)" class="border-ssf"></textarea>
+                    </div>
+                    <div class="code-column">
+                        <label class="color-data">Data (JSON):</label>
+                        <textarea id="ast-v2-data" rows="5" placeholder='{"key": "value"}' class="border-data"></textarea>
+                    </div>
+                    <div class="code-column">
+                        <label class="color-syntax">Syntax (JSON):</label>
+                        <textarea id="ast-v2-syntax" rows="5" placeholder='{"rules": []}' class="border-syntax"></textarea>
+                    </div>
+                </div>
+                
+                <button id="btn-parse-v2" class="btn btn-warning btn-block mt-4">⚡ AST Bundle in die Datenbank feuern!</button>
+            </div>
+        </section>
+
+        <!-- TREE EXPLORER -->
+        <section id="tree-explorer-container" class="card border-info" style="display: none;">
+            <div class="card-header info-header">
+                <h2>🌲 Tree Explorer</h2>
+                <p class="hint-text-light">Löse einen kompletten Objekt-Baum rekursiv auf.</p>
+            </div>
+            <div class="card-body">
+                <label>Ab Root-Objekt auflösen:</label>
+                <div class="input-group">
+                    <select id="tree-object-dropdown">
+                        <option value="">-- Root-Objekt auswählen --</option>
+                    </select>
+                    <button id="btn-resolve-tree" class="btn btn-info">Baum analysieren!</button>
+                </div>
+
+                <hr class="divider">
+
+                <label>Oder über tiefen Pfad (Browser-URL) auflösen:</label>
+                <div class="input-group">
+                    <input type="text" id="tree-path-input" placeholder="z.B. app/home/home2">
+                    <button id="btn-resolve-path" class="btn btn-purple">Pfad analysieren!</button>
+                </div>
+
+                <h4 id="tree-performance" class="performance-success" style="display: none;">⏱️ Ausführungszeit: <span id="tree-ms">0</span> ms</h4>
+                <pre id="tree-result" class="code-block-dark" style="display: none;"></pre>
+
+                <hr class="divider">
+
+                <label>Paralleler Stresstest (Node.js Event Loop Test):</label>
+                <p class="hint-text">Feuert N Abfragen in derselben Millisekunde parallel auf den Server ab (Promise.all).</p>
+                <div class="input-group">
+                    <input type="number" id="stress-count-input" value="10" min="1" max="100" style="max-width: 100px;">
+                    <button id="btn-stress-test" class="btn btn-danger">Stresstest starten!</button>
+                </div>
+
+                <h4 id="stress-performance" class="performance-danger" style="display: none;">🔥 Total Zeit für <span id="stress-count">0</span> Requests: <span id="stress-ms">0</span> ms</h4>
+                <pre id="stress-result" class="code-block-dark" style="display: none;"></pre>
+            </div>
+        </section>
+
+        <!-- ROLLEN / TRIPLETS -->
+        <section class="card">
+            <div class="card-header">
+                <h2>🎭 Rollen-Verwaltung (Triplets)</h2>
+            </div>
+            <div class="card-body">
+                <div class="flex-between" style="align-items: flex-end; gap: 20px;">
+                    <div class="form-section flex-1">
+                        <label>Ziel-Objekt UUID (Eingeben oder Auswählen):</label>
+                        <div style="display: flex; gap: 10px; margin-top: 5px;">
+                            <input type="text" id="target-uuid-input" placeholder="z.B. 123e4567-e89b-12d3..." style="flex: 1;" />
+                            <select id="object-select" style="flex: 1;">
+                                <option value="">Lade Objekte...</option>
+                            </select>
+                            <button id="btn-load-target" class="btn btn-secondary">Objekt laden</button>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <button id="btn-create-triplet" class="btn btn-primary">Neues Triplet erschaffen</button>
+                    </div>
+                </div>
+                <div id="roles-container" class="mt-4">
+                    <p class="hint-text">Bitte gib eine UUID ein oder wähle ein Objekt, um Berechtigungen zu verteilen.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SERVERLESS TRIGGER -->
+        <section class="card">
+            <div class="card-header">
+                <h2>⚡ Serverless Function Trigger</h2>
+            </div>
+            <div class="card-body">
+                <div class="radio-group mb-4">
+                    <label class="radio-label">Art des Ziels:</label>
+                    <label class="radio-label"><input type="radio" name="targetType" value="uuid" checked> UUID</label>
+                    <label class="radio-label"><input type="radio" name="targetType" value="path"> Pfad</label>
+                </div>
+
+                <div class="form-section">
+                    <label for="targetInput">Ziel (UUID oder Pfad):</label>
+                    <input type="text" id="targetInput" placeholder="z.B. my-domain/my-parent/my-object oder 1234-abcd...">
+                </div>
+
+                <div class="form-section">
+                    <label for="authToken">Auth Token (falls benötigt):</label>
+                    <input type="text" id="authToken" placeholder="Bearer eyJhbG...">
+                </div>
+
+                <div class="form-section">
+                    <label for="bodyInput">Test-Daten (JSON Body):</label>
+                    <textarea id="bodyInput" rows="3">{ "testKey": "Hallo von der UI" }</textarea>
+                </div>
+
+                <button id="executeBtn" class="btn btn-primary">Funktion triggern</button>
+
+                <h4 class="mt-4">Ergebnis:</h4>
+                <pre id="output" class="code-block">Wartet auf Ausführung...</pre>
+
+                <hr class="divider">
+
+                <h3 class="ssf-target-title">🎯 Funktion mit Target ausführen (GET)</h3>
+                <p class="hint-text">Funktion und Target werden gleich adressiert: beide per UUID oder beide per Pfad. Der Auth Token von oben wird mitverwendet.</p>
+
+                <div class="radio-group mb-4">
+                    <label class="radio-label">Adressierung:</label>
+                    <label class="radio-label"><input type="radio" name="ssfTargetMode" value="uuid" checked> UUID</label>
+                    <label class="radio-label"><input type="radio" name="ssfTargetMode" value="path"> Pfad</label>
+                </div>
+
+                <div class="ssf-target-grid">
+                    <div class="form-section ssf-field">
+                        <label for="ssf-fn-input">Funktion:</label>
+                        <select id="ssf-fn-select" class="ssf-uuid-only">
+                            <option value="">-- Objekt auswählen --</option>
+                        </select>
+                        <input type="text" id="ssf-fn-input" placeholder="UUID der Funktion">
+                    </div>
+
+                    <div class="form-section ssf-field">
+                        <label for="ssf-target-input">Target:</label>
+                        <select id="ssf-target-select" class="ssf-uuid-only">
+                            <option value="">-- Objekt auswählen --</option>
+                        </select>
+                        <input type="text" id="ssf-target-input" placeholder="UUID des Targets">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <label for="ssf-query-input">Query-Parameter (optional, GET hat keinen Body):</label>
+                    <input type="text" id="ssf-query-input" placeholder="z.B. lang=de&limit=5">
+                </div>
+
+                <div class="ssf-url-preview">
+                    <span class="ssf-method">GET</span>
+                    <code id="ssf-url-preview">– Funktion und Target ausfüllen –</code>
+                </div>
+
+                <div class="ssf-actions">
+                    <button id="btn-ssf-reload" class="btn btn-secondary">🔄 Objekte laden</button>
+                    <button id="btn-ssf-execute-target" class="btn btn-primary">Mit Target ausführen</button>
+                </div>
+
+                <div id="ssf-target-meta" class="ssf-meta" style="display: none;"></div>
+                <pre id="ssf-target-output" class="code-block">Wartet auf Ausführung...</pre>
+            </div>
+        </section>
+
+        <!-- AST PLAYGROUND (ALT) -->
+        <section id="ast-playground" class="card border-gray" style="display: none;">
+            <div class="card-header gray-header">
+                <h2>🛠️ AST Generator Playground (alt)</h2>
+            </div>
+            <div class="card-body">
+                <div class="form-section">
+                    <label>Target Object:</label>
+                    <input type="text" id="target-object" placeholder="z.B. dev/admin/user/test">
+                </div>
+                <div class="form-section">
+                    <label>Current Object:</label>
+                    <input type="text" id="current-object" placeholder="z.B. dev/admin/user">
+                </div>
+                <div class="form-section">
+                    <label>Code Typ:</label>
+                    <select id="code-type">
+                        <option value="javascript">JavaScript</option>
+                        <option value="ssf">Server Side Functions (SSF)</option>
+                        <option value="html">HTML</option>
+                        <option value="css">CSS</option>
+                        <option value="syntax">Syntax (JSON)</option>
+                        <option value="data">Data (JSON)</option>
+                    </select>
+                </div>
+                <textarea id="code-input" rows="5" placeholder="Gib hier deinen Code ein..."></textarea>
+                <button id="btn-parse" class="btn btn-primary mt-2">Code evaluieren & umwandeln!</button>
+            </div>
+        </section>
+
+        <pre id="api-result" class="code-block" style="display: none;"></pre>
+
+        <!-- VISUAL CANVAS (UNANGETASTET) -->
+        <section id="visual-canvas-container" class="card border-canvas" style="display: none;">
+            <div class="card-header canvas-header">
+                <h2>🧩 Syntax Canvas (Drag & Drop)</h2>
+                <p class="hint-text-light">Wähle ein Objekt, um es auf das Canvas zu legen. Ziehe Blöcke ineinander, um "children" zu erzeugen.</p>
+            </div>
+            <div class="card-body">
+                <div class="canvas-toolbar">
+                    <select id="canvas-object-dropdown">
+                        <option value="">-- Objekt zum Canvas hinzufügen --</option>
+                    </select>
+                    <button id="btn-add-to-canvas" class="btn btn-primary">➕ Aufs Canvas legen</button>
+                    <button id="btn-save-canvas" class="btn btn-success ml-auto">💾 Alle Canvas-Änderungen in DB speichern</button>
+                </div>
+                <!-- Hier drin passiert die Magie -->
+                <div id="syntax-canvas-area" class="dropzone mt-4"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <!-- Scripts -->
+    <script src="tester.js"></script>
+    <script src="roles.js"></script>
+    <script src="app.js"></script>
+    <script src="canvas.js"></script>
+</body>
+</html>

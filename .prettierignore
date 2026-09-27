@@ -1,0 +1,5 @@
+# Dateien, die Prettier NICHT formatieren soll
+node_modules
+package-lock.json
+public/legacy
+docker-compose.yml
