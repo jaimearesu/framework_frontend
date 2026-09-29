@@ -125,6 +125,37 @@ export const childRefFor = (child, identifier) => ({
 });
 
 // ------------------------------------------------------------------
+// KLONEN & ZÜGELN (Backend: POST /api/objects/:uuid/clone und /move)
+// ------------------------------------------------------------------
+
+// Herkunft einer Kopie als Text, z.B. 'Kopie von shop ["0","4,1"], Version 2'
+// (origin kommt vom Backend: { uuid, domain, path, step }). Ohne Herkunft: null
+export const originText = o => {
+    const origin = o?.origin;
+    if (!origin || !origin.domain) return null;
+    const path = Array.isArray(origin.path) && origin.path.length > 1 ? ` ${JSON.stringify(origin.path)}` : '';
+    return `Kopie von ${origin.domain}${path}, Version ${origin.step}`;
+};
+
+// Darf dieses Objekt zügeln? Dieselben Regeln wie im Backend (moveService):
+// nur eigenständige Domains, und (noch) ohne Kinder.
+// Rückgabe: { ok: true } oder { ok: false, reason }
+export const moveCheck = (o, objects) => {
+    if (!isRoot(o)) {
+        return { ok: false, reason: 'Nur eigenständige Domains können zügeln – dieses Objekt ist schon ein Kind.' };
+    }
+    if ((objects || []).some(c => c.domain_ref === o.domain)) {
+        return { ok: false, reason: 'Das Objekt hat Kinder. Zügeln geht (noch) nur für Objekte ohne Kinder.' };
+    }
+    return { ok: true };
+};
+
+// Wohin darf es zügeln? Überallhin ausser in sich selbst bzw. die eigene Familie.
+// (Ob du dort red hast, prüft das Backend.)
+export const moveTargets = (objects, o) =>
+    (objects || []).filter(p => p.uuid !== o.uuid && objectFamily(p) !== objectFamily(o));
+
+// ------------------------------------------------------------------
 // Laden (mit kurzem Zwischenspeicher, damit nicht jede Seite neu fragt)
 // ------------------------------------------------------------------
 let cache = null; // { at, base, result }  (base = welches Backend: Live oder Test)

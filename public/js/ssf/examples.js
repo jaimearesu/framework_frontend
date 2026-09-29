@@ -483,6 +483,59 @@ if (test === 'fehler') {
 
 return { hinweis: 'Unbekannter Test. Erlaubt: rechte, schleife, aufrufe, ssrf, reserviert, fehler' };
 `
+    },
+
+    // ------------------------------------------------------------------
+    {
+        id: 'verkaufsautomat',
+        title: 'Verkaufsautomat',
+        level: 'Profi',
+        summary: 'Eine Kopie für den Besucher klonen, verschenken und danach zurücktreten.',
+        learn: [
+            'api.objects.clone: Kopie als NEUE Domain – Code, auf Wunsch Daten, nie Tresor',
+            'Die Kopie trägt ihre Herkunft (origin) mit',
+            'api.roles.grant: der Besucher bekommt alles, auch blue',
+            'api.roles.leave: die SSF tritt zurück – danach gehört die Kopie nur noch dem Besucher',
+            'Dein Original bleibt geschützt: der Besucher bekommt nie Rechte darauf'
+        ],
+        tools: ['objects.clone', 'roles.grant', 'roles.leave'],
+        body: { mitDaten: true },
+        presets: {
+            'Mit Daten': { mitDaten: true },
+            'Nur Code': { mitDaten: false }
+        },
+        code: `// 10) VERKAUFSAUTOMAT
+// Achtung: legt bei jedem Ausführen eine ECHTE neue Domain an.
+// Die Kopie gehört danach dem Besucher – unter "Objekte" kann er sie
+// in seine eigene Domain zügeln.
+const kunde = requestContext.userUuid;
+if (!kunde) {
+    return { ok: false, fehler: 'Bitte zuerst etwas erstellen oder einloggen (dann bist du Gast/User).' };
+}
+
+// 1. Klonen: die Produkte als neue Domain (jeder Name existiert nur einmal)
+const name = 'kauf-' + Math.random().toString(36).slice(2, 8);
+const kopie = await api.objects.clone('{{SHOP}}/produkte', name, {
+    withData: requestContext.body?.mitDaten !== false
+});
+
+// 2. Verschenken: der Kunde bekommt alle drei Rollen
+for (const rolle of ['black', 'red', 'blue']) {
+    await api.roles.grant(kopie.uuid, kunde, rolle);
+}
+
+// 3. Zurücktreten: Ab jetzt hat die SSF auf die Kopie keine Rechte mehr.
+//    (Ginge nicht, wenn der Kunde kein blue hätte – das Objekt wäre herrenlos.)
+const austritt = await api.roles.leave(kopie.uuid);
+
+return {
+    ok: true,
+    kopie: kopie.domain,
+    herkunft: kopie.origin,
+    ssfHatAbgegeben: austritt.left,
+    hinweis: 'Die Kopie gehört jetzt dir. Unter "Objekte" findest du sie – dort kannst du sie auch zügeln.'
+};
+`
     }
 ];
 
