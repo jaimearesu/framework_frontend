@@ -65,7 +65,7 @@ export default {
 
         root.append(
             pageHeader({
-                intro: 'Server-Funktionen (SSF) laufen abgeschottet in einer Sandbox – mit den Rechten des SSF-Objekts, nicht mit denen des Besuchers. Hier schreibst du sie, führst sie aus und lernst aus 9 Beispielen.'
+                intro: 'Server-Funktionen (SSF) laufen abgeschottet in einer Sandbox – mit den Rechten des SSF-Objekts, nicht mit denen des Besuchers. Hier schreibst du sie, führst sie aus und lernst aus 10 Beispielen.'
             })
         );
 

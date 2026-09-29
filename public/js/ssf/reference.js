@@ -1,6 +1,6 @@
 // js/ssf/reference.js
 // ---------------------------------------------------------------------
-// WERKZEUG-REFERENZ: alle 15 Werkzeuge, die eine SSF über "api" hat.
+// WERKZEUG-REFERENZ: alle 17 Werkzeuge, die eine SSF über "api" hat.
 // (Stand Backend: src/services/ssfApi/index.js)
 //
 // Felder:
@@ -17,7 +17,7 @@
 
 export const TOOL_GROUPS = [
     { id: 'data', title: 'Daten', text: 'Datensätze eines Objekts lesen und schreiben.' },
-    { id: 'objects', title: 'Objekte', text: 'Objekte ansehen und neue anlegen.' },
+    { id: 'objects', title: 'Objekte', text: 'Objekte ansehen, neue anlegen und klonen.' },
     { id: 'relations', title: 'Relationen', text: 'Objekte miteinander verbinden (Grundlage für Joins).' },
     { id: 'roles', title: 'Rollen', text: 'Rechte vergeben, entziehen und ansehen.' },
     { id: 'http', title: 'Aussenwelt', text: 'Fremde Server fragen – abgesichert gegen Missbrauch.' },
@@ -79,8 +79,8 @@ export const TOOLS = [
         group: 'objects',
         signature: 'ziel',
         role: 'black',
-        returns: '{ uuid, domain, domainRef, path, createdAt, updatedAt }',
-        text: 'Grunddaten eines Objekts – ohne persönliche Angaben (kein Besitzer, kein User).',
+        returns: '{ uuid, domain, domainRef, path, origin, createdAt, updatedAt }',
+        text: 'Grunddaten eines Objekts – ohne persönliche Angaben (kein Besitzer, kein User). origin ist bei Kopien die Herkunft { uuid, domain, path, step }, sonst null.',
         snippet: "const info = await api.objects.get('shop');\n"
     },
     {
@@ -92,6 +92,17 @@ export const TOOLS = [
         returns: '{ uuid, domain, domainRef, path, createdAt, updatedAt }',
         text: 'Neue Domain anlegen. Die SSF bekommt black, red und blue darauf – Menschen zunächst nichts (vergeben mit roles.grant).',
         snippet: "const projekt = await api.objects.create('projekt-' + Math.random().toString(36).slice(2, 8));\n"
+    },
+    {
+        name: 'objects.clone',
+        group: 'objects',
+        signature: 'ziel, neueDomain, { version, withData }',
+        role: 'red (einstellbar: CLONE_PERMISSION)',
+        budget: 'objects (1) + writes (je mitkopiertem Datensatz 1)',
+        returns: '{ uuid, domain, domainRef, path, origin, createdAt, updatedAt }',
+        text: 'Kopie als NEUE Domain: Code genau einer Version (Standard: neueste), Daten nur mit withData. Tresor-Schlüssel, Rechte und Relationen kommen nie mit. Die SSF wird Besitzerin – typisch danach: roles.grant an den Kunden und roles.leave.',
+        snippet:
+            "const kopie = await api.objects.clone('shop/produkte', 'kauf-' + Math.random().toString(36).slice(2, 8), { withData: true });\n"
     },
     {
         name: 'relations.get',
@@ -137,6 +148,16 @@ export const TOOLS = [
         returns: '[ { uuid, roles: ["black", "red", …] } ]',
         text: 'Wer hat welche Rollen auf dem Ziel? (nur UUIDs, keine persönlichen Daten)',
         snippet: 'const mitglieder = await api.roles.list(projekt.uuid);\n'
+    },
+    {
+        name: 'roles.leave',
+        group: 'roles',
+        signature: 'ziel',
+        role: '– (gibt nur die EIGENEN Rollen ab)',
+        budget: 'writes (1)',
+        returns: '{ left: ["black", "blue", "red"] }',
+        text: 'Die SSF tritt selbst zurück. Geht nur, wenn danach noch ein anderer Verwalter (blue) da ist – und nie aus dem Triplet, das die SSF selbst schützt.',
+        snippet: 'await api.roles.leave(kopie.uuid);\n'
     },
     {
         name: 'http.fetch',

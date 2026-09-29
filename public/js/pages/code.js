@@ -323,7 +323,7 @@ export default {
                         'Ausführen & Beispiele:',
                         ' Im ',
                         h('a', { href: href('ssf', uuid) }, 'SSF-Studio'),
-                        ' – mit 9 Beispielen und allen Werkzeugen.'
+                        ' – mit 10 Beispielen und allen Werkzeugen.'
                     )
                 );
                 return;

@@ -740,6 +740,132 @@ export const CHECKS = [
         }
     },
 
+    // ============================================================== KLONEN & ZÜGELN
+    // Legt zusätzlich an: check-xxxx-kopie (wird danach in check-xxxx gezügelt),
+    // check-xxxx-daten (Kopie mit Daten) und check-xxxx-kauf (vom Verkaufsautomaten)
+    {
+        id: 'clone',
+        group: 'Klonen & Zügeln',
+        title: 'Klonen: Kopie als neue Domain, mit Herkunft',
+        needs: ['root'],
+        run: async ctx => {
+            ctx.copyName = `${ctx.domainName}-kopie`;
+            const r = await api.post(`/api/objects/${ctx.root}/clone`, { domain: ctx.copyName });
+            expectStatus(r, 201, 'POST /clone');
+            const origin = r.data.data.origin;
+            expect(origin?.uuid === ctx.root && origin?.domain === ctx.domainName, 'Herkunft fehlt oder falsch', r);
+            ctx.copy = r.data.data.uuid;
+            return `${ctx.copyName} ← ${ctx.domainName}, Version ${origin.step}`;
+        }
+    },
+    {
+        id: 'clone-data',
+        group: 'Klonen & Zügeln',
+        title: 'Klonen mit Daten: alle Datensätze kommen mit',
+        needs: ['daten', 'dataInserted'],
+        run: async ctx => {
+            // Wie viele hat das Original gerade? (frühere Prüfungen löschen/fügen einzelne hinzu)
+            const original = await api.post(`/api/core-data/search/${ctx.daten}`, {});
+            expectStatus(original, 200, 'Suche im Original');
+            const want = original.data.meta?.total_count;
+
+            const r = await api.post(`/api/objects/${ctx.daten}/clone`, {
+                domain: `${ctx.domainName}-daten`,
+                withData: true
+            });
+            expectStatus(r, 201, 'POST /clone mit withData');
+            const s = await api.post(`/api/core-data/search/${r.data.data.uuid}`, {});
+            expectStatus(s, 200, 'Suche in der Kopie');
+            const n = s.data.meta?.total_count;
+            expect(n === want && n > 0, `Kopie hat ${n} Datensätze, das Original ${want}`, s);
+            return `${n} Datensätze kopiert`;
+        }
+    },
+    {
+        id: 'clone-bad-version',
+        group: 'Klonen & Zügeln',
+        title: 'Klonen einer Version, die es nicht gibt, wird abgelehnt (400)',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.post(`/api/objects/${ctx.root}/clone`, { domain: `${ctx.domainName}-x`, version: 999 });
+            expectStatus(r, 400, 'Version 999');
+            return r.error;
+        }
+    },
+    {
+        id: 'move',
+        group: 'Klonen & Zügeln',
+        title: 'Zügeln: die Kopie zieht als Kind in die Test-Domain',
+        needs: ['copy'],
+        run: async ctx => {
+            const r = await api.post(`/api/objects/${ctx.copy}/move`, { targetParent: ctx.root, pathStep: 'base' });
+            expectStatus(r, 200, 'POST /move');
+            const moved = r.data.data;
+            expect(moved.domain === null && moved.domain_ref === ctx.domainName, 'neuer Platz stimmt nicht', r);
+            ctx.moved = true;
+            return `jetzt ${ctx.domainName} ${JSON.stringify(moved.path)}`;
+        }
+    },
+    {
+        id: 'move-name-locked',
+        group: 'Klonen & Zügeln',
+        title: 'Der alte Name ist danach gesperrt (409)',
+        needs: ['moved'],
+        run: async ctx => {
+            const r = await api.post('/api/objects', { domain: ctx.copyName });
+            expectStatus(r, 409, 'alten Namen neu anlegen');
+            expect(/gesperrt/.test(r.error || ''), `unerwartete Meldung "${r.error}"`, r);
+            return r.error;
+        }
+    },
+    {
+        id: 'move-with-children',
+        group: 'Klonen & Zügeln',
+        title: 'Eine Domain mit Kindern kann (noch) nicht zügeln (409)',
+        needs: ['root', 'copy'],
+        run: async ctx => {
+            // check-xxxx hat Kinder (funktion, daten, lager) – Ziel egal
+            const r = await api.post(`/api/objects/${ctx.root}/move`, { targetParent: ctx.copy });
+            expect(r.status === 409, `erwartet 409, bekommen ${r.status}`, r);
+            return r.error;
+        }
+    },
+    {
+        id: 'ssf-vending',
+        group: 'Klonen & Zügeln',
+        title: 'Verkaufsautomat: SSF klont, verschenkt und tritt zurück',
+        needs: ['funktion', 'daten'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `const kopie = await api.objects.clone('${ctx.domainName}/daten', '${ctx.domainName}-kauf');
+for (const rolle of ['black', 'red', 'blue']) await api.roles.grant(kopie.uuid, requestContext.userUuid, rolle);
+const austritt = await api.roles.leave(kopie.uuid);
+return { uuid: kopie.uuid, left: austritt.left };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const result = r.data.result;
+            expect(result.left?.join(',') === 'black,blue,red', `SSF hat abgegeben: ${result.left}`, r);
+            // Die Kopie gehört jetzt dir: du siehst ihre Rollen (dafür braucht es black)
+            const roles = await api.get(`/api/objects/${result.uuid}/roles`);
+            expectStatus(roles, 200, 'Rollen der Kopie ansehen');
+            return 'Kopie gehört dir, SSF ist raus';
+        }
+    },
+    {
+        id: 'ssf-leave-last-admin',
+        group: 'Klonen & Zügeln',
+        title: 'SSF kann nicht zurücktreten, wenn das Objekt herrenlos würde',
+        needs: ['funktion'],
+        run: ctx =>
+            expectSsfError(
+                ctx,
+                `const o = await api.objects.create('${ctx.domainName}-solo');\nawait api.roles.leave(o.uuid);`,
+                /herrenlos/,
+                'leave ohne anderen Verwalter'
+            )
+    },
+
     // ============================================================== SICHERHEIT (als Fremder)
     {
         id: 'stranger-list',
@@ -777,6 +903,11 @@ export const CHECKS = [
             'stranger-vault',
             'Fremder sieht den Tresor nicht',
             ctx => api.get(`/api/secrets/${ctx.funktion}`, { anonymous: true })
+        ],
+        [
+            'stranger-clone',
+            'Fremder kann nichts klonen',
+            ctx => api.post(`/api/objects/${ctx.root}/clone`, { domain: `${ctx.domainName}-klau` }, { anonymous: true })
         ],
         [
             'stranger-roles',

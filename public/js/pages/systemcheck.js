@@ -276,7 +276,7 @@ export default {
                     { class: 'small muted' },
                     'Nach dem Check findest du die Test-Domain unter ',
                     h('a', { href: href('objekte') }, 'Objekte'),
-                    '. Ein automatischer Check der Backend-Logik läuft zusätzlich mit „npm test“ im Backend-Ordner (über 440 Tests).'
+                    '. Ein automatischer Check der Backend-Logik läuft zusätzlich mit „npm test“ im Backend-Ordner (über 500 Tests).'
                 )
             )
         );

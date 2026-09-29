@@ -14,9 +14,16 @@ import { CHILDREN, SEED_PRODUCTS, SEED_STOCK } from '../public/js/ssf/playground
 const AsyncFunction = (async () => {}).constructor;
 
 describe('ssf: Beispiel-Bibliothek', () => {
-    test('es gibt 9 Beispiele mit eindeutiger id', () => {
-        assert.equal(EXAMPLES.length, 9);
-        assert.equal(new Set(EXAMPLES.map(e => e.id)).size, 9);
+    test('es gibt 10 Beispiele mit eindeutiger id', () => {
+        assert.equal(EXAMPLES.length, 10);
+        assert.equal(new Set(EXAMPLES.map(e => e.id)).size, 10);
+    });
+
+    test('der Verkaufsautomat klont, verschenkt und tritt zurück', () => {
+        const ex = findExample('verkaufsautomat');
+        for (const call of ['api.objects.clone(', 'api.roles.grant(', 'api.roles.leave(']) {
+            assert.ok(ex.code.includes(call), call);
+        }
     });
 
     for (const ex of EXAMPLES) {
@@ -64,7 +71,7 @@ describe('ssf: Beispiel-Bibliothek', () => {
 });
 
 describe('ssf: Werkzeug-Referenz', () => {
-    test('alle 15 Werkzeuge des Backends sind beschrieben', () => {
+    test('alle 17 Werkzeuge des Backends sind beschrieben', () => {
         assert.deepEqual(TOOLS.map(t => t.name).sort(), [
             'data.delete',
             'data.find',
@@ -72,11 +79,13 @@ describe('ssf: Werkzeug-Referenz', () => {
             'data.insert',
             'data.update',
             'http.fetch',
+            'objects.clone',
             'objects.create',
             'objects.get',
             'relations.add',
             'relations.get',
             'roles.grant',
+            'roles.leave',
             'roles.list',
             'roles.revoke',
             'secrets.get',

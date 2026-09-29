@@ -3,8 +3,9 @@
 // OBJEKTE
 //
 //   links:  alle Objekte, die du sehen darfst – als Baum (Wurzel > Kinder)
-//   rechts: das gewählte Objekt mit vier Reitern
-//             Übersicht · Baum (DNA aufgelöst) · Rollen · Kind anhängen
+//   rechts: das gewählte Objekt mit sechs Reitern
+//             Übersicht (mit Herkunft bei Kopien) · Vorschau · Baum (DNA aufgelöst)
+//             · Rollen · Kind anhängen · Klonen & Zügeln
 //   unten:  "Pfad auflösen" – so wie ein Besucher eine Adresse aufruft
 //
 // Adresse: /#/objekte            -> nur Liste
@@ -45,7 +46,10 @@ import {
     latestStep,
     childRefFor,
     loadCode,
-    saveCode
+    saveCode,
+    originText,
+    moveCheck,
+    moveTargets
 } from '../core/objects.js';
 import { addChildToDna } from '../core/dna.js';
 import { renderDnaTree } from '../core/tree.js';
@@ -198,6 +202,23 @@ const renderInfoTab = async (box, o, objects) => {
                       )
                     : 'keine'
             ],
+            // Herkunft (nur bei Kopien): mit Link, falls du das Original sehen darfst
+            originText(o)
+                ? [
+                      'Herkunft',
+                      (() => {
+                          const original = objects.find(x => x.uuid === o.origin.uuid);
+                          return original
+                              ? h('a', { href: href('objekte', original.uuid) }, originText(o))
+                              : h(
+                                    'span',
+                                    {},
+                                    originText(o),
+                                    h('span', { class: 'muted small' }, ' (Original nicht sichtbar)')
+                                );
+                      })()
+                  ]
+                : null,
             ['Erstellt', `${formatDate(o.created_at)} (${timeAgo(o.created_at)})`],
             ['Zuletzt geändert', o.updated_at ? `${formatDate(o.updated_at)} (${timeAgo(o.updated_at)})` : '–'],
             ['Code-Arten', codeBox]
@@ -534,6 +555,197 @@ const renderLinkTab = (box, o, { onCreated }) => {
     );
 };
 
+// --- Reiter "Klonen & Zügeln" ---
+// Klonen:  POST /api/objects/:uuid/clone  -> Kopie als NEUE Domain (gehört dir)
+// Zügeln:  POST /api/objects/:uuid/move   -> das Objekt zieht in eine andere Familie
+const renderCopyTab = (box, o, objects, { onDone }) => {
+    const family = objectFamily(o);
+    const versions = Array.isArray(o.path_directory) ? [...o.path_directory].reverse() : [];
+
+    // ---------- KLONEN ----------
+    const cloneName = h('input', {
+        class: 'input',
+        placeholder: `z.B. ${family}-kopie`,
+        autocomplete: 'off',
+        maxlength: 100
+    });
+    const cloneVersion = h(
+        'select',
+        { class: 'input' },
+        versions.map((v, i) =>
+            h(
+                'option',
+                { value: String(v.step) },
+                `Version ${v.step}${i === 0 ? ' (neuste)' : ''} – ${formatDate(v.timestamp)}`
+            )
+        )
+    );
+    const withData = h('input', { type: 'checkbox' });
+    const cloneOut = h('div');
+
+    const doClone = async () => {
+        const domain = cloneName.value.trim();
+        if (!domain) return toast('Bitte einen Namen für die Kopie eingeben.', 'error');
+        const res = await api.post(`/api/objects/${o.uuid}/clone`, {
+            domain,
+            version: Number(cloneVersion.value),
+            withData: withData.checked
+        });
+        mount(cloneOut, resultLine(res));
+        if (!res.ok) return;
+        toast(`Kopie „${domain}“ erstellt.`, 'ok');
+        onDone(res.data?.data?.uuid);
+    };
+    cloneName.addEventListener('keydown', e => e.key === 'Enter' && doClone());
+
+    const cloneCard = card(
+        {
+            title: 'Klonen',
+            icon: 'layers',
+            subtitle: 'Eine Kopie als NEUE Domain. Sie gehört dir, das Original bleibt unverändert.'
+        },
+        h(
+            'ul',
+            { class: 'small muted' },
+            h('li', {}, '✅ Code genau der gewählten Version (auch SSF-Code)'),
+            h('li', {}, '✅ Daten nur, wenn du den Haken setzt (höchstens 10’000 Datensätze)'),
+            h('li', {}, '❌ Nie Tresor-Schlüssel, Rechte oder Relationen'),
+            h(
+                'li',
+                {},
+                'Kinder in der DNA bleiben Verweise auf das Original. Wer sie auch besitzen will, klont sie einzeln.'
+            )
+        ),
+        h(
+            'div',
+            { class: 'form-grid' },
+            field('Name der Kopie', cloneName, 'Wird eine neue Domain – jeder Name existiert nur einmal.'),
+            field('Welche Version?', cloneVersion)
+        ),
+        h('label', { class: 'check' }, withData, h('span', {}, 'Daten (Datensätze) mitkopieren')),
+        h('div', {}, busyButton('Klonen', doClone, { className: 'btn primary', iconName: 'layers' })),
+        cloneOut
+    );
+
+    // ---------- ZÜGELN ----------
+    const check = moveCheck(o, objects);
+    const targets = moveTargets(objects, o);
+    let moveBody;
+
+    if (!check.ok) {
+        moveBody = callout('info', 'Zügeln nicht möglich:', ' ', check.reason);
+    } else if (!targets.length) {
+        moveBody = callout('info', 'Kein Ziel:', ' Du siehst kein anderes Objekt, in das dieses zügeln könnte.');
+    } else {
+        const target = h(
+            'select',
+            { class: 'input' },
+            targets.map(t => h('option', { value: t.uuid }, `${objectLabel(t)} (Familie ${objectFamily(t)})`))
+        );
+        const addToDna = h('input', { type: 'checkbox', checked: true });
+        const moveLog = h('div', { class: 'steps-log' });
+
+        const doMove = async () => {
+            const parent = targets.find(t => t.uuid === target.value);
+            if (
+                !confirm(
+                    `„${o.domain}“ nach „${objectLabel(parent)}“ zügeln?\n\n` +
+                        `• Der Name „${o.domain}“ wird für immer gesperrt.\n` +
+                        `• Wer nur auf dieses Objekt Rechte hatte, verliert sie.\n` +
+                        `• Danach gelten die Rechte der Familie „${objectFamily(parent)}“.`
+                )
+            )
+                return;
+            mount(moveLog);
+
+            // Schritt 1: zügeln (an der neusten Version des neuen Eltern-Objekts)
+            const step = latestStep(parent);
+            const res = await api.post(`/api/objects/${o.uuid}/move`, {
+                targetParent: parent.uuid,
+                pathStep: step === null ? 'base' : step
+            });
+            log(moveLog, '1. Zügeln', res);
+            if (!res.ok) return;
+            const moved = res.data?.data;
+            const lost = res.data?.removedMembers || 0;
+            if (lost)
+                moveLog.append(
+                    callout('warn', `${lost} Mitglied${lost === 1 ? '' : 'er'}`, ' hat/haben dabei Rechte verloren.')
+                );
+
+            // Schritt 2 (optional): in die DNA des neuen Eltern-Objekts eintragen
+            if (addToDna.checked && moved) {
+                const code = await loadCode(parent.uuid);
+                let dna;
+                try {
+                    dna = code.code.syntax
+                        ? JSON.parse(code.code.syntax)
+                        : {
+                              type: 'instance',
+                              identifier: objectFamily(parent),
+                              domain: objectFamily(parent),
+                              source: parent.path
+                          };
+                } catch {
+                    moveLog.append(
+                        callout(
+                            'error',
+                            'Die DNA des neuen Eltern-Objekts ist kein gültiges JSON.',
+                            ' Bitte im Code-Editor reparieren.'
+                        )
+                    );
+                    return;
+                }
+                const updated = addChildToDna(dna, childRefFor(moved, o.domain));
+                const save = await saveCode(parent.uuid, [{ type: 'syntax', code: JSON.stringify(updated, null, 2) }]);
+                log(moveLog, '2. In die DNA des neuen Eltern-Objekts eintragen', save);
+                if (!save.ok) return;
+            }
+
+            toast(`„${o.domain}“ gezügelt.`, 'ok');
+            onDone(o.uuid);
+        };
+
+        moveBody = h(
+            'div',
+            {},
+            field('Neues Eltern-Objekt', target, 'Du brauchst dort die red-Rolle. Das Objekt wird dort ein Kind.'),
+            h(
+                'label',
+                { class: 'check' },
+                addToDna,
+                h('span', {}, 'Auch gleich in die DNA des neuen Eltern-Objekts eintragen (empfohlen)')
+            ),
+            callout(
+                'warn',
+                'Achtung:',
+                ` Der Name „${o.domain}“ wird danach für immer gesperrt, und wer nur auf dieses Objekt Rechte hatte, verliert sie. Code, Daten, Tresor und Herkunft bleiben.`
+            ),
+            h('div', {}, busyButton('Zügeln', doMove, { className: 'btn primary', iconName: 'arrowRight' })),
+            moveLog
+        );
+    }
+
+    const moveCard = card(
+        {
+            title: 'Zügeln',
+            icon: 'arrowRight',
+            subtitle: 'Dieses Objekt zieht in eine andere Familie um – z.B. eine gekaufte Kopie in deine eigene Domain.'
+        },
+        h(
+            'p',
+            { class: 'muted small' },
+            'Dafür brauchst du blue auf dieses Objekt (es gehört dir) und red auf den neuen Platz.'
+        ),
+        moveBody
+    );
+
+    mount(box, cloneCard, moveCard);
+};
+
+// Eine Zeile im Schritt-Protokoll: Überschrift + Ergebnis
+const log = (box, title, res) => box.append(h('div', { class: 'muted small' }, title), resultLine(res));
+
 const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
     const body = h('div', { class: 'tab-body' });
     const TABS = [
@@ -541,7 +753,8 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         { id: 'vorschau', label: 'Vorschau' },
         { id: 'baum', label: 'Baum' },
         { id: 'rollen', label: 'Rollen' },
-        { id: 'kind', label: 'Kind anhängen' }
+        { id: 'kind', label: 'Kind anhängen' },
+        { id: 'kopie', label: 'Klonen & Zügeln' }
     ];
     const show = id => {
         onTab(id);
@@ -551,6 +764,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         else if (id === 'vorschau') renderPreviewTab(body, o, objects);
         else if (id === 'baum') renderTreeTab(body, o, objects);
         else if (id === 'rollen') renderRolesTab(body, o);
+        else if (id === 'kopie') renderCopyTab(body, o, objects, { onDone: uuid => reload(uuid) });
         else renderLinkTab(body, o, { onCreated: uuid => reload(uuid) });
     };
     const active = TABS.some(t => t.id === tab) ? tab : 'info';
