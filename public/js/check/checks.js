@@ -10,10 +10,11 @@
 //   ├── daten                12 Test-Datensätze
 //   └── lager                Ziel einer Relation (für Joins)
 //
-// ACHTUNG: Das Backend hat (noch) keine Route zum Löschen von Objekten.
-// Die Test-Domain bleibt darum bestehen. Im Test-Modus ist das egal
-// ("npm test" leert die Test-Datenbank), im Live-Modus landet sie in
-// deiner echten Datenbank – darum fragt der Systemcheck dort nach.
+// AUFRÄUMEN: Die letzte Gruppe "Löschen & Aufräumen" löscht alles wieder,
+// was der Check angelegt hat (von unten nach oben, DELETE /api/objects/:uuid).
+// Die Namen bleiben danach gesperrt – sie sind zufällig, das stört nicht.
+// Bricht der Check vorher ab, bleibt ein Rest liegen – darum fragt der
+// Systemcheck im Live-Modus weiterhin nach.
 //
 // Jede Prüfung: { id, group, title, needs?, run(ctx) }  (siehe runner.js)
 // ---------------------------------------------------------------------
@@ -499,6 +500,7 @@ export const CHECKS = [
             // Eine zweite Domain gibt "lager" (einem Objekt der Check-Domain) Leserechte …
             const second = await api.post('/api/objects', { domain: ctx.domainName + '-zwei' });
             expectStatus(second, 201, 'zweite Domain');
+            ctx.zwei = second.data.data.uuid; // zum Aufräumen am Schluss
             const roles = await api.get(`/api/objects/${second.data.data.uuid}/roles`);
             const t2 = roles.data?.[ctx.domainName + '-zwei']?.[0]?.triplet_uuid;
             expect(t2, 'Triplet der zweiten Domain fehlt', roles);
@@ -774,6 +776,7 @@ export const CHECKS = [
                 withData: true
             });
             expectStatus(r, 201, 'POST /clone mit withData');
+            ctx.dataCopy = r.data.data.uuid; // zum Aufräumen am Schluss
             const s = await api.post(`/api/core-data/search/${r.data.data.uuid}`, {});
             expectStatus(s, 200, 'Suche in der Kopie');
             const n = s.data.meta?.total_count;
@@ -845,6 +848,7 @@ return { uuid: kopie.uuid, left: austritt.left };`
             );
             expectStatus(r, 200, 'Ausführen');
             const result = r.data.result;
+            ctx.kauf = result.uuid; // zum Aufräumen am Schluss
             expect(result.left?.join(',') === 'black,blue,red', `SSF hat abgegeben: ${result.left}`, r);
             // Die Kopie gehört jetzt dir: du siehst ihre Rollen (dafür braucht es black)
             const roles = await api.get(`/api/objects/${result.uuid}/roles`);
@@ -857,13 +861,17 @@ return { uuid: kopie.uuid, left: austritt.left };`
         group: 'Klonen & Zügeln',
         title: 'SSF kann nicht zurücktreten, wenn das Objekt herrenlos würde',
         needs: ['funktion'],
-        run: ctx =>
-            expectSsfError(
+        run: ctx => {
+            // "-solo" bleibt danach bestehen und gehört NUR der SSF.
+            // Die Gruppe "Löschen & Aufräumen" holt es am Schluss zurück.
+            ctx.soloName = `${ctx.domainName}-solo`;
+            return expectSsfError(
                 ctx,
-                `const o = await api.objects.create('${ctx.domainName}-solo');\nawait api.roles.leave(o.uuid);`,
+                `const o = await api.objects.create('${ctx.soloName}');\nawait api.roles.leave(o.uuid);`,
                 /herrenlos/,
                 'leave ohne anderen Verwalter'
-            )
+            );
+        }
     },
 
     // ============================================================== SICHERHEIT (als Fremder)
@@ -910,6 +918,11 @@ return { uuid: kopie.uuid, left: austritt.left };`
             ctx => api.post(`/api/objects/${ctx.root}/clone`, { domain: `${ctx.domainName}-klau` }, { anonymous: true })
         ],
         [
+            'stranger-delete',
+            'Fremder kann nichts löschen',
+            ctx => api.del(`/api/objects/${ctx.root}`, { anonymous: true })
+        ],
+        [
             'stranger-roles',
             'Fremder kann keine Rollen vergeben',
             ctx => api.put(`/api/roles/${ctx.daten}/triplets/${ctx.triplet}`, { roleType: 'blue' }, { anonymous: true })
@@ -924,7 +937,126 @@ return { uuid: kopie.uuid, left: austritt.left };`
             expect(r.status === 403 || r.status === 404, `erwartet 403/404, bekommen ${r.status}`, r);
             return String(r.status);
         }
-    }))
+    })),
+
+    // ============================================================== LÖSCHEN & AUFRÄUMEN
+    // Muss GANZ AM SCHLUSS stehen: Hier wird alles gelöscht, was der Check
+    // angelegt hat. Regeln (Plan "Objekte löschen"): blue nötig, nur ohne
+    // Kinder, Name wird gesperrt, nie herrenlos.
+    {
+        id: 'delete-with-children',
+        group: 'Löschen & Aufräumen',
+        title: 'Eine Domain mit Kindern kann nicht gelöscht werden (409)',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.del(`/api/objects/${ctx.root}`);
+            expectStatus(r, 409, 'Domain mit Kindern löschen');
+            return r.error;
+        }
+    },
+    {
+        id: 'delete-orphan-guard',
+        group: 'Löschen & Aufräumen',
+        title: 'Nie herrenlos: die SSF ist einzige Verwalterin von „-solo“ (409)',
+        needs: ['funktion', 'soloName'],
+        run: async ctx => {
+            const r = await api.del(`/api/objects/${ctx.funktion}`);
+            expectStatus(r, 409, 'SSF löschen');
+            const orphans = r.data?.orphans || [];
+            expect(orphans.includes(ctx.soloName), `„${ctx.soloName}“ fehlt in der Liste: ${orphans.join(', ')}`, r);
+            return `betroffen: ${orphans.join(', ')}`;
+        }
+    },
+    {
+        id: 'delete-solo',
+        group: 'Löschen & Aufräumen',
+        title: 'Die SSF gibt dir „-solo“ (blue), danach kannst du es löschen',
+        needs: ['funktion', 'soloName'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `const o = await api.objects.get('${ctx.soloName}');
+for (const rolle of ['black', 'red', 'blue']) await api.roles.grant(o.uuid, requestContext.userUuid, rolle);
+return o.uuid;`
+            );
+            expectStatus(r, 200, 'SSF gibt ab');
+            const d = await api.del(`/api/objects/${r.data.result}`);
+            expectStatus(d, 200, '„-solo“ löschen');
+            return `${ctx.soloName} gelöscht`;
+        }
+    },
+    {
+        id: 'delete-children',
+        group: 'Löschen & Aufräumen',
+        title: 'Von unten nach oben: zuerst die Kinder löschen',
+        needs: ['root', 'funktion', 'daten', 'lager'],
+        run: async ctx => {
+            // Die gezügelte Kopie ist ebenfalls ein Kind von check-xxxx
+            const kids = { funktion: ctx.funktion, daten: ctx.daten, lager: ctx.lager };
+            if (ctx.moved) kids.kopie = ctx.copy;
+            for (const [name, uuid] of Object.entries(kids)) {
+                const r = await api.del(`/api/objects/${uuid}`);
+                expectStatus(r, 200, `Kind „${name}“ löschen`);
+            }
+            ctx.childrenDeleted = true;
+            return Object.keys(kids).join(', ');
+        }
+    },
+    {
+        id: 'delete-root',
+        group: 'Löschen & Aufräumen',
+        title: 'Danach die Domain selbst löschen',
+        needs: ['root', 'childrenDeleted'],
+        run: async ctx => {
+            const r = await api.del(`/api/objects/${ctx.root}`);
+            expectStatus(r, 200, 'Domain löschen');
+            ctx.rootDeleted = true;
+            return `${ctx.domainName} gelöscht`;
+        }
+    },
+    {
+        id: 'delete-name-locked',
+        group: 'Löschen & Aufräumen',
+        title: 'Der Name ist danach gesperrt (409)',
+        needs: ['rootDeleted'],
+        run: async ctx => {
+            const r = await api.post('/api/objects', { domain: ctx.domainName });
+            expectStatus(r, 409, 'gelöschten Namen neu anlegen');
+            expect(/gesperrt/.test(r.error || ''), `unerwartete Meldung "${r.error}"`, r);
+            return r.error;
+        }
+    },
+    {
+        id: 'delete-extras',
+        group: 'Löschen & Aufräumen',
+        title: 'Die übrigen Test-Domains löschen (-zwei, -daten, -kauf)',
+        needs: ['root'],
+        run: async ctx => {
+            const extras = { zwei: ctx.zwei, daten: ctx.dataCopy, kauf: ctx.kauf };
+            const done = [];
+            for (const [name, uuid] of Object.entries(extras)) {
+                if (!uuid) continue; // wurde nicht angelegt (frühere Prüfung fehlgeschlagen)
+                const r = await api.del(`/api/objects/${uuid}`);
+                expectStatus(r, 200, `„-${name}“ löschen`);
+                done.push(`-${name}`);
+            }
+            return done.length ? done.join(', ') : 'nichts zu tun';
+        }
+    },
+    {
+        id: 'delete-all-gone',
+        group: 'Löschen & Aufräumen',
+        title: 'Aufgeräumt: kein Objekt des Checks ist übrig',
+        needs: ['rootDeleted'],
+        run: async ctx => {
+            const r = await api.get('/api/objects');
+            expectStatus(r, 200, 'Objekt-Liste');
+            const prefix = ctx.domainName;
+            const left = (r.data || []).filter(o => (o.domain || o.domain_ref || '').startsWith(prefix));
+            expect(left.length === 0, `${left.length} Objekte sind übrig`, r);
+            return 'alles weg';
+        }
+    }
 ];
 
 export const CHECK_GROUPS = [...new Set(CHECKS.map(c => c.group))];

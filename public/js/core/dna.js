@@ -122,6 +122,18 @@ export const analyzeDna = (input, { knownDomains = null } = {}) => {
     return result;
 };
 
+// Ein Kind aus der DNA entfernen (z.B. nachdem es gelöscht wurde).
+// Gesucht wird wie bei addChildToDna über domain + source.
+// Rückgabe: { dna: NEUE DNA, removed: wie viele Einträge entfernt wurden }
+export const removeChildFromDna = (dna, childRef) => {
+    const copy = JSON.parse(JSON.stringify(dna || {}));
+    const children = Array.isArray(copy.children) ? copy.children : [];
+    const same = c => JSON.stringify(c?.source) === JSON.stringify(childRef.source) && c?.domain === childRef.domain;
+    const kept = children.filter(c => !same(c));
+    if (Array.isArray(copy.children)) copy.children = kept;
+    return { dna: copy, removed: children.length - kept.length };
+};
+
 // Ein Kind in die DNA einfügen (gibt eine NEUE DNA zurück, die alte bleibt unverändert).
 // Gibt es schon ein Kind mit derselben source, wird nichts doppelt eingetragen.
 export const addChildToDna = (dna, childRef) => {
