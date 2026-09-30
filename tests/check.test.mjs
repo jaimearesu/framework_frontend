@@ -152,9 +152,13 @@ describe('Die echten Prüfungen', () => {
             'Rechte',
             'SSF',
             'Tresor',
-            'Sicherheit (als Fremder)'
+            'Sicherheit (als Fremder)',
+            'Löschen & Aufräumen'
         ])
             assert.ok(CHECK_GROUPS.includes(g), g);
+    });
+    test('"Löschen & Aufräumen" steht ganz am Schluss (sonst fehlen später die Test-Objekte)', () => {
+        assert.equal(CHECKS[CHECKS.length - 1].group, 'Löschen & Aufräumen');
     });
     test('jede Gruppe steht zusammen (keine verstreuten Prüfungen)', () => {
         const seen = [];

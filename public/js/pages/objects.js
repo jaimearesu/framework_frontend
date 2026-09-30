@@ -3,9 +3,9 @@
 // OBJEKTE
 //
 //   links:  alle Objekte, die du sehen darfst – als Baum (Wurzel > Kinder)
-//   rechts: das gewählte Objekt mit sechs Reitern
+//   rechts: das gewählte Objekt mit sieben Reitern
 //             Übersicht (mit Herkunft bei Kopien) · Vorschau · Baum (DNA aufgelöst)
-//             · Rollen · Kind anhängen · Klonen & Zügeln
+//             · Rollen · Kind anhängen · Klonen & Zügeln · Löschen
 //   unten:  "Pfad auflösen" – so wie ein Besucher eine Adresse aufruft
 //
 // Adresse: /#/objekte            -> nur Liste
@@ -49,9 +49,10 @@ import {
     saveCode,
     originText,
     moveCheck,
-    moveTargets
+    moveTargets,
+    deleteCheck
 } from '../core/objects.js';
-import { addChildToDna } from '../core/dna.js';
+import { addChildToDna, removeChildFromDna } from '../core/dna.js';
 import { renderDnaTree } from '../core/tree.js';
 import {
     buildPreviewDocument,
@@ -743,6 +744,135 @@ const renderCopyTab = (box, o, objects, { onDone }) => {
     mount(box, cloneCard, moveCard);
 };
 
+// --- Reiter "Löschen" ---
+// DELETE /api/objects/:uuid  -> endgültig weg (Plan "Objekte löschen" in Notion)
+// Deutliche Rückfrage: Man muss den Namen abtippen UND nochmals bestätigen.
+const renderDeleteTab = (box, o, objects, { onDeleted }) => {
+    const label = objectLabel(o);
+    const check = deleteCheck(o, objects);
+    const parent = isRoot(o) ? null : findParent(objects, o);
+
+    const rules = h(
+        'ul',
+        { class: 'small muted' },
+        h(
+            'li',
+            {},
+            '🗑️ Endgültig: Code (alle Versionen), Daten, Tresor-Schlüssel, Relationen und Rechte sind danach weg.'
+        ),
+        isRoot(o)
+            ? h('li', {}, `🔒 Der Name „${o.domain}“ wird für immer gesperrt – niemand bekommt ihn wieder.`)
+            : h('li', {}, `👪 Die Familie „${o.domain_ref}“ und ihre Rechte bleiben unverändert.`),
+        h(
+            'li',
+            {},
+            '🧬 Kopien (Klone) anderer bleiben erhalten. Wer das Objekt live eingehängt hat, sieht es nicht mehr.'
+        ),
+        h('li', {}, 'Dafür brauchst du blue auf dieses Objekt.')
+    );
+
+    if (!check.ok) {
+        mount(
+            box,
+            card(
+                { title: 'Löschen', icon: 'trash', subtitle: 'Ein Objekt endgültig entfernen.' },
+                rules,
+                callout('info', 'Löschen nicht möglich:', ' ', check.reason)
+            )
+        );
+        return;
+    }
+
+    // Name abtippen: erst dann wird der Knopf aktiv
+    const confirmInput = h('input', { class: 'input', placeholder: label, autocomplete: 'off' });
+    const fromDna = h('input', { type: 'checkbox', checked: true });
+    const stepsLog = h('div', { class: 'steps-log' });
+
+    const doDelete = async () => {
+        if (confirmInput.value.trim() !== label) {
+            return toast(`Bitte zuerst „${label}“ ins Feld tippen.`, 'error');
+        }
+        if (!confirm(`„${label}“ wirklich endgültig löschen?\n\nDas kann nicht rückgängig gemacht werden.`)) return;
+        mount(stepsLog);
+
+        // Schritt 1: löschen
+        const res = await api.del(`/api/objects/${o.uuid}`);
+        log(stepsLog, '1. Löschen', res);
+        if (!res.ok) {
+            // "Nie herrenlos": das Backend nennt die betroffenen Objekte
+            const orphans = res.data?.orphans;
+            if (Array.isArray(orphans) && orphans.length) {
+                stepsLog.append(
+                    callout(
+                        'warn',
+                        'Tipp:',
+                        ` Gib zuerst auf ${orphans.join(', ')} jemand anderem blue (Seite Rechte), dann geht das Löschen.`
+                    )
+                );
+            }
+            return;
+        }
+        const lost = res.data?.removedMembers || 0;
+        if (lost)
+            stepsLog.append(
+                callout('warn', `${lost} Mitglied${lost === 1 ? '' : 'er'}`, ' hat/haben dabei Rechte verloren.')
+            );
+
+        // Schritt 2 (optional, nur bei Kindern): Eintrag aus der DNA des Eltern-Objekts entfernen,
+        // sonst zeigt die DNA weiter auf ein Objekt, das es nicht mehr gibt
+        if (parent && fromDna.checked) {
+            const code = await loadCode(parent.uuid);
+            let dna = null;
+            try {
+                dna = code.code.syntax ? JSON.parse(code.code.syntax) : null;
+            } catch {
+                stepsLog.append(
+                    callout(
+                        'error',
+                        'Die DNA des Eltern-Objekts ist kein gültiges JSON.',
+                        ' Bitte im Code-Editor reparieren.'
+                    )
+                );
+            }
+            if (dna) {
+                const { dna: updated, removed } = removeChildFromDna(dna, childRefFor(o, label));
+                if (removed) {
+                    const save = await saveCode(parent.uuid, [
+                        { type: 'syntax', code: JSON.stringify(updated, null, 2) }
+                    ]);
+                    log(stepsLog, '2. Aus der DNA des Eltern-Objekts entfernen', save);
+                } else {
+                    stepsLog.append(
+                        h('div', { class: 'muted small' }, '2. Stand nicht in der DNA des Eltern-Objekts.')
+                    );
+                }
+            }
+        }
+
+        toast(`„${label}“ gelöscht.`, 'ok');
+        onDeleted(parent?.uuid || null);
+    };
+
+    mount(
+        box,
+        card(
+            { title: 'Löschen', icon: 'trash', subtitle: 'Ein Objekt endgültig entfernen. Es gibt keinen Papierkorb.' },
+            rules,
+            parent
+                ? h(
+                      'label',
+                      { class: 'check' },
+                      fromDna,
+                      h('span', {}, `Auch aus der DNA von „${objectLabel(parent)}“ entfernen (empfohlen)`)
+                  )
+                : null,
+            field('Zur Sicherheit: Namen abtippen', confirmInput, `Tippe „${label}“, um das Löschen freizugeben.`),
+            h('div', {}, busyButton('Endgültig löschen', doDelete, { className: 'btn danger', iconName: 'trash' })),
+            stepsLog
+        )
+    );
+};
+
 // Eine Zeile im Schritt-Protokoll: Überschrift + Ergebnis
 const log = (box, title, res) => box.append(h('div', { class: 'muted small' }, title), resultLine(res));
 
@@ -754,7 +884,8 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         { id: 'baum', label: 'Baum' },
         { id: 'rollen', label: 'Rollen' },
         { id: 'kind', label: 'Kind anhängen' },
-        { id: 'kopie', label: 'Klonen & Zügeln' }
+        { id: 'kopie', label: 'Klonen & Zügeln' },
+        { id: 'loeschen', label: 'Löschen' }
     ];
     const show = id => {
         onTab(id);
@@ -765,6 +896,16 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         else if (id === 'baum') renderTreeTab(body, o, objects);
         else if (id === 'rollen') renderRolesTab(body, o);
         else if (id === 'kopie') renderCopyTab(body, o, objects, { onDone: uuid => reload(uuid) });
+        else if (id === 'loeschen')
+            renderDeleteTab(body, o, objects, {
+                // Nach dem Löschen: zum Eltern-Objekt (bei einem Kind) oder zur Liste
+                onDeleted: parentUuid => {
+                    onTab('info');
+                    if (parentUuid) return reload(parentUuid);
+                    invalidateObjects();
+                    location.hash = href('objekte');
+                }
+            });
         else renderLinkTab(body, o, { onCreated: uuid => reload(uuid) });
     };
     const active = TABS.some(t => t.id === tab) ? tab : 'info';

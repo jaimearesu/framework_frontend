@@ -7,8 +7,9 @@
 // Ein Klick auf eine Prüfung zeigt die Details (Meldung, Antwort).
 //
 // Standard ist der TEST-Modus. Im Live-Modus schreibt der Check in die
-// echte Datenbank (neue Domain "check-…", die bleibt) – darum muss man
-// das dort ausdrücklich bestätigen.
+// echte Datenbank (Domain "check-…", am Schluss wieder gelöscht – bricht
+// der Check vorher ab, bleibt ein Rest) – darum muss man das dort
+// ausdrücklich bestätigen.
 // ---------------------------------------------------------------------
 import { isTestMode, hasTestMode, setMode } from '../core/config.js';
 import { invalidateObjects } from '../core/objects.js';
@@ -223,7 +224,7 @@ export default {
                   callout(
                       'warn',
                       'Du bist im Live-Modus.',
-                      ' Der Check schreibt dann in deine ECHTE Datenbank: eine neue Domain „check-…“ mit Test-Daten. Es gibt noch keine Route zum Löschen von Objekten – sie bleibt bestehen.'
+                      ' Der Check schreibt dann in deine ECHTE Datenbank: eine neue Domain „check-…“ mit Test-Daten. Am Schluss löscht er alles wieder. Bricht er vorher ab, bleibt ein Rest liegen (unter Objekte von Hand löschen).'
                   ),
                   hasTestMode()
                       ? h(
@@ -274,9 +275,9 @@ export default {
                 h(
                     'p',
                     { class: 'small muted' },
-                    'Nach dem Check findest du die Test-Domain unter ',
+                    'Am Schluss räumt der Check alles wieder weg (Gruppe „Löschen & Aufräumen“). Bleibt nach einem Abbruch etwas liegen, löschst du es unter ',
                     h('a', { href: href('objekte') }, 'Objekte'),
-                    '. Ein automatischer Check der Backend-Logik läuft zusätzlich mit „npm test“ im Backend-Ordner (über 500 Tests).'
+                    ' (Reiter „Löschen“). Ein automatischer Check der Backend-Logik läuft zusätzlich mit „npm test“ im Backend-Ordner (über 500 Tests).'
                 )
             )
         );

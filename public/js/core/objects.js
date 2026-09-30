@@ -150,6 +150,41 @@ export const moveCheck = (o, objects) => {
     return { ok: true };
 };
 
+// ------------------------------------------------------------------
+// LÖSCHEN (Backend: DELETE /api/objects/:uuid)
+// ------------------------------------------------------------------
+
+// Die Kinder eines Objekts in der Liste (direkte UND tiefere):
+//   - Wurzel: alle Objekte ihrer Familie
+//   - Kind:   alle der Familie, deren Pfad mit seinem Pfad beginnt und länger ist
+export const descendantsOf = (o, objects) => {
+    if (!o) return [];
+    if (isRoot(o)) return (objects || []).filter(c => c.domain_ref === o.domain);
+    const path = o.path || [];
+    return (objects || []).filter(
+        c =>
+            c.domain_ref === o.domain_ref &&
+            Array.isArray(c.path) &&
+            c.path.length > path.length &&
+            path.every((step, i) => c.path[i] === step)
+    );
+};
+
+// Darf dieses Objekt gelöscht werden? Dieselbe Regel wie im Backend
+// (Entscheidung 1: nur ohne Kinder). Ob du blue hast, ob es ein Mensch ist
+// und ob es irgendwo einziger Verwalter ist, prüft das Backend.
+// Rückgabe: { ok: true } oder { ok: false, reason }
+export const deleteCheck = (o, objects) => {
+    const n = descendantsOf(o, objects).length;
+    if (n > 0) {
+        return {
+            ok: false,
+            reason: `Das Objekt hat ${n === 1 ? 'ein Kind' : `${n} Kinder`}. Lösche zuerst die Kinder (von unten nach oben).`
+        };
+    }
+    return { ok: true };
+};
+
 // Wohin darf es zügeln? Überallhin ausser in sich selbst bzw. die eigene Familie.
 // (Ob du dort red hast, prüft das Backend.)
 export const moveTargets = (objects, o) =>
