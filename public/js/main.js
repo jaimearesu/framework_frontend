@@ -17,7 +17,7 @@ import { ROUTES, GROUPS, parseHash, findRoute, href } from './core/routes.js';
 import { h, mount, spinner, callout } from './core/ui.js';
 import { api } from './core/api.js';
 import { icon, hydrateIcons } from './core/icons.js';
-import { refreshSession, getSession } from './core/session.js';
+import { refreshSession, getSession, guestHint } from './core/session.js';
 import { initRequestLog } from './core/requestLog.js';
 import { load, save } from './core/storage.js';
 
@@ -170,8 +170,21 @@ const renderBanner = () => {
         );
     }
 
-    banner.hidden = !content;
-    mount(banner, content);
+    // Gäste: Hinweis, dass ihre Arbeit nur 24 Stunden bleibt (sonst weiss das niemand).
+    // Einloggen geht nur im Live-Modus (Auth0 ist nur dort eingerichtet).
+    const hint = !s.loading && s.online ? guestHint(s.identity) : null;
+    const guestBox = hint
+        ? callout(
+              'warn',
+              hint.title,
+              hint.text,
+              test ? null : ' ',
+              test ? null : h('a', { href: liveBase() + '/login' }, 'Jetzt einloggen')
+          )
+        : null;
+
+    banner.hidden = !content && !guestBox;
+    mount(banner, content, guestBox);
 };
 
 // ------------------------------------------------------------------

@@ -31,6 +31,15 @@ export const describeIdentity = me => {
     return { kind: 'anon', label: 'Anonym', id: null };
 };
 
+// Hinweis für Gäste (reine Funktion, getestet): Ein Gast lebt 24 Stunden ab dem
+// Anlegen. Danach löscht der Gäste-Aufräumer im Backend ihn MIT allem, was nur
+// ihm gehört. Wer sich vorher einloggt, behält alles. Für alle anderen: null.
+export const GUEST_HINT = {
+    title: 'Du bist Gast.',
+    text: ' Deine Objekte bleiben 24 Stunden ab dem ersten Erstellen – danach werden sie gelöscht, samt allem, was nur dir gehört. Logge dich ein, um sie zu behalten.'
+};
+export const guestHint = identity => (identity?.kind === 'guest' ? GUEST_HINT : null);
+
 export const refreshSession = async () => {
     const [health, me] = await Promise.all([api.get('/api/health'), api.get('/api/me')]);
     session = {
