@@ -31,7 +31,7 @@ const tile = ({ iconName, label, value, tone = 'neutral', detail }) =>
 
 const IDENTITY_TEXT = {
     user: 'Eingeloggt mit Auth0. Deine Objekte gehören dauerhaft dir.',
-    guest: 'Gast (Cookie, 1 Tag gültig). Beim Login werden deine Objekte übernommen.',
+    guest: 'Gast: Deine Objekte bleiben 24 Stunden, danach werden sie gelöscht. Beim Login werden sie übernommen.',
     anon: 'Noch niemand. Sobald du etwas erstellst, wirst du automatisch Gast.',
     offline: 'Keine Verbindung zum Backend.'
 };

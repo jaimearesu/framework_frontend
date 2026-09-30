@@ -14,7 +14,7 @@ import { buildUrl, encodePath, errorMessage } from '../public/js/core/api.js';
 import { pickMode, trimSlash } from '../public/js/core/config.js';
 import { parseHash, href, findRoute, ROUTES, GROUPS } from '../public/js/core/routes.js';
 import { formatNumber, formatMs, shortUuid, formatDate, timeAgo, pathText, isUuid } from '../public/js/core/format.js';
-import { describeIdentity } from '../public/js/core/session.js';
+import { describeIdentity, guestHint } from '../public/js/core/session.js';
 import { jsonTokens } from '../public/js/core/ui.js';
 
 describe('api: buildUrl', () => {
@@ -218,5 +218,14 @@ describe('ui: jsonTokens (farbiges JSON)', () => {
         a.self = a;
         assert.ok(jsonTokens(a).length > 0);
         assert.deepEqual(jsonTokens(undefined), [{ t: 'punct', v: 'undefined' }]);
+    });
+});
+
+describe('session: guestHint (Gäste laufen nach 24 h ab)', () => {
+    test('nur Gäste bekommen den Hinweis', () => {
+        assert.match(guestHint({ kind: 'guest' }).text, /24 Stunden/);
+        assert.match(guestHint({ kind: 'guest' }).text, /Logge dich ein/);
+        for (const kind of ['user', 'anon', 'offline']) assert.equal(guestHint({ kind }), null, kind);
+        assert.equal(guestHint(undefined), null);
     });
 });
