@@ -78,7 +78,7 @@ darum läuft der Check standardmässig im **Test-Modus**; im Live-Modus muss man
 - [x] **2 Objekte + Code & DNA:** Objekt-Baum, Details, Rollen, Kind anhängen (mit DNA-Eintrag), Pfad auflösen, Code-Editor (CodeMirror) mit Live-Vorschau, DNA-Prüfung mit Baum
 - [x] **3 SSF-Studio:** Spielwiese per Klick, Editor, Ausführen (POST mit Body / GET mit Ziel / als Fremder), Ergebnis mit HTML-Vorschau und Fehler-Tipps, 10 Beispiele (inkl. Verkaufsautomat), Referenz aller 17 Werkzeuge, Grenzen
 - [x] **4 Daten & Suche, Relationen, Rechte, Tresor:** 15 Such-Beispiele, Tabelle/JSON, Blättern, Löschen, Testdaten; Relationen mit Join-Erklärung; Triplets, Rollen vergeben/entziehen, „Was sieht ein Fremder?“; Tresor (Werte nie sichtbar, im Protokoll geschwärzt)
-- [x] **5 Systemcheck:** „Teste alles“ mit 70 Prüfungen in 11 Gruppen (inkl. Klonen & Zügeln, Sicherheit als Fremder und Löschen & Aufräumen am Schluss), Bericht zum Kopieren; Schnellstart auf der Übersicht; alte Oberfläche entfernt
+- [x] **5 Systemcheck:** „Teste alles“ mit 73 Prüfungen in 12 Gruppen (inkl. Klonen & Zügeln, Sicherheit als Fremder und Löschen & Aufräumen am Schluss), Bericht zum Kopieren; Schnellstart auf der Übersicht; alte Oberfläche entfernt
 - [x] **Klonen & Zügeln:** Reiter „Klonen & Zügeln“ auf der Objekt-Seite (Kopie als neue Domain mit Version und optional Daten; Zügeln in eine andere Familie mit Warnung und DNA-Eintrag), Herkunft in der Übersicht
 - [x] **Löschen:** Reiter „Löschen“ auf der Objekt-Seite (nur ohne Kinder, Name abtippen + Rückfrage, bei Kindern auf Wunsch aus der DNA des Eltern-Objekts entfernen); der Systemcheck räumt am Schluss alles auf
 - [x] **Gast-Hinweis:** Gäste sehen oben, dass ihre Objekte nur 24 Stunden bleiben (mit Link zum Einloggen im Live-Modus)

@@ -3,9 +3,9 @@
 // OBJEKTE
 //
 //   links:  alle Objekte, die du sehen darfst – als Baum (Wurzel > Kinder)
-//   rechts: das gewählte Objekt mit sieben Reitern
+//   rechts: das gewählte Objekt mit acht Reitern
 //             Übersicht (mit Herkunft bei Kopien) · Vorschau · Baum (DNA aufgelöst)
-//             · Rollen · Kind anhängen · Klonen & Zügeln · Löschen
+//             · Rollen · Kind anhängen · Klonen & Zügeln · Sichtbarkeit · Löschen
 //   unten:  "Pfad auflösen" – so wie ein Besucher eine Adresse aufruft
 //
 // Adresse: /#/objekte            -> nur Liste
@@ -50,8 +50,12 @@ import {
     originText,
     moveCheck,
     moveTargets,
-    deleteCheck
+    deleteCheck,
+    visibilityInfo,
+    VISIBILITY_ORDER,
+    descendantsOf
 } from '../core/objects.js';
+import { getSession } from '../core/session.js';
 import { addChildToDna, removeChildFromDna } from '../core/dna.js';
 import { renderDnaTree } from '../core/tree.js';
 import {
@@ -127,6 +131,13 @@ const renderForest = (box, objects, selectedUuid, filterText) => {
                 },
                 h('span', { class: 'obj-icon' }, icon(isRoot(o) ? 'box' : 'link', { size: 15 })),
                 h('span', { class: 'obj-item-label' }, objectLabel(o)),
+                o.visibility && o.visibility !== 'private'
+                    ? h(
+                          'span',
+                          { class: 'obj-vis', title: visibilityInfo(o.visibility).label },
+                          visibilityInfo(o.visibility).emoji
+                      )
+                    : null,
                 kids ? h('span', { class: 'obj-kids', title: `${kids} Nachfahren` }, String(kids)) : null
             ),
             node.children.length && !q
@@ -744,6 +755,114 @@ const renderCopyTab = (box, o, objects, { onDone }) => {
     mount(box, cloneCard, moveCard);
 };
 
+// --- Reiter "Sichtbarkeit" ---
+// PUT /api/objects/:uuid/visibility { visibility, includeChildren }
+// Braucht blue auf das Objekt UND einen echten Login (Gäste dürfen nichts
+// veröffentlichen). Die Sichtbarkeit gilt pro Objekt – eine Website kann
+// einzelne Teile öffentlich, andere nur für Eingeloggte oder privat haben.
+const renderVisibilityTab = (box, o, objects, { onDone }) => {
+    const current = visibilityInfo(o.visibility);
+    const identity = getSession().identity;
+    const loggedIn = identity?.kind === 'user';
+    const kids = descendantsOf(o, objects).length;
+    let chosen = current.value;
+
+    const options = VISIBILITY_ORDER.map(value => {
+        const info = visibilityInfo(value);
+        const radio = h('input', {
+            type: 'radio',
+            name: 'visibility',
+            value,
+            checked: value === current.value,
+            disabled: !loggedIn,
+            onchange: () => (chosen = value)
+        });
+        return h(
+            'label',
+            { class: `vis-option ${value === current.value ? 'current' : ''}` },
+            radio,
+            h(
+                'span',
+                {},
+                h('strong', {}, `${info.emoji} ${info.label}`),
+                value === current.value ? h('span', { class: 'muted small' }, ' (jetzt)') : null,
+                h('span', { class: 'muted small block' }, info.text)
+            )
+        );
+    });
+
+    const withChildren = h('input', { type: 'checkbox', disabled: !loggedIn || kids === 0 });
+    const out = h('div');
+
+    const save = async () => {
+        if (chosen === 'public' || chosen === 'members') {
+            const info = visibilityInfo(chosen);
+            const who = withChildren.checked
+                ? `„${objectLabel(o)}“ und ${kids} Unter-Objekt(e)`
+                : `„${objectLabel(o)}“`;
+            if (!confirm(`${who} auf „${info.label}“ stellen?\n\n${info.text}`)) return;
+        }
+        const res = await api.put(`/api/objects/${o.uuid}/visibility`, {
+            visibility: chosen,
+            includeChildren: withChildren.checked
+        });
+        mount(out, resultLine(res));
+        if (res.ok) {
+            toast(`Sichtbarkeit: ${visibilityInfo(chosen).label} (${res.data?.data?.changed ?? 1} Objekt(e))`, 'ok');
+            onDone(o.uuid);
+        }
+    };
+
+    mount(
+        box,
+        card(
+            {
+                title: 'Sichtbarkeit',
+                icon: 'shield',
+                subtitle: 'Wer darf dieses Objekt ansehen und seine SSF ausführen – auch ohne Rolle?'
+            },
+            loggedIn
+                ? null
+                : callout(
+                      'info',
+                      'Nur mit Login:',
+                      ' Gäste können nichts veröffentlichen (Schutz vor anonymen Betrugs-Seiten). Logge dich oben rechts ein.'
+                  ),
+            h('div', { class: 'vis-options' }, options),
+            h(
+                'label',
+                { class: 'check' },
+                withChildren,
+                h(
+                    'span',
+                    {},
+                    kids
+                        ? `Auch für alle ${kids} Unter-Objekte darunter übernehmen`
+                        : 'Auch für Unter-Objekte übernehmen (dieses Objekt hat keine)'
+                )
+            ),
+            h(
+                'ul',
+                { class: 'small muted' },
+                h('li', {}, 'Daten, Ändern, Löschen und Rechte bleiben immer bei den Rollen (Triplets).'),
+                h('li', {}, 'SSF-Code sieht nur, wer red hat – auch bei öffentlichen Objekten.'),
+                h(
+                    'li',
+                    {},
+                    'Ein Weg ist nur so offen wie seine engste Tür: Liegt ein öffentliches Objekt unter einem privaten, findet ein Fremder es über den Pfad nicht.'
+                ),
+                h('li', {}, 'Neue Objekte, Kopien und gezügelte Objekte sind immer zuerst privat.')
+            ),
+            h(
+                'div',
+                {},
+                loggedIn ? busyButton('Speichern', save, { className: 'btn primary', iconName: 'check' }) : null
+            ),
+            out
+        )
+    );
+};
+
 // --- Reiter "Löschen" ---
 // DELETE /api/objects/:uuid  -> endgültig weg (Plan "Objekte löschen" in Notion)
 // Deutliche Rückfrage: Man muss den Namen abtippen UND nochmals bestätigen.
@@ -885,6 +1004,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         { id: 'rollen', label: 'Rollen' },
         { id: 'kind', label: 'Kind anhängen' },
         { id: 'kopie', label: 'Klonen & Zügeln' },
+        { id: 'sichtbar', label: 'Sichtbarkeit' },
         { id: 'loeschen', label: 'Löschen' }
     ];
     const show = id => {
@@ -896,6 +1016,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         else if (id === 'baum') renderTreeTab(body, o, objects);
         else if (id === 'rollen') renderRolesTab(body, o);
         else if (id === 'kopie') renderCopyTab(body, o, objects, { onDone: uuid => reload(uuid) });
+        else if (id === 'sichtbar') renderVisibilityTab(body, o, objects, { onDone: uuid => reload(uuid) });
         else if (id === 'loeschen')
             renderDeleteTab(body, o, objects, {
                 // Nach dem Löschen: zum Eltern-Objekt (bei einem Kind) oder zur Liste
@@ -925,6 +1046,10 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
                     { class: 'row gap-s wrap' },
                     isRoot(o) ? badge('Wurzel', 'accent') : badge('Kind', 'neutral'),
                     badge(`Familie: ${objectFamily(o)}`, 'neutral'),
+                    badge(
+                        `${visibilityInfo(o.visibility).emoji} ${visibilityInfo(o.visibility).label}`,
+                        visibilityInfo(o.visibility).tone
+                    ),
                     h('code', { class: 'small', title: o.uuid }, shortUuid(o.uuid))
                 )
             ),
