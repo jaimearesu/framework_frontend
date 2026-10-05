@@ -916,6 +916,30 @@ pre {
     color: var(--muted);
     font-size: 12.5px;
 }
+/* Kachel "Dein Kontingent": eine Zeile pro Deckel mit kleinem Balken */
+.quota-line {
+    display: block;
+    margin-top: 4px;
+}
+.quota-bar {
+    display: block;
+    height: 4px;
+    margin-top: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    overflow: hidden;
+}
+.quota-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--ok);
+}
+.quota-bar.warn > span {
+    background: var(--warn);
+}
+.quota-bar.error > span {
+    background: var(--error);
+}
 
 .mini-stats {
     display: flex;
