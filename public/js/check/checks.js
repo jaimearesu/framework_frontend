@@ -141,6 +141,26 @@ export const CHECKS = [
         }
     },
     {
+        id: 'limits',
+        group: 'Objekte',
+        title: 'Kontingent: /api/me zeigt Profil, Verbrauch und Grenzen',
+        needs: ['root'],
+        run: async () => {
+            const me = await api.get('/api/me');
+            expectStatus(me, 200, 'GET /api/me');
+            const l = me.data?.limits;
+            expect(l && typeof l.profile === 'string', 'limits.profile fehlt (Backend zu alt?)', me);
+            expect(l.rate && l.rate.requests > 0, 'limits.rate (Bremse) fehlt', me);
+            const o = l.usage?.objects;
+            expect(
+                o && o.used >= 1 && o.limit > o.used,
+                'Verbrauch "objects" fehlt oder ist unplausibel (die Check-Domain zählt schon mit)',
+                me
+            );
+            return `Profil ${l.profile}: ${o.used} / ${o.limit} Objekte`;
+        }
+    },
+    {
         id: 'duplicate-domain',
         group: 'Objekte',
         title: 'Doppelte Domain wird abgelehnt (409)',

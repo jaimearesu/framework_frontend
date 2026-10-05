@@ -14,7 +14,7 @@ import { buildUrl, encodePath, errorMessage } from '../public/js/core/api.js';
 import { pickMode, trimSlash } from '../public/js/core/config.js';
 import { parseHash, href, findRoute, ROUTES, GROUPS } from '../public/js/core/routes.js';
 import { formatNumber, formatMs, shortUuid, formatDate, timeAgo, pathText, isUuid } from '../public/js/core/format.js';
-import { describeIdentity, guestHint } from '../public/js/core/session.js';
+import { describeIdentity, guestHint, describeLimits } from '../public/js/core/session.js';
 import { jsonTokens } from '../public/js/core/ui.js';
 
 describe('api: buildUrl', () => {
@@ -227,5 +227,48 @@ describe('session: guestHint (Gäste laufen nach 24 h ab)', () => {
         assert.match(guestHint({ kind: 'guest' }).text, /Logge dich ein/);
         for (const kind of ['user', 'anon', 'offline']) assert.equal(guestHint({ kind }), null, kind);
         assert.equal(guestHint(undefined), null);
+    });
+});
+
+describe('session: describeLimits (Kontingente)', () => {
+    const me = (usage, extra = {}) => ({
+        limits: { profile: 'standard', rate: { requests: 300, writes: 60, ssf: 60 }, usage, ...extra }
+    });
+
+    test('ältere Backends ohne limits -> null', () => {
+        assert.equal(describeLimits({ isGuest: true }), null);
+        assert.equal(describeLimits(null), null);
+    });
+
+    test('Verbrauch in Prozent und Farbe', () => {
+        const l = describeLimits(me({ objects: { used: 37, limit: 500 }, dataRows: { used: 85000, limit: 100000 } }));
+        assert.equal(l.profileLabel, 'Standard');
+        assert.deepEqual(
+            l.rows.map(r => [r.label, r.pct, r.tone]),
+            [
+                ['Objekte', 7, 'ok'],
+                ['Datensätze', 85, 'warn']
+            ]
+        );
+        assert.equal(l.tone, 'warn', 'die schlimmste Zeile bestimmt die Kachel');
+        assert.equal(l.rate.requests, 300);
+    });
+
+    test('voll = rot, nie über 100 %', () => {
+        const l = describeLimits(me({ objects: { used: 520, limit: 500 }, dataRows: { used: 0, limit: 10 } }));
+        assert.equal(l.rows[0].pct, 100);
+        assert.equal(l.rows[0].tone, 'error');
+        assert.equal(l.tone, 'error');
+    });
+
+    test('anonym (noch kein Konto): keine Zeilen, aber Profil und Bremse', () => {
+        const l = describeLimits(me(null, { profile: 'gast' }));
+        assert.deepEqual(l.rows, []);
+        assert.equal(l.profileLabel, 'Gast');
+        assert.ok(l.rate);
+    });
+
+    test('unbekanntes Profil wird roh angezeigt', () => {
+        assert.equal(describeLimits(me(null, { profile: 'pro' })).profileLabel, 'pro');
     });
 });

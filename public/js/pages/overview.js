@@ -99,9 +99,43 @@ const renderStatus = (box, s) => {
                       )
                     : null
             )
-        })
+        }),
+        s.limits ? limitsTile(s.limits) : null
     );
 };
+
+// Kachel "Dein Kontingent": Verbrauch (Deckel) + Bremse pro Minute.
+// Ab 80 % gelb, bei 100 % rot – dann kann man nichts Neues mehr anlegen,
+// nur noch ändern und löschen.
+const limitsTile = l =>
+    tile({
+        iconName: 'activity',
+        label: 'Dein Kontingent',
+        value: l.rows.length ? `${formatNumber(l.rows[0].used)} / ${formatNumber(l.rows[0].limit)}` : '–',
+        tone: l.rows.length ? l.tone : 'neutral',
+        detail: h(
+            'span',
+            {},
+            h('span', {}, `Profil ${l.profileLabel}. `),
+            l.rows.length
+                ? l.rows.map(r =>
+                      h(
+                          'span',
+                          { class: 'quota-line' },
+                          `${r.label}: ${formatNumber(r.used)} von ${formatNumber(r.limit)} (${r.pct} %)`,
+                          h('span', { class: `quota-bar ${r.tone}` }, h('span', { style: { width: `${r.pct}%` } }))
+                      )
+                  )
+                : h('span', {}, 'Noch kein Konto – entsteht, sobald du etwas erstellst. '),
+            l.rate
+                ? h(
+                      'span',
+                      { class: 'quota-line muted' },
+                      `Pro Minute: ${formatNumber(l.rate.requests)} Anfragen, davon ${formatNumber(l.rate.writes)} Änderungen und ${formatNumber(l.rate.ssf)} SSF-Aufrufe.`
+                  )
+                : null
+        )
+    });
 
 // ------------------------------------------------------------------
 // 2. DEINE OBJEKTE
