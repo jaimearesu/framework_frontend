@@ -15,7 +15,9 @@ import {
     countDescendants,
     findParent,
     childRefFor,
-    collectNames
+    collectNames,
+    visibilityInfo,
+    VISIBILITY_ORDER
 } from '../public/js/core/objects.js';
 import { analyzeDna, addChildToDna } from '../public/js/core/dna.js';
 
@@ -184,5 +186,20 @@ describe('dna: analyzeDna', () => {
         assert.equal(twice.children.length, 1);
         const other = addChildToDna(once, childRefFor(kontakt, 'kontakt'));
         assert.equal(other.children.length, 2);
+    });
+});
+
+describe('visibilityInfo (Sichtbarkeit)', () => {
+    test('die drei Stufen in der richtigen Reihenfolge', () => {
+        assert.deepEqual(VISIBILITY_ORDER, ['private', 'members', 'public']);
+        assert.equal(visibilityInfo('public').label, 'Öffentlich');
+        assert.equal(visibilityInfo('members').label, 'Nur Eingeloggte');
+        assert.equal(visibilityInfo('private').emoji, '🔒');
+    });
+
+    test('unbekannt oder fehlend gilt als privat (wie im Backend)', () => {
+        assert.equal(visibilityInfo(undefined).value, 'private');
+        assert.equal(visibilityInfo('irgendwas').value, 'private');
+        assert.equal(visibilityInfo('__proto__').value, 'private');
     });
 });

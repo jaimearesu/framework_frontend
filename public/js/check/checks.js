@@ -959,6 +959,68 @@ return { uuid: kopie.uuid, left: austritt.left };`
         }
     })),
 
+    // ============================================================== SICHTBARKEIT
+    // Als Gast: Veröffentlichen muss abgelehnt werden (403). Mit Login: die
+    // Check-Domain kurz öffentlich machen, als Fremder prüfen, wieder privat.
+    {
+        id: 'visibility-set',
+        group: 'Sichtbarkeit',
+        title: 'Veröffentlichen: nur mit Login (Gast wird abgelehnt)',
+        needs: ['root'],
+        run: async ctx => {
+            const me = await api.get('/api/me');
+            const r = await api.put(`/api/objects/${ctx.root}/visibility`, {
+                visibility: 'public',
+                includeChildren: true
+            });
+            if (!me.data?.isAuthenticated) {
+                expectStatus(r, 403, 'Gast veröffentlicht');
+                return 'Gast: abgelehnt (richtig) – die nächsten zwei Prüfungen brauchen einen Login';
+            }
+            expectStatus(r, 200, 'Domain + Unter-Objekte öffentlich');
+            ctx.published = true;
+            return `${r.data?.data?.changed} Objekte öffentlich`;
+        }
+    },
+    {
+        id: 'visibility-stranger',
+        group: 'Sichtbarkeit',
+        title: 'Öffentlich: Fremder sieht den Code und startet die SSF – Daten bleiben gesperrt',
+        needs: ['root', 'funktion', 'daten'],
+        run: async ctx => {
+            if (!ctx.published) return 'nur mit Login prüfbar – übersprungen';
+            const save = await runSsf(ctx, 'return "oeffentlich";');
+            expectStatus(save, 200, 'SSF vorbereiten');
+            expectStatus(await api.get(`/api/ast/${ctx.root}`, { anonymous: true }), 200, 'Fremder liest Code');
+            const run = await api.post(`/api/functions/${ctx.funktion}/executions`, {}, { anonymous: true });
+            expectStatus(run, 200, 'Fremder startet SSF');
+            expect(run.data?.result === 'oeffentlich', 'Unerwartetes Ergebnis der SSF', run);
+            expectStatus(
+                await api.post(`/api/core-data/search/${ctx.daten}`, {}, { anonymous: true }),
+                403,
+                'Fremder sucht Daten'
+            );
+            return 'Code ✓ · SSF ✓ · Daten gesperrt ✓';
+        }
+    },
+    {
+        id: 'visibility-private',
+        group: 'Sichtbarkeit',
+        title: 'Zurück auf privat: Fremder sieht wieder nichts',
+        needs: ['root'],
+        run: async ctx => {
+            if (!ctx.published) return 'nur mit Login prüfbar – übersprungen';
+            const r = await api.put(`/api/objects/${ctx.root}/visibility`, {
+                visibility: 'private',
+                includeChildren: true
+            });
+            expectStatus(r, 200, 'wieder privat');
+            ctx.published = false;
+            expectStatus(await api.get(`/api/ast/${ctx.root}`, { anonymous: true }), 403, 'Fremder liest Code');
+            return 'privat';
+        }
+    },
+
     // ============================================================== LÖSCHEN & AUFRÄUMEN
     // Muss GANZ AM SCHLUSS stehen: Hier wird alles gelöscht, was der Check
     // angelegt hat. Regeln (Plan "Objekte löschen"): blue nötig, nur ohne

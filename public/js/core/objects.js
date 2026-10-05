@@ -185,6 +185,40 @@ export const deleteCheck = (o, objects) => {
     return { ok: true };
 };
 
+// ------------------------------------------------------------------
+// SICHTBARKEIT (Backend: objects.visibility, Plan "Öffentliche Objekte")
+// Wer darf das Objekt ANSEHEN und seine SSF AUSFÜHREN? Daten, Ändern und
+// Rechte regeln weiterhin die Rollen (Triplets).
+// ------------------------------------------------------------------
+export const VISIBILITY = {
+    private: {
+        label: 'Privat',
+        emoji: '🔒',
+        tone: 'neutral',
+        text: 'Nur wer eine Rolle hat – du und alle, denen du Rechte gegeben hast.'
+    },
+    members: {
+        label: 'Nur Eingeloggte',
+        emoji: '👤',
+        tone: 'warn',
+        text: 'Zusätzlich alle mit echtem Login. Gäste und anonyme Besucher nicht.'
+    },
+    public: {
+        label: 'Öffentlich',
+        emoji: '🌍',
+        tone: 'ok',
+        text: 'Alle – auch anonyme Besucher ohne Login. Sie sehen HTML/CSS/JS und können die SSF ausführen, aber keine Daten direkt lesen.'
+    }
+};
+export const VISIBILITY_ORDER = ['private', 'members', 'public'];
+
+// Beschreibung einer Sichtbarkeit (unbekannt/fehlend -> privat, wie im Backend)
+// (Object.hasOwn: nur echte Einträge – nicht z.B. "__proto__")
+export const visibilityInfo = v => {
+    const value = typeof v === 'string' && Object.hasOwn(VISIBILITY, v) ? v : 'private';
+    return { value, ...VISIBILITY[value] };
+};
+
 // Wohin darf es zügeln? Überallhin ausser in sich selbst bzw. die eigene Familie.
 // (Ob du dort red hast, prüft das Backend.)
 export const moveTargets = (objects, o) =>

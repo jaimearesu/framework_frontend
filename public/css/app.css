@@ -1285,3 +1285,33 @@ pre {
         right: 16px;
     }
 }
+
+/* Sichtbarkeit (Objekt-Seite): drei Stufen als Auswahl */
+.obj-vis {
+    font-size: 12px;
+    margin-left: 4px;
+}
+.vis-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 4px 0 12px;
+}
+.vis-option {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+}
+.vis-option.current {
+    border-color: var(--border-strong);
+}
+.vis-option input {
+    margin-top: 3px;
+}
+.block {
+    display: block;
+}
