@@ -10,10 +10,13 @@
 //   3. Adresse -> Datei im Bauplan              (files.js)
 //   4. Datei ausliefern (Markdown als HTML-Seite, pages.js)
 //
+// Dazu: POST /_at0mic/run/<pfad> – damit ruft das JavaScript einer Website
+// ihre eigene SSF auf (echte Logik: Formulare, Speicher, mehrere Benutzer).
+//
 // Was er NIE tut:
 //   - Cookies setzen oder lesen, Login-Daten weitergeben
 //   - Fehlermeldungen aus dem Code einer Website an Besucher zeigen (nur ins Log)
-//   - etwas anderes als GET/HEAD annehmen (eine Website wird nur angesehen)
+//   - etwas anderes als GET/HEAD annehmen – ausser POST auf /_at0mic/run/…
 //
 // Das Backend fragt er mit dem Bauarbeiter-Schlüssel und der IP des
 // Besuchers – so bremst das Backend pro Besucher (Etappe 2). Rechte gibt
@@ -25,6 +28,39 @@ const { BauplanCache } = require('./cache');
 const { MESSAGES, neutralPage, markdownPage, markdownTitle } = require('./pages');
 
 const FETCH_TIMEOUT_MS = 8000;
+
+// SSF der Website: /_at0mic/run/<pfad> – Pfad wie die identifier in der DNA
+const RUN_ROUTE = /^\/_at0mic\/run\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
+const MAX_RUN_BODY_BYTES = 64 * 1024; // Eingabe für die SSF: höchstens 64 KB
+
+// JSON aus der Anfrage lesen – mit Grössen-Grenze (Fehler mit .status)
+const readJsonBody = (req, maxBytes) =>
+    new Promise((resolve, reject) => {
+        const fail = (status, message) => reject(Object.assign(new Error(message), { status }));
+        let size = 0;
+        let chunks = [];
+        req.on('data', chunk => {
+            size += chunk.length;
+            // Zu gross: den Rest still wegwerfen (nicht speichern), am Ende sauber 413 antworten
+            if (size > maxBytes) chunks = [];
+            else chunks.push(chunk);
+        });
+        req.on('end', () => {
+            if (size > maxBytes) return fail(413, `Zu gross (max. ${Math.round(maxBytes / 1024)} KB).`);
+            const text = Buffer.concat(chunks).toString('utf8');
+            if (!text.trim()) return resolve({});
+            try {
+                const value = JSON.parse(text);
+                if (!value || typeof value !== 'object' || Array.isArray(value)) {
+                    return fail(400, 'Die Eingabe muss ein JSON-Objekt sein.');
+                }
+                resolve(value);
+            } catch {
+                fail(400, 'Ungültiges JSON.');
+            }
+        });
+        req.on('error', () => fail(400, 'Anfrage abgebrochen.'));
+    });
 
 // marked (Markdown -> HTML) gibt es nur als ES-Modul -> beim ersten Gebrauch laden
 let markedPromise = null;
@@ -153,12 +189,87 @@ const createBauarbeiter = ({
         res.status(status).type(contentTypeFor(path)).send(content);
     };
 
+    // ---------------------------------------------------------------------
+    // SSF DER WEBSITE AUFRUFEN:  POST /_at0mic/run/<pfad>   (JSON rein, JSON raus)
+    // Das JavaScript der Website ruft so ihre eigene SSF auf – auf derselben
+    // Adresse, darum braucht es kein CORS. Der Bauarbeiter reicht weiter an
+    // POST /api/sites/<name>/run/<pfad>, mit Schlüssel und Besucher-IP, ohne
+    // Cookies. Fehlermeldungen aus dem SSF-Code bekommt der Besucher nie.
+    // ---------------------------------------------------------------------
+    const runFunction = async (req, res, name, runPath) => {
+        const reply = (status, body, extra = {}) => {
+            res.set('Cache-Control', 'no-store');
+            if (extra.retryAfter) res.set('Retry-After', String(extra.retryAfter));
+            return res.status(status).json(body);
+        };
+        if (!req.is('application/json')) {
+            return reply(415, { error: 'Bitte als JSON schicken (Content-Type: application/json).' });
+        }
+        let body;
+        try {
+            body = await readJsonBody(req, MAX_RUN_BODY_BYTES);
+        } catch (error) {
+            return reply(error.status || 400, { error: error.message });
+        }
+
+        const headers = { 'content-type': 'application/json', accept: 'application/json' };
+        if (key) headers['x-bauarbeiter-key'] = key;
+        const visitorIp = visitorIpOf(req);
+        if (key && visitorIp) headers['x-besucher-ip'] = visitorIp;
+
+        let res2;
+        let data = null;
+        try {
+            res2 = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/run/${runPath}`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+            });
+            data = await res2.json().catch(() => null);
+        } catch (error) {
+            log.warn(`[BAUARBEITER] Backend nicht erreichbar (${name}/${runPath}): ${error.message}`);
+            return reply(503, { error: 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.' });
+        }
+
+        if (res2.ok) return reply(200, { result: data?.result ?? null });
+        if (res2.status === 404) return reply(404, { error: 'Diese Funktion gibt es nicht.' });
+        if (res2.status === 400) return reply(400, { error: data?.error || 'Ungültige Eingabe.' });
+        if (res2.status === 429) {
+            const retryAfter = data?.retryAfter || res2.headers.get('retry-after') || 30;
+            return reply(
+                429,
+                { error: 'Zu viele Anfragen – bitte kurz warten.', retryAfter: Number(retryAfter) },
+                { retryAfter }
+            );
+        }
+        if (res2.status === 422) {
+            // Fehler im Code der SSF: nur ins Log, nie an den Besucher
+            log.warn(`[BAUARBEITER] SSF "${name}/${runPath}" mit Fehler: ${data?.details || data?.error}`);
+            return reply(502, { error: 'Die Funktion hatte einen Fehler.' });
+        }
+        if (res2.status === 401)
+            log.error('[BAUARBEITER] Der Bauarbeiter-Schlüssel ist falsch (BAUARBEITER_KEY prüfen).');
+        return reply(503, { error: 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.' });
+    };
+
     return async (req, res, next) => {
         const host = siteNameFromHost(req.headers.host, siteDomain);
         if (!host.isSiteHost) return next(); // keine Website -> Cockpit
 
         try {
             setSecurityHeaders(res, isProduction);
+
+            // SSF der Website (nur POST, nur unter /_at0mic/run/)
+            const run = RUN_ROUTE.exec(req.path);
+            if (run && host.name) {
+                if (req.method !== 'POST') {
+                    res.set('Allow', 'POST');
+                    return res.status(405).json({ error: 'Nur POST.' });
+                }
+                return await runFunction(req, res, host.name, run[1]);
+            }
+
             if (req.method !== 'GET' && req.method !== 'HEAD') return sendPage(res, 'methodNotAllowed');
             if (!host.name) return sendPage(res, 'noSite');
 

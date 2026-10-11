@@ -250,15 +250,18 @@ const KEY = 'k'.repeat(40);
 // Das nachgebaute Backend: antwortet pro Website-Name mit dem, was der Test festlegt
 const backend = {
     sites: {}, // name -> { status, body, headers }
-    calls: [], // { url, headers }
+    runs: {}, // "name/pfad" -> { status, body, headers }  (POST …/run/…)
+    calls: [], // { url, method, headers, body }
     down: false
 };
 
 const fakeFetch = async (url, options) => {
-    backend.calls.push({ url, headers: options.headers });
+    backend.calls.push({ url, method: options.method || 'GET', headers: options.headers, body: options.body });
     if (backend.down) throw new Error('connect ECONNREFUSED');
-    const name = decodeURIComponent(url.split('/api/sites/')[1]);
-    const answer = backend.sites[name] || { status: 404, body: { error: 'Keine Website' } };
+    const rest = decodeURIComponent(url.split('/api/sites/')[1]);
+    const answer = rest.includes('/run/')
+        ? backend.runs[rest.replace('/run/', '/')] || { status: 404, body: { error: 'nicht gefunden' } }
+        : backend.sites[rest] || { status: 404, body: { error: 'Keine Website' } };
     return {
         ok: answer.status >= 200 && answer.status < 300,
         status: answer.status,
@@ -276,18 +279,28 @@ let server, port, cache;
 const logs = [];
 
 // Anfrage mit eigenem Host-Header (fetch erlaubt das nicht, darum node:http)
-const request = (host, path = '/', { method = 'GET', ip } = {}) =>
+const request = (host, path = '/', { method = 'GET', ip, body, contentType } = {}) =>
     new Promise((resolve, reject) => {
         const headers = { host };
         if (ip) headers['x-forwarded-for'] = ip;
+        if (contentType) headers['content-type'] = contentType;
         const req = http.request({ host: '127.0.0.1', port, path, method, headers }, res => {
-            let body = '';
+            let text = '';
             res.setEncoding('utf8');
-            res.on('data', c => (body += c));
-            res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body }));
+            res.on('data', c => (text += c));
+            res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: text }));
         });
         req.on('error', reject);
-        req.end();
+        req.end(body);
+    });
+
+// SSF der Website aufrufen, wie das JavaScript im Browser es tut
+const runSsf = (host, path, data, extra = {}) =>
+    request(host, `/_at0mic/run/${path}`, {
+        method: 'POST',
+        contentType: 'application/json',
+        body: typeof data === 'string' ? data : JSON.stringify(data),
+        ...extra
     });
 
 before(async () => {
@@ -315,6 +328,7 @@ after(() => new Promise(r => server.close(r)));
 
 beforeEach(() => {
     backend.sites = {};
+    backend.runs = {};
     backend.calls = [];
     backend.down = false;
     cache.clear();
@@ -458,6 +472,71 @@ describe('Bauarbeiter: wenn etwas fehlt oder schiefgeht', () => {
         const r = await request('at0mic.ch', '/');
         assert.equal(r.body, 'COCKPIT');
         assert.equal(r.headers['content-security-policy'], undefined);
+        assert.equal(backend.calls.length, 0);
+    });
+});
+
+describe('Bauarbeiter: SSF der Website aufrufen (POST /_at0mic/run/…)', () => {
+    test('reicht weiter: POST, JSON, Schlüssel, Besucher-IP – ohne Cookies', async () => {
+        backend.runs['app/api'] = { status: 200, body: { success: true, result: { hallo: 'Welt' } } };
+        const r = await runSsf('app.at0mic.site', 'api', { aktion: 'lesen' }, { ip: '203.0.113.5' });
+        assert.equal(r.status, 200);
+        assert.deepEqual(JSON.parse(r.body), { result: { hallo: 'Welt' } });
+        assert.equal(r.headers['cache-control'], 'no-store');
+        assert.equal(r.headers['set-cookie'], undefined);
+
+        const call = backend.calls[0];
+        assert.equal(call.url, 'http://backend.test/api/sites/app/run/api');
+        assert.equal(call.method, 'POST');
+        assert.deepEqual(JSON.parse(call.body), { aktion: 'lesen' });
+        assert.equal(call.headers['x-bauarbeiter-key'], KEY);
+        assert.equal(call.headers['x-besucher-ip'], '203.0.113.5');
+        assert.equal(call.headers.cookie, undefined);
+    });
+
+    test('Pfade mit Unterordnern gehen, ungültige nicht (dann ganz normal 405/404)', async () => {
+        backend.runs['app/bereich/api'] = { status: 200, body: { result: 1 } };
+        assert.equal((await runSsf('app.at0mic.site', 'bereich/api', {})).status, 200);
+        assert.equal((await runSsf('app.at0mic.site', '../api', {})).status, 405, 'kein gültiger Pfad -> kein Aufruf');
+        assert.equal(backend.calls.length, 1);
+    });
+
+    test('nur POST mit JSON-Objekt, höchstens 64 KB', async () => {
+        assert.equal((await request('app.at0mic.site', '/_at0mic/run/api')).status, 405);
+        assert.equal((await runSsf('app.at0mic.site', 'api', '{}', { contentType: 'text/plain' })).status, 415);
+        assert.equal((await runSsf('app.at0mic.site', 'api', '{kaputt')).status, 400);
+        assert.equal((await runSsf('app.at0mic.site', 'api', '[1,2]')).status, 400);
+        const big = await runSsf('app.at0mic.site', 'api', { text: 'x'.repeat(70 * 1024) });
+        assert.equal(big.status, 413);
+        assert.equal(backend.calls.length, 0, 'nichts davon erreicht das Backend');
+    });
+
+    test('Fehler im SSF-Code: 502 ohne Details, die stehen nur im Log', async () => {
+        backend.runs['app/api'] = { status: 422, body: { error: 'Fehler', details: 'Error: geheimes Detail' } };
+        const r = await runSsf('app.at0mic.site', 'api', {});
+        assert.equal(r.status, 502);
+        assert.doesNotMatch(r.body, /geheimes Detail/);
+        assert.ok(logs.some(l => /geheimes Detail/.test(l)));
+    });
+
+    test('Antworten des Backends werden übersetzt: 404, 400, 429 (mit Wartezeit), weg = 503', async () => {
+        assert.equal((await runSsf('app.at0mic.site', 'gibtsnicht', {})).status, 404);
+
+        backend.runs['app/api'] = { status: 400, body: { error: 'Die Eingabe muss ein JSON-Objekt sein.' } };
+        assert.match((await runSsf('app.at0mic.site', 'api', {})).body, /JSON-Objekt/);
+
+        backend.runs['app/api'] = { status: 429, body: { retryAfter: 12 } };
+        const limited = await runSsf('app.at0mic.site', 'api', {});
+        assert.equal(limited.status, 429);
+        assert.equal(limited.headers['retry-after'], '12');
+        assert.equal(JSON.parse(limited.body).retryAfter, 12);
+
+        backend.down = true;
+        assert.equal((await runSsf('app.at0mic.site', 'api', {})).status, 503);
+    });
+
+    test('ohne Website-Namen (at0mic.site selbst) gibt es keine SSF', async () => {
+        assert.equal((await runSsf('at0mic.site', 'api', {})).status, 405);
         assert.equal(backend.calls.length, 0);
     });
 });

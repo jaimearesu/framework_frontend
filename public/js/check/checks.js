@@ -1081,12 +1081,51 @@ return { uuid: kopie.uuid, left: austritt.left };`
         }
     },
     {
+        id: 'site-run-private',
+        group: 'Website',
+        title: 'Private SSF ist für die Website nicht erreichbar (404)',
+        needs: ['domainName', 'funktion'],
+        run: async ctx => {
+            // Die Test-SSF "funktion" ist privat -> eine Website kann sie nicht starten
+            expectStatus(await api.post(`/api/sites/${ctx.domainName}/run/funktion`, {}), 404, 'private SSF');
+            return '404';
+        }
+    },
+    {
+        id: 'site-run',
+        group: 'Website',
+        title: 'Öffentlich: die Website ruft ihre SSF auf (mit Eingabe, als anonymer Besucher)',
+        needs: ['root', 'domainName', 'funktion'],
+        run: async ctx => {
+            if (!ctx.sitePublished) return 'nur mit Login prüfbar – übersprungen';
+            const pub = await api.put(`/api/objects/${ctx.funktion}/visibility`, { visibility: 'public' });
+            expectStatus(pub, 200, 'SSF öffentlich');
+            const save = await api.post(`/api/ast/${ctx.funktion}`, {
+                snippets: [
+                    {
+                        type: 'ssf',
+                        code: 'return { site: requestContext.site, besucher: requestContext.userUuid, x: requestContext.body.x };'
+                    }
+                ]
+            });
+            expectStatus(save, 201, 'SSF speichern');
+            const r = await api.post(`/api/sites/${ctx.domainName}/run/funktion`, { x: 42 });
+            expectStatus(r, 200, 'SSF der Website ausführen');
+            const res = r.data?.result || {};
+            expect(res.site?.domain === ctx.domainName && res.site?.run === 'funktion', 'requestContext.site fehlt', r);
+            expect(res.besucher === null, 'Die SSF hätte den Aufrufer nicht kennen dürfen', r);
+            expect(res.x === 42, 'Eingabe kam nicht an', r);
+            return 'site ✓ · anonym ✓ · Eingabe ✓';
+        }
+    },
+    {
         id: 'site-unpublish',
         group: 'Website',
         title: 'Wieder privat: die Website ist sofort weg (404)',
         needs: ['root', 'domainName'],
         run: async ctx => {
             if (!ctx.sitePublished) return 'nur mit Login prüfbar – übersprungen';
+            if (ctx.funktion) await api.put(`/api/objects/${ctx.funktion}/visibility`, { visibility: 'private' });
             const r = await api.put(`/api/objects/${ctx.root}/visibility`, { visibility: 'private' });
             expectStatus(r, 200, 'wieder privat');
             ctx.sitePublished = false;
