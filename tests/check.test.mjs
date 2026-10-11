@@ -153,6 +153,7 @@ describe('Die echten Prüfungen', () => {
             'SSF',
             'Tresor',
             'Sicherheit (als Fremder)',
+            'Website',
             'Löschen & Aufräumen'
         ])
             assert.ok(CHECK_GROUPS.includes(g), g);

@@ -14,6 +14,16 @@ import http from 'node:http';
 import { createRequire } from 'node:module';
 import express from 'express';
 
+import {
+    isSiteName,
+    siteUrl,
+    siteStatus,
+    hiddenNames,
+    bauplanFiles,
+    fileUrl,
+    formatBytes
+} from '../public/js/core/site.js';
+
 const require = createRequire(import.meta.url);
 const { siteNameFromHost } = require('../site/host.js');
 const { resolveFile, contentTypeFor } = require('../site/files.js');
@@ -147,6 +157,88 @@ describe('Seiten', () => {
         assert.equal(visitorIpOf({ ip: '::ffff:203.0.113.7' }), '203.0.113.7');
         assert.equal(visitorIpOf({ ip: '2001:db8::1' }), '2001:db8::1');
         assert.equal(visitorIpOf({}), null);
+    });
+});
+
+describe('Cockpit-Reiter "Website" (core/site.js)', () => {
+    const root = (domain, visibility = 'public') => ({
+        uuid: domain,
+        domain,
+        domain_ref: null,
+        path: ['0'],
+        visibility
+    });
+    const kid = (family, step, visibility) => ({
+        uuid: `${family}-${step}`,
+        domain: null,
+        domain_ref: family,
+        path: ['0', `0,${step}`],
+        visibility
+    });
+
+    test('gleiche Namensregel wie Backend und Bauarbeiter', () => {
+        assert.equal(isSiteName('mein-shop'), true);
+        for (const bad of ['Shop', 'a_b', 'www', 'api', '-x', 'a'.repeat(64)])
+            assert.equal(isSiteName(bad), false, bad);
+    });
+
+    test('Adresse aus der Vorlage', () => {
+        assert.equal(siteUrl('https://{name}.at0mic.site', 'shop'), 'https://shop.at0mic.site');
+        assert.equal(siteUrl('http://{name}.site.localhost:3001', 'shop'), 'http://shop.site.localhost:3001');
+        assert.equal(siteUrl(null, 'shop'), null);
+    });
+
+    test('Status: Kind, ungültiger Name, privat, online mit fehlenden Teilen', () => {
+        const shop = root('shop');
+        const objects = [
+            shop,
+            kid('shop', 1, 'public'),
+            kid('shop', 2, 'private'),
+            kid('shop', 3, 'members'),
+            root('anders')
+        ];
+        assert.deepEqual(siteStatus(objects[1], objects), { kind: 'child', family: 'shop' });
+        assert.deepEqual(siteStatus(root('Gross'), []), { kind: 'badName', name: 'Gross' });
+        assert.equal(siteStatus(root('shop', 'private'), objects).online, false);
+        assert.equal(siteStatus(root('shop', 'members'), objects).online, false, 'nur Eingeloggte = nicht online');
+
+        const s = siteStatus(shop, objects);
+        assert.equal(s.kind, 'site');
+        assert.equal(s.online, true);
+        assert.deepEqual(
+            s.hidden.map(o => o.uuid),
+            ['shop-2', 'shop-3']
+        );
+    });
+
+    test('versteckte Teile kurz aufzählen', () => {
+        const many = Array.from({ length: 7 }, (_, i) => root(`teil${i}`));
+        assert.equal(hiddenNames(many.slice(0, 2)), 'teil0, teil1');
+        assert.equal(hiddenNames(many), 'teil0, teil1, teil2, teil3, teil4 und 2 weitere');
+    });
+
+    test('Dateien des Bauplans: index.html zuerst, Grösse in Bytes (UTF-8)', () => {
+        const rows = bauplanFiles({ files: { 'style.css': 'ab', 'index.html': 'ä', 'about.md': '' } });
+        assert.deepEqual(rows, [
+            { path: 'index.html', bytes: 2 },
+            { path: 'about.md', bytes: 0 },
+            { path: 'style.css', bytes: 2 }
+        ]);
+        assert.deepEqual(bauplanFiles(null), []);
+    });
+
+    test('Adresse einer Datei auf der Website', () => {
+        const base = 'https://shop.at0mic.site';
+        assert.equal(fileUrl(base, 'index.html'), 'https://shop.at0mic.site/');
+        assert.equal(fileUrl(base, 'blog/index.md'), 'https://shop.at0mic.site/blog/');
+        assert.equal(fileUrl(base, 'blog/post.md'), 'https://shop.at0mic.site/blog/post');
+        assert.equal(fileUrl(base, 'style.css'), 'https://shop.at0mic.site/style.css');
+    });
+
+    test('Grössen lesbar', () => {
+        assert.equal(formatBytes(512), '512 B');
+        assert.equal(formatBytes(2048), '2.0 KB');
+        assert.equal(formatBytes(5 * 1024 * 1024), '5.0 MB');
     });
 });
 
