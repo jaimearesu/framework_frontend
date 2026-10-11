@@ -22,9 +22,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Hinter Traefik: die echte IP des Besuchers steht in X-Forwarded-For (ein Proxy davor).
-// Der Bauarbeiter gibt sie ans Backend weiter, damit pro Besucher gebremst wird.
-app.set('trust proxy', 1);
+// Die echte IP des Besuchers steht in X-Forwarded-For. Der Bauarbeiter gibt sie
+// ans Backend weiter, damit pro Besucher gebremst wird.
+// TRUST_PROXY_HOPS = wie viele Zwischenhalte davor stehen (gleich wie im Backend):
+//   1 = nur Traefik (Standard, lokal)
+//   2 = Cloudflare + Traefik (Server) – nur, wenn Traefik den Cloudflare-Adressen
+//       vertraut. Nie mehr eintragen, als es wirklich gibt (sonst fälschbar).
+const hops = parseInt(process.env.TRUST_PROXY_HOPS, 10);
+app.set('trust proxy', Number.isInteger(hops) && hops >= 1 ? hops : 1);
 // Nicht verraten, dass hier Express läuft
 app.disable('x-powered-by');
 
