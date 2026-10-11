@@ -103,9 +103,51 @@ export const maskResponse = data => {
     return copy;
 };
 
+// ---------------------------------------------------------------------
+// BREMSE ABWARTEN (nur für den Systemcheck)
+// Der Systemcheck ist ein Roboter: Er macht in einer halben Minute mehr
+// Änderungen, als die Bremse einem Menschen pro Minute erlaubt (429).
+// Ist das Warten eingeschaltet, wartet request() so lange, wie das Backend
+// sagt, und schickt dieselbe Anfrage nochmals. Das ist gefahrlos: Bei 429
+// hat das Backend die Anfrage gar nicht ausgeführt (die Bremse steht davor).
+// Überall sonst im Cockpit bleibt es aus – dort siehst du das 429 sofort.
+// ---------------------------------------------------------------------
+let rateLimitWaiting = null; // { maxWaitSec, maxRetries, onWait(sec) }
+
+export const setRateLimitWaiting = options => {
+    rateLimitWaiting = options || null;
+};
+
+// Wie lange warten? (reine Funktion, getestet) -> Sekunden oder null (nicht warten)
+// Die Zahl steht im Body (retryAfter) – den Header "Retry-After" darf der Browser
+// bei einer anderen Domain gar nicht lesen (CORS).
+export const rateLimitDelaySec = (result, maxWaitSec = 65) => {
+    if (!result || result.status !== 429) return null;
+    const raw = Number(result.data?.retryAfter ?? result.retryAfter);
+    const sec = Number.isFinite(raw) && raw > 0 ? Math.ceil(raw) : 5;
+    return sec <= maxWaitSec ? sec : null; // zu lange -> lieber als Fehler zeigen
+};
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 // sensitive: true -> gesendeter Inhalt UND Schlüssel in der Antwort erscheinen im Protokoll nur geschwärzt
 // bearer: 'at0_…' -> als KI anfragen (ohne Cookies)
-export const request = async (
+export const request = async (method, path, options = {}, attempt = 0) => {
+    const result = await requestOnce(method, path, options);
+    const waiting = rateLimitWaiting;
+    if (waiting && attempt < (waiting.maxRetries ?? 3)) {
+        const sec = rateLimitDelaySec(result, waiting.maxWaitSec);
+        if (sec !== null) {
+            waiting.onWait?.(sec);
+            await sleep(sec * 1000 + 250); // eine Viertelsekunde Reserve
+            waiting.onWait?.(0);
+            return request(method, path, options, attempt + 1);
+        }
+    }
+    return result;
+};
+
+const requestOnce = async (
     method,
     path,
     { body, query, anonymous = false, base, sensitive = false, bearer = null } = {}
