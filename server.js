@@ -32,6 +32,10 @@ app.disable('x-powered-by');
 //    SITE_DOMAIN      Domain der Websites (Server: at0mic.site, lokal: site.localhost)
 //    SITE_API_URL     Backend für die Baupläne (Standard: API_URL)
 //    BAUARBEITER_KEY  gleicher Wert wie in der .env des Backends
+const SITE_DOMAIN = process.env.SITE_DOMAIN || (isProduction ? 'at0mic.site' : 'site.localhost');
+// Adresse einer Website fürs Cockpit (Reiter "Website"): auf dem Server https ohne Port,
+// lokal http mit dem Port dieses Servers
+const SITE_URL = isProduction ? `https://{name}.${SITE_DOMAIN}` : `http://{name}.${SITE_DOMAIN}:${PORT}`;
 if (!process.env.BAUARBEITER_KEY) {
     console.warn('[BAUARBEITER] Kein BAUARBEITER_KEY gesetzt – alle Besucher teilen sich eine Bremse im Backend.');
 }
@@ -39,7 +43,7 @@ app.use(
     createBauarbeiter({
         apiUrl: process.env.SITE_API_URL || process.env.API_URL || 'http://localhost:3000',
         key: process.env.BAUARBEITER_KEY || null,
-        siteDomain: process.env.SITE_DOMAIN || (isProduction ? 'at0mic.site' : 'site.localhost'),
+        siteDomain: SITE_DOMAIN,
         isProduction
     })
 );
@@ -52,10 +56,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 //   testApiUrl  = das Test-Backend (npm run dev:test im Backend-Ordner,
 //                 Test-Datenbank). Auf dem Server gibt es das nicht,
 //                 darum ist es dort leer -> der Umschalter wird versteckt.
+//   siteUrl     = Vorlage für die Adresse einer Website ("{name}" wird ersetzt)
 app.get('/config.json', (req, res) => {
     res.json({
         apiUrl: process.env.API_URL || 'http://localhost:3000',
-        testApiUrl: process.env.TEST_API_URL || (isProduction ? null : 'http://localhost:3100')
+        testApiUrl: process.env.TEST_API_URL || (isProduction ? null : 'http://localhost:3100'),
+        siteUrl: SITE_URL
     });
 });
 

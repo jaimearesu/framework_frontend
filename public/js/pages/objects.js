@@ -3,9 +3,9 @@
 // OBJEKTE
 //
 //   links:  alle Objekte, die du sehen darfst – als Baum (Wurzel > Kinder)
-//   rechts: das gewählte Objekt mit acht Reitern
+//   rechts: das gewählte Objekt mit neun Reitern
 //             Übersicht (mit Herkunft bei Kopien) · Vorschau · Baum (DNA aufgelöst)
-//             · Rollen · Kind anhängen · Klonen & Zügeln · Sichtbarkeit · Löschen
+//             · Rollen · Kind anhängen · Klonen & Zügeln · Sichtbarkeit · Website · Löschen
 //   unten:  "Pfad auflösen" – so wie ein Besucher eine Adresse aufruft
 //
 // Adresse: /#/objekte            -> nur Liste
@@ -56,6 +56,16 @@ import {
     descendantsOf
 } from '../core/objects.js';
 import { getSession } from '../core/session.js';
+import { isTestMode, siteUrlTemplate } from '../core/config.js';
+import {
+    siteStatus,
+    siteUrl,
+    hiddenNames,
+    bauplanFiles,
+    fileUrl,
+    formatBytes,
+    RESERVED_SITE_NAMES
+} from '../core/site.js';
 import { addChildToDna, removeChildFromDna } from '../core/dna.js';
 import { renderDnaTree } from '../core/tree.js';
 import {
@@ -863,6 +873,203 @@ const renderVisibilityTab = (box, o, objects, { onDone }) => {
     );
 };
 
+// --- Reiter "Website" ---
+// Plan "Bauarbeiter + Bauplan-Format": Jede Domain kann eine Website sein
+// (<name>.at0mic.site). Online ist nur, was ÖFFENTLICH ist – der Bauarbeiter
+// fragt immer als anonymer Besucher. Hier siehst du, ob die Website online
+// ist, welche Teile fehlen, und den Bauplan (GET /api/sites/<name>).
+const renderSiteTab = (box, o, objects, { onTab }) => {
+    const status = siteStatus(o, objects);
+
+    if (status.kind === 'child') {
+        const parent = objects.find(x => x.domain === status.family);
+        return mount(
+            box,
+            card(
+                { title: 'Website', icon: 'external' },
+                callout(
+                    'info',
+                    'Teil einer Website: ',
+                    `Websites gibt es pro Domain. Dieses Unter-Objekt erscheint auf der Website von „${status.family}“ – wenn es öffentlich ist.`
+                ),
+                parent ? h('a', { class: 'btn', href: href('objekte', parent.uuid) }, `Zu „${status.family}“`) : null
+            )
+        );
+    }
+
+    if (status.kind === 'badName') {
+        return mount(
+            box,
+            card(
+                { title: 'Website', icon: 'external' },
+                callout(
+                    'warn',
+                    'Dieser Name kann keine Website werden. ',
+                    'Adressen wie name.at0mic.site erlauben nur Kleinbuchstaben, Ziffern und „-“ (nicht am Anfang oder Ende, max. 63 Zeichen). ',
+                    `Gesperrt sind ausserdem: ${RESERVED_SITE_NAMES.join(', ')}.`
+                )
+            )
+        );
+    }
+
+    const url = siteUrl(siteUrlTemplate(), status.name);
+    const planBox = h('div');
+
+    const loadPlan = async () => {
+        mount(planBox, spinner('Hole den Bauplan …'));
+        const res = await api.get(`/api/sites/${encodeURIComponent(status.name)}`);
+        if (!res.ok) {
+            return mount(
+                planBox,
+                resultLine(res),
+                // Fehler im SSF-Code: hier (für dich) mit Details – Besucher sehen sie nie
+                res.data?.details ? h('pre', { class: 'json' }, String(res.data.details)) : null,
+                res.status === 404
+                    ? h(
+                          'p',
+                          { class: 'small muted' },
+                          'Das Backend kennt keine öffentliche Website unter diesem Namen.'
+                      )
+                    : null
+            );
+        }
+        const plan = res.data.data;
+        const source = res.data.meta?.source === 'ssf' ? 'von der SSF der Domain' : 'statisch aus den Objekten (DNA)';
+        const rows = bauplanFiles(plan);
+        mount(
+            planBox,
+            resultLine(res),
+            infoList([
+                ['Quelle', source],
+                ['Dateien', `${rows.length} · ${formatBytes(rows.reduce((sum, r) => sum + r.bytes, 0))}`],
+                ['Zwischenspeicher', `${plan.cache} s (so lange bleibt eine Änderung unsichtbar)`]
+            ]),
+            h(
+                'div',
+                { class: 'table-wrap' },
+                h(
+                    'table',
+                    { class: 'data-table' },
+                    h('thead', {}, h('tr', {}, h('th', {}, 'Datei'), h('th', {}, 'Grösse'))),
+                    h(
+                        'tbody',
+                        {},
+                        rows.map(r =>
+                            h(
+                                'tr',
+                                {},
+                                h(
+                                    'td',
+                                    { class: 'mono' },
+                                    url && status.online
+                                        ? h(
+                                              'a',
+                                              {
+                                                  href: fileUrl(url, r.path),
+                                                  target: '_blank',
+                                                  rel: 'noopener noreferrer'
+                                              },
+                                              r.path
+                                          )
+                                        : r.path
+                                ),
+                                h('td', { class: 'num' }, formatBytes(r.bytes))
+                            )
+                        )
+                    )
+                )
+            ),
+            h(
+                'details',
+                {},
+                h('summary', { class: 'small' }, 'Ganzer Bauplan (JSON)'),
+                jsonView(plan, { maxHeight: '420px' })
+            )
+        );
+    };
+
+    mount(
+        box,
+        card(
+            {
+                title: 'Website',
+                icon: 'external',
+                subtitle: 'Jede Domain kann eine Website sein. Online ist nur, was öffentlich ist.'
+            },
+            infoList([
+                ['Adresse', url ? h('code', {}, url) : 'unbekannt (Frontend ohne /config.json)'],
+                [
+                    'Status',
+                    status.online
+                        ? badge('🌍 online', 'ok')
+                        : badge(`${visibilityInfo(o.visibility).emoji} nicht online`, 'neutral')
+                ]
+            ]),
+            status.online
+                ? null
+                : callout(
+                      'warn',
+                      'Noch nicht online: ',
+                      `„${status.name}“ ist ${visibilityInfo(o.visibility).label.toLowerCase()}. Die Website ist erst erreichbar, wenn die Domain öffentlich ist (Reiter „Sichtbarkeit“). Veröffentlichen kann nur ein eingeloggter Mensch – auch eine KI nicht.`
+                  ),
+            status.online && status.hidden.length
+                ? callout(
+                      'info',
+                      `${status.hidden.length} Teil(e) fehlen auf der Website: `,
+                      `${hiddenNames(status.hidden)} – sie sind nicht öffentlich. Das kann gewollt sein (z.B. Entwürfe).`
+                  )
+                : null,
+            isTestMode()
+                ? callout(
+                      'test',
+                      'Test-Modus: ',
+                      'Der Bauplan unten kommt aus der Test-Datenbank. Die Adresse oben zeigt, was der Bauarbeiter dieses Frontends ausliefert (normalerweise Live).'
+                  )
+                : null,
+            h(
+                'div',
+                { class: 'row gap-s wrap' },
+                url && status.online
+                    ? h(
+                          'a',
+                          { class: 'btn primary', href: url, target: '_blank', rel: 'noopener noreferrer' },
+                          icon('external', { size: 16 }),
+                          'Website öffnen'
+                      )
+                    : null,
+                busyButton('Bauplan ansehen', loadPlan, { className: 'btn', iconName: 'layers' }),
+                status.online
+                    ? null
+                    : h(
+                          'button',
+                          { class: 'btn', type: 'button', onclick: () => onTab('sichtbar') },
+                          'Zur Sichtbarkeit'
+                      )
+            ),
+            planBox,
+            h(
+                'ul',
+                { class: 'small muted' },
+                h(
+                    'li',
+                    {},
+                    'Ohne SSF baut at0mic die Website aus der DNA: dein HTML, die Kinder in ihren Plätzen (<div data-slot="name">) oder darunter, alles CSS in style.css, das JS jedes Objekts als eigene Datei – wie die Vorschau.'
+                ),
+                h(
+                    'li',
+                    {},
+                    'Mit einer SSF auf der Domain liefert sie den Bauplan selbst: return { bauplan: 1, files: { "index.html": "…", "blog/post.md": "# …" }, cache: 60 }. Sie erkennt die Anfrage an requestContext.site.'
+                ),
+                h(
+                    'li',
+                    {},
+                    'Adressen ohne Endung finden .html und .md (Markdown wird zur Seite), eine eigene 404.html ist möglich.'
+                )
+            )
+        )
+    );
+};
+
 // --- Reiter "Löschen" ---
 // DELETE /api/objects/:uuid  -> endgültig weg (Plan "Objekte löschen" in Notion)
 // Deutliche Rückfrage: Man muss den Namen abtippen UND nochmals bestätigen.
@@ -1005,8 +1212,10 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         { id: 'kind', label: 'Kind anhängen' },
         { id: 'kopie', label: 'Klonen & Zügeln' },
         { id: 'sichtbar', label: 'Sichtbarkeit' },
+        { id: 'website', label: 'Website' },
         { id: 'loeschen', label: 'Löschen' }
     ];
+    let bar = null;
     const show = id => {
         onTab(id);
         currentPreview?.destroy(); // alte Vorschau abmelden
@@ -1017,6 +1226,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         else if (id === 'rollen') renderRolesTab(body, o);
         else if (id === 'kopie') renderCopyTab(body, o, objects, { onDone: uuid => reload(uuid) });
         else if (id === 'sichtbar') renderVisibilityTab(body, o, objects, { onDone: uuid => reload(uuid) });
+        else if (id === 'website') renderSiteTab(body, o, objects, { onTab: next => bar.select(next) });
         else if (id === 'loeschen')
             renderDeleteTab(body, o, objects, {
                 // Nach dem Löschen: zum Eltern-Objekt (bei einem Kind) oder zur Liste
@@ -1059,7 +1269,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
                 h('a', { class: 'btn', href: href('code', o.uuid) }, icon('code', { size: 16 }), 'Code bearbeiten')
             )
         ),
-        tabs(TABS, { active, onChange: show }),
+        (bar = tabs(TABS, { active, onChange: show })),
         body
     );
     show(active);

@@ -14,7 +14,8 @@
 import { emit } from './events.js';
 import { load, save } from './storage.js';
 
-const config = { apiUrl: 'http://localhost:3000', testApiUrl: null };
+// siteUrl: Vorlage für die Adresse einer Kunden-Website, z.B. "https://{name}.at0mic.site"
+const config = { apiUrl: 'http://localhost:3000', testApiUrl: null, siteUrl: null };
 let mode = 'live';
 
 // Welcher Modus gilt beim Start? (reine Funktion -> automatisch getestet)
@@ -30,6 +31,7 @@ export const loadConfig = async () => {
         const data = await res.json();
         if (data.apiUrl) config.apiUrl = trimSlash(data.apiUrl);
         config.testApiUrl = data.testApiUrl ? trimSlash(data.testApiUrl) : null;
+        config.siteUrl = typeof data.siteUrl === 'string' ? data.siteUrl : null;
     } catch {
         // Ohne config.json: Standard (lokales Backend) benutzen
     }
@@ -46,6 +48,8 @@ export const apiBase = () => (mode === 'test' ? config.testApiUrl : config.apiUr
 
 // Adresse des Live-Backends (für Login/Logout)
 export const liveBase = () => config.apiUrl;
+// Vorlage für die Adresse einer Website (Bauarbeiter) – null, wenn unbekannt
+export const siteUrlTemplate = () => config.siteUrl;
 export const testBase = () => config.testApiUrl;
 
 export const setMode = next => {

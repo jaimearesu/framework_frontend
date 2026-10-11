@@ -16,6 +16,9 @@
 // Bricht der Check vorher ab, bleibt ein Rest liegen – darum fragt der
 // Systemcheck im Live-Modus weiterhin nach.
 //
+// WEBSITE (Plan "Bauarbeiter"): Mit Login wird die Check-Domain kurz öffentlich
+// gemacht, ihr Bauplan geholt und sie gleich wieder privat gestellt.
+//
 // KI-ZUGANG (Plan "MCP"): Mit Login erzeugt der Check einen Schlüssel für die
 // Test-Domain und prüft, was die KI darf und was nicht. Er wird am Ende der
 // Gruppe widerrufen und verschwindet beim Aufräumen mit der Domain.
@@ -1022,6 +1025,73 @@ return { uuid: kopie.uuid, left: austritt.left };`
             ctx.published = false;
             expectStatus(await api.get(`/api/ast/${ctx.root}`, { anonymous: true }), 403, 'Fremder liest Code');
             return 'privat';
+        }
+    },
+
+    // ============================================================== WEBSITE
+    // Plan "Bauarbeiter + Bauplan-Format": GET /api/sites/<domain> liefert den
+    // Bauplan – immer so, wie ein anonymer Besucher die Website sieht. Mit Login
+    // wird die Check-Domain kurz öffentlich gemacht (nur sie, nicht die Kinder).
+    {
+        id: 'site-private',
+        group: 'Website',
+        title: 'Private Domain ist nicht online – auch nicht für dich (404)',
+        needs: ['domainName'],
+        run: async ctx => {
+            const r = await api.get(`/api/sites/${ctx.domainName}`);
+            expectStatus(r, 404, 'Bauplan einer privaten Domain');
+            return r.error;
+        }
+    },
+    {
+        id: 'site-names',
+        group: 'Website',
+        title: 'Ungültige und reservierte Namen haben keine Website (404)',
+        run: async () => {
+            for (const name of ['www', 'api', 'Gross-Geschrieben', 'mit_unterstrich']) {
+                expectStatus(await api.get(`/api/sites/${encodeURIComponent(name)}`), 404, `Name „${name}“`);
+            }
+            return 'www · api · Grossbuchstaben · _';
+        }
+    },
+    {
+        id: 'site-static',
+        group: 'Website',
+        title: 'Öffentlich: statischer Bauplan aus der DNA, private Kinder fehlen',
+        needs: ['root', 'domainName'],
+        run: async ctx => {
+            const me = await api.get('/api/me');
+            if (!me.data?.isAuthenticated) return 'nur mit Login prüfbar (veröffentlichen) – übersprungen';
+            const pub = await api.put(`/api/objects/${ctx.root}/visibility`, {
+                visibility: 'public',
+                includeChildren: false
+            });
+            expectStatus(pub, 200, 'Domain öffentlich');
+            ctx.sitePublished = true;
+
+            const r = await api.get(`/api/sites/${ctx.domainName}`);
+            expectStatus(r, 200, 'Bauplan holen');
+            const plan = r.data?.data;
+            expect(plan?.bauplan === 1, 'Bauplan ohne Versionsnummer 1', r);
+            expect(r.data?.meta?.source === 'static', `Quelle "${r.data?.meta?.source}" statt "static"`, r);
+            expect(typeof plan.files?.['index.html'] === 'string', 'index.html fehlt', r);
+            // Die Kinder (funktion, daten, lager) sind privat -> kein JS der Test-SSF usw.
+            expect(!JSON.stringify(plan).includes('requestContext'), 'SSF-Code ist im Bauplan gelandet!', r);
+            return `${Object.keys(plan.files).length} Datei(en), cache ${plan.cache} s`;
+        }
+    },
+    {
+        id: 'site-unpublish',
+        group: 'Website',
+        title: 'Wieder privat: die Website ist sofort weg (404)',
+        needs: ['root', 'domainName'],
+        run: async ctx => {
+            if (!ctx.sitePublished) return 'nur mit Login prüfbar – übersprungen';
+            const r = await api.put(`/api/objects/${ctx.root}/visibility`, { visibility: 'private' });
+            expectStatus(r, 200, 'wieder privat');
+            ctx.sitePublished = false;
+            expectStatus(await api.get(`/api/sites/${ctx.domainName}`), 404, 'Bauplan nach dem Zurückstellen');
+            return 'privat · 404';
         }
     },
 
