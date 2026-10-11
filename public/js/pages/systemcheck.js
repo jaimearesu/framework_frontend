@@ -10,8 +10,13 @@
 // echte Datenbank (Domain "check-…", am Schluss wieder gelöscht – bricht
 // der Check vorher ab, bleibt ein Rest) – darum muss man das dort
 // ausdrücklich bestätigen.
+//
+// BREMSE: Mit Login gelten pro Minute 60 Änderungen und 60 SSF-Ausführungen.
+// Der Check braucht mehr. Statt mit 429 zu scheitern, wartet er dann so lange,
+// wie das Backend sagt (Anzeige "⏳ Bremse – warte …"), und macht weiter.
 // ---------------------------------------------------------------------
 import { isTestMode, hasTestMode, setMode } from '../core/config.js';
+import { setRateLimitWaiting } from '../core/api.js';
 import { invalidateObjects } from '../core/objects.js';
 import { href } from '../core/routes.js';
 import { h, mount, card, callout, toast, jsonView, copyText } from '../core/ui.js';
@@ -30,6 +35,7 @@ export default {
     render(root) {
         let running = false;
         let stopRequested = false;
+        let waitingSec = 0; // > 0: die Bremse hat zugeschlagen, der Check wartet
         const results = new Map(lastRun?.results || []);
 
         const progressBar = h('div', { class: 'progress-bar' }, h('div', { class: 'progress-fill' }));
@@ -118,6 +124,16 @@ export default {
                               `${s.skip} übersprungen`
                           ),
                           h('span', { class: 'muted small' }, `${done}/${CHECKS.length}`),
+                          running && waitingSec
+                              ? h(
+                                    'span',
+                                    {
+                                        class: 'muted small',
+                                        title: 'Die Bremse schützt das Backend vor zu vielen Anfragen pro Minute.'
+                                    },
+                                    `⏳ Bremse – warte ${waitingSec} s, dann geht es weiter`
+                                )
+                              : null,
                           lastRun && !running
                               ? h(
                                     'span',
@@ -173,14 +189,28 @@ export default {
             render();
             const t0 = performance.now();
             const ctx = {};
-            await runChecks(CHECKS, {
-                ctx,
-                shouldStop: () => stopRequested,
-                onUpdate: r => {
-                    results.set(r.id, r);
+            // Bremse (429): warten statt scheitern – nur während des Checks (siehe core/api.js)
+            setRateLimitWaiting({
+                maxWaitSec: 65,
+                maxRetries: 3,
+                onWait: sec => {
+                    waitingSec = sec;
                     render();
                 }
             });
+            try {
+                await runChecks(CHECKS, {
+                    ctx,
+                    shouldStop: () => stopRequested,
+                    onUpdate: r => {
+                        results.set(r.id, r);
+                        render();
+                    }
+                });
+            } finally {
+                setRateLimitWaiting(null);
+                waitingSec = 0;
+            }
             running = false;
             startBtn.disabled = false;
             stopBtn.hidden = true;
