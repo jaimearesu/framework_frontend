@@ -17,6 +17,10 @@
 // Besonderheit "anonymous: true": Die Anfrage geht OHNE Cookies raus –
 // so, als wärst du ein fremder Besucher. Der Systemcheck prüft damit,
 // dass Fremde wirklich nichts sehen.
+//
+// Besonderheit "bearer: 'at0_…'" (Plan "MCP"): Die Anfrage geht als KI raus –
+// mit "Authorization: Bearer …" und OHNE Cookies. Der Systemcheck prüft
+// damit, was eine KI darf und was nicht.
 // ---------------------------------------------------------------------
 import { apiBase, getMode } from './config.js';
 import { emit } from './events.js';
@@ -86,8 +90,26 @@ export const maskSecrets = (body, fields = ['value', 'password', 'secret', 'toke
     return copy;
 };
 
-// sensitive: true -> der gesendete Inhalt erscheint im Protokoll nur geschwärzt
-export const request = async (method, path, { body, query, anonymous = false, base, sensitive = false } = {}) => {
+// KI-Schlüssel in einer ANTWORT schwärzen (reine Funktion, getestet).
+// Beim Erzeugen schickt das Backend den Schlüssel genau einmal mit:
+//   { message, data: { token: 'at0_…', … } }  ->  { message, data: { token: '***', … } }
+// So steht er nie im Anfragen-Protokoll – nur im Kasten auf der Seite.
+export const maskResponse = data => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+    const copy = maskSecrets(data, ['token']);
+    if (copy.data && typeof copy.data === 'object' && !Array.isArray(copy.data)) {
+        copy.data = maskSecrets(copy.data, ['token']);
+    }
+    return copy;
+};
+
+// sensitive: true -> gesendeter Inhalt UND Schlüssel in der Antwort erscheinen im Protokoll nur geschwärzt
+// bearer: 'at0_…' -> als KI anfragen (ohne Cookies)
+export const request = async (
+    method,
+    path,
+    { body, query, anonymous = false, base, sensitive = false, bearer = null } = {}
+) => {
     const url = buildUrl(base ?? apiBase(), path, query);
     const hasBody = body !== undefined;
     const started = performance.now();
@@ -98,17 +120,20 @@ export const request = async (method, path, { body, query, anonymous = false, ba
         method,
         path: path + (url.includes('?') ? url.slice(url.indexOf('?')) : ''),
         url,
-        anonymous,
+        anonymous: anonymous || Boolean(bearer),
+        asAi: Boolean(bearer),
         requestBody: hasBody ? (sensitive ? maskSecrets(body) : body) : undefined
     };
 
     let result;
     try {
+        const headers = hasBody ? { 'Content-Type': 'application/json' } : {};
+        if (bearer) headers.Authorization = `Bearer ${bearer}`;
         const res = await fetch(url, {
             method,
-            // 'include' = Cookies mitschicken (Login/Gast). 'omit' = als Fremder.
-            credentials: anonymous ? 'omit' : 'include',
-            headers: hasBody ? { 'Content-Type': 'application/json' } : {},
+            // 'include' = Cookies mitschicken (Login/Gast). 'omit' = als Fremder oder als KI.
+            credentials: anonymous || bearer ? 'omit' : 'include',
+            headers,
             body: hasBody ? JSON.stringify(body) : undefined
         });
         const text = await res.text();
@@ -139,7 +164,8 @@ export const request = async (method, path, { body, query, anonymous = false, ba
         };
     }
 
-    emit('request', { ...entry, ...result });
+    // Ins Anfragen-Protokoll: bei "sensitive" mit geschwärzter Antwort
+    emit('request', { ...entry, ...result, data: sensitive ? maskResponse(result.data) : result.data });
     return result;
 };
 

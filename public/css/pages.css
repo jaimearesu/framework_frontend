@@ -1177,3 +1177,27 @@ details.raw summary {
         display: none;
     }
 }
+
+/* ---------- KI-Zugänge (Plan "MCP") ---------- */
+/* Der Kasten, in dem ein neuer Schlüssel genau EINMAL erscheint */
+.token-reveal {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 14px;
+    border: 2px solid var(--warn);
+    border-radius: var(--radius-s);
+    background: var(--warn-soft);
+}
+.token-value {
+    display: block;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    word-break: break-all;
+    user-select: all; /* ein Klick markiert den ganzen Schlüssel */
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+}

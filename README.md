@@ -1,7 +1,7 @@
 # at0mic Cockpit (Frontend)
 
 Das Cockpit für [at0mic](../framework): Hier siehst du alles Wichtige und kannst jede Funktion des Backends
-ausprobieren – Objekte, Code, SSFs, Daten und Suche, Rechte, Tresor und einen Systemcheck.
+ausprobieren – Objekte, Code, SSFs, Daten und Suche, Rechte, Tresor, KI-Zugänge und einen Systemcheck.
 
 ## Starten
 
@@ -68,7 +68,7 @@ tests/                    automatische Tests der Hilfsfunktionen
 ## Systemcheck
 
 Unter **Systemcheck** (oder „Teste alles“ unten im Menü) prüft das Cockpit mit einem Klick das ganze
-Backend: Verbindung, Objekte, Code, Daten & Suche, Joins, Rechte, SSFs, Tresor und Sicherheit als Fremder.
+Backend: Verbindung, Objekte, Code, Daten & Suche, Joins, Rechte, SSFs, Tresor, Sicherheit als Fremder, Sichtbarkeit und KI-Zugang.
 Dabei entsteht eine Domain `check-…` mit Test-Daten. Es gibt noch keine Route zum Löschen von Objekten,
 darum läuft der Check standardmässig im **Test-Modus**; im Live-Modus muss man ihn ausdrücklich bestätigen.
 
@@ -78,6 +78,7 @@ darum läuft der Check standardmässig im **Test-Modus**; im Live-Modus muss man
 - [x] **2 Objekte + Code & DNA:** Objekt-Baum, Details, Rollen, Kind anhängen (mit DNA-Eintrag), Pfad auflösen, Code-Editor (CodeMirror) mit Live-Vorschau, DNA-Prüfung mit Baum
 - [x] **3 SSF-Studio:** Spielwiese per Klick, Editor, Ausführen (POST mit Body / GET mit Ziel / als Fremder), Ergebnis mit HTML-Vorschau und Fehler-Tipps, 10 Beispiele (inkl. Verkaufsautomat), Referenz aller 17 Werkzeuge, Grenzen
 - [x] **4 Daten & Suche, Relationen, Rechte, Tresor:** 15 Such-Beispiele, Tabelle/JSON, Blättern, Löschen, Testdaten; Relationen mit Join-Erklärung; Triplets, Rollen vergeben/entziehen, „Was sieht ein Fremder?“; Tresor (Werte nie sichtbar, im Protokoll geschwärzt)
+- [x] **KI-Zugänge** (Plan „MCP“, Etappe 3): Schlüssel erzeugen (Laufzeit 1 Stunde bis 1 Jahr, nur einmal sichtbar, im Anfragen-Protokoll geschwärzt), auflisten, widerrufen; Protokoll „was hat es getan / was ist daran passiert“; Systemcheck-Gruppe „KI-Zugang“ (5 Prüfungen, mit Login)
 - [x] **5 Systemcheck:** „Teste alles“ mit 73 Prüfungen in 12 Gruppen (inkl. Klonen & Zügeln, Sicherheit als Fremder und Löschen & Aufräumen am Schluss), Bericht zum Kopieren; Schnellstart auf der Übersicht; alte Oberfläche entfernt
 - [x] **Klonen & Zügeln:** Reiter „Klonen & Zügeln“ auf der Objekt-Seite (Kopie als neue Domain mit Version und optional Daten; Zügeln in eine andere Familie mit Warnung und DNA-Eintrag), Herkunft in der Übersicht
 - [x] **Löschen:** Reiter „Löschen“ auf der Objekt-Seite (nur ohne Kinder, Name abtippen + Rückfrage, bei Kindern auf Wunsch aus der DNA des Eltern-Objekts entfernen); der Systemcheck räumt am Schluss alles auf
