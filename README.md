@@ -20,16 +20,37 @@ Oben rechts im Cockpit schaltest du zwischen **Live** (echte Datenbank) und **Te
 
 ## Einstellungen (`.env`)
 
-| Variable       | Bedeutung                                                                                |
-| -------------- | ---------------------------------------------------------------------------------------- |
-| `PORT`         | Port des Frontends (Standard 3001)                                                       |
-| `API_URL`      | Adresse des Backends (Standard `http://localhost:3000`, Server: `https://api.at0mic.ch`) |
-| `TEST_API_URL` | Adresse des Test-Backends (lokal Standard `http://localhost:3100`, auf dem Server leer)  |
+| Variable          | Bedeutung                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| `PORT`            | Port des Frontends (Standard 3001)                                                              |
+| `API_URL`         | Adresse des Backends (Standard `http://localhost:3000`, Server: `https://api.at0mic.ch`)        |
+| `TEST_API_URL`    | Adresse des Test-Backends (lokal Standard `http://localhost:3100`, auf dem Server leer)         |
+| `BAUARBEITER_KEY` | Gleicher Wert wie in der `.env` des Backends (Bremse pro Besucher, siehe unten)                 |
+| `SITE_DOMAIN`     | _optional_: Domain der Kunden-Websites (Standard: Server `at0mic.site`, lokal `site.localhost`) |
+| `SITE_API_URL`    | _optional_: Backend für die Baupläne (Standard: `API_URL`)                                      |
+
+## Kunden-Websites (der "Bauarbeiter")
+
+Alles unter der Website-Domain (`shop.at0mic.site`, lokal `shop.site.localhost:3001`) beantwortet der
+**Bauarbeiter** im Ordner `site/` – nie das Cockpit. Er holt den Bauplan vom Backend (`GET /api/sites/shop`)
+und liefert die Dateien aus. Plan in Notion: "Plan: Bauarbeiter + Bauplan-Format".
+
+- **Adressen:** `/` → `index.html` (oder `index.md`) · `/blog/post` → `blog/post.html`, `.md` oder `blog/post/index.html`
+  · Markdown wird als HTML-Seite ausgeliefert (mit dem `style.css` der Website) · fehlt etwas: die `404.html` der
+  Website, sonst eine neutrale at0mic-Seite
+- **Zwischenspeicher:** Ein Bauplan wird so lange behalten, wie er sagt (`cache`, Standard 60 s), höchstens 200
+  Websites. Ist das Backend weg, liefert er den letzten guten Stand weiter aus. "Gibt es nicht" merkt er sich 10 s.
+- **Sicherheit:** keine Cookies, nur GET/HEAD, Schutz-Header (`nosniff`, `frame-ancestors 'self'` …), Fehler aus dem
+  Code einer Website nur im Log. Online ist nur, was im Backend öffentlich ist.
+- **Lokal ausprobieren:** Browser schicken jede Adresse auf `.localhost` an den eigenen PC – also einfach
+  `http://<domain>.site.localhost:3001` öffnen (die Domain muss öffentlich sein).
 
 ## Aufbau
 
 ```
-server.js                 liefert public/ aus und /config.json (Adressen der Backends)
+server.js                 Kunden-Websites (site/) zuerst, sonst das Cockpit: public/ und /config.json
+site/                     der Bauarbeiter: bauarbeiter.js (Ablauf), host.js (Adresse -> Name),
+                          files.js (Adresse -> Datei), cache.js (Zwischenspeicher), pages.js (Fehler/Markdown)
 public/
 ├── index.html            das Gerüst: Menü links, Topbar, Inhalt
 ├── css/app.css           Grund-Design (Farben Hell/Dunkel, Gerüst, Bausteine)
