@@ -41,7 +41,10 @@ und liefert die Dateien aus. Plan in Notion: "Plan: Bauarbeiter + Bauplan-Format
   Website, sonst eine neutrale at0mic-Seite
 - **Zwischenspeicher:** Ein Bauplan wird so lange behalten, wie er sagt (`cache`, Standard 60 s), höchstens 200
   Websites. Ist das Backend weg, liefert er den letzten guten Stand weiter aus. "Gibt es nicht" merkt er sich 10 s.
-- **Sicherheit:** keine Cookies, nur GET/HEAD, Schutz-Header (`nosniff`, `frame-ancestors 'self'` …), Fehler aus dem
+- **Echte Logik:** `POST /_at0mic/run/<pfad>` (JSON-Objekt, max. 64 KB) startet eine öffentliche SSF der eigenen
+  Domain (Backend `POST /api/sites/<name>/run/<pfad>`). Antwort `{ result }`; Fehler im SSF-Code nur im Log
+  (Besucher sehen 502).
+- **Sicherheit:** keine Cookies, nur GET/HEAD (ausser `POST /_at0mic/run/…`), Schutz-Header (`nosniff`, `frame-ancestors 'self'` …), Fehler aus dem
   Code einer Website nur im Log. Online ist nur, was im Backend öffentlich ist.
 - **Lokal ausprobieren:** Browser schicken jede Adresse auf `.localhost` an den eigenen PC – also einfach
   `http://<domain>.site.localhost:3001` öffnen (die Domain muss öffentlich sein).
