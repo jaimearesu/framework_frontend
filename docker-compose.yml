@@ -21,6 +21,18 @@ services:
       - "traefik.http.routers.atomic-frontend.tls.certresolver=letsencrypt"
       # Leitet an unseren Frontend-Express-Port weiter
       - "traefik.http.services.atomic-frontend.loadbalancer.server.port=3001"
+      - "traefik.http.routers.atomic-frontend.service=atomic-frontend"
+      # Kunden-Websites (Plan "Bauarbeiter + Bauplan-Format", Etappe 5):
+      # at0mic.site und jede Subdomain (shop.at0mic.site) -> derselbe Container,
+      # dort beantwortet der Bauarbeiter (site/) sie – nie das Cockpit.
+      # Regel-Schreibweise für Traefik v3 (HostRegexp mit echtem Regex).
+      - "traefik.http.routers.atomic-sites.rule=Host(`at0mic.site`) || HostRegexp(`^[a-z0-9-]+\\.at0mic\\.site$`)"
+      - "traefik.http.routers.atomic-sites.entrypoints=websecure"
+      - "traefik.http.routers.atomic-sites.service=atomic-frontend"
+      # EIN Zertifikat für alle Websites (Wildcard), geholt über die Cloudflare-DNS-Prüfung
+      - "traefik.http.routers.atomic-sites.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.atomic-sites.tls.domains[0].main=at0mic.site"
+      - "traefik.http.routers.atomic-sites.tls.domains[0].sans=*.at0mic.site"
 
 networks:
   proxy:
