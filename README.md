@@ -20,14 +20,15 @@ Oben rechts im Cockpit schaltest du zwischen **Live** (echte Datenbank) und **Te
 
 ## Einstellungen (`.env`)
 
-| Variable          | Bedeutung                                                                                       |
-| ----------------- | ----------------------------------------------------------------------------------------------- |
-| `PORT`            | Port des Frontends (Standard 3001)                                                              |
-| `API_URL`         | Adresse des Backends (Standard `http://localhost:3000`, Server: `https://api.at0mic.ch`)        |
-| `TEST_API_URL`    | Adresse des Test-Backends (lokal Standard `http://localhost:3100`, auf dem Server leer)         |
-| `BAUARBEITER_KEY` | Gleicher Wert wie in der `.env` des Backends (Bremse pro Besucher, siehe unten)                 |
-| `SITE_DOMAIN`     | _optional_: Domain der Kunden-Websites (Standard: Server `at0mic.site`, lokal `site.localhost`) |
-| `SITE_API_URL`    | _optional_: Backend für die Baupläne (Standard: `API_URL`)                                      |
+| Variable           | Bedeutung                                                                                                             |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `PORT`             | Port des Frontends (Standard 3001)                                                                                    |
+| `API_URL`          | Adresse des Backends (Standard `http://localhost:3000`, Server: `https://api.at0mic.ch`)                              |
+| `TEST_API_URL`     | Adresse des Test-Backends (lokal Standard `http://localhost:3100`, auf dem Server leer)                               |
+| `BAUARBEITER_KEY`  | Gleicher Wert wie in der `.env` des Backends (Bremse pro Besucher, siehe unten)                                       |
+| `SITE_DOMAIN`      | _optional_: Domain der Kunden-Websites (Standard: Server `at0mic.site`, lokal `site.localhost`)                       |
+| `SITE_API_URL`     | _optional_: Backend für die Baupläne (Standard: `API_URL`)                                                            |
+| `TRUST_PROXY_HOPS` | _optional_: Zwischenhalte vor dem Server (Standard `1` = Traefik; Server mit Cloudflare: `2`) – gleich wie im Backend |
 
 ## Kunden-Websites (der "Bauarbeiter")
 
