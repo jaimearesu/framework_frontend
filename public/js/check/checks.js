@@ -16,6 +16,10 @@
 // Bricht der Check vorher ab, bleibt ein Rest liegen – darum fragt der
 // Systemcheck im Live-Modus weiterhin nach.
 //
+// KI-ZUGANG (Plan "MCP"): Mit Login erzeugt der Check einen Schlüssel für die
+// Test-Domain und prüft, was die KI darf und was nicht. Er wird am Ende der
+// Gruppe widerrufen und verschwindet beim Aufräumen mit der Domain.
+//
 // Jede Prüfung: { id, group, title, needs?, run(ctx) }  (siehe runner.js)
 // ---------------------------------------------------------------------
 import { api } from '../core/api.js';
@@ -1018,6 +1022,112 @@ return { uuid: kopie.uuid, left: austritt.left };`
             ctx.published = false;
             expectStatus(await api.get(`/api/ast/${ctx.root}`, { anonymous: true }), 403, 'Fremder liest Code');
             return 'privat';
+        }
+    },
+
+    // ============================================================== KI-ZUGANG
+    // Plan "MCP": Eine KI arbeitet mit einem Schlüssel als ein Objekt – hier als
+    // die Test-Domain. Schlüssel erzeugen darf nur ein eingeloggter Mensch; als
+    // Gast wird nur geprüft, dass es abgelehnt wird. Die Schlüssel verschwinden
+    // beim Aufräumen automatisch mit der Test-Domain.
+    {
+        id: 'ai-token-create',
+        group: 'KI-Zugang',
+        title: 'KI-Schlüssel erzeugen: nur mit Login (Gast wird abgelehnt)',
+        needs: ['root'],
+        run: async ctx => {
+            const me = await api.get('/api/me');
+            const r = await api.post(
+                `/api/tokens/object/${ctx.root}`,
+                { name: 'Systemcheck', expiresInHours: 1 },
+                { sensitive: true } // Schlüssel im Anfragen-Protokoll nur als ***
+            );
+            if (!me.data?.isAuthenticated) {
+                expectStatus(r, 403, 'Gast erzeugt Schlüssel');
+                return 'Gast: abgelehnt (richtig) – die nächsten Prüfungen brauchen einen Login';
+            }
+            expectStatus(r, 201, 'Schlüssel erzeugen');
+            const token = r.data?.data?.token;
+            expect(/^at0_[A-Za-z0-9_-]{43}$/.test(token || ''), 'Schlüssel hat nicht das Format at0_…', r);
+            ctx.aiToken = token;
+            ctx.aiTokenUuid = r.data.data.uuid;
+            return `gültig bis ${new Date(r.data.data.expiresAt).toLocaleString('de-CH')}`;
+        }
+    },
+    {
+        id: 'ai-acts-as-object',
+        group: 'KI-Zugang',
+        title: 'Mit dem Schlüssel handelt die KI als die Test-Domain und darf dort schreiben',
+        needs: ['root'],
+        run: async ctx => {
+            if (!ctx.aiToken) return 'nur mit Login prüfbar – übersprungen';
+            const me = await api.get('/api/me', { bearer: ctx.aiToken });
+            expectStatus(me, 200, 'GET /api/me als KI');
+            expect(me.data?.isAi === true, 'Antwort sagt nicht "isAi"', me);
+            expect(me.data?.object?.uuid === ctx.root, 'KI handelt als falsches Objekt', me);
+            const w = await api.post(`/api/core-data/${ctx.root}`, { data: { von: 'KI' } }, { bearer: ctx.aiToken });
+            expectStatus(w, 201, 'KI schreibt Daten');
+            return `als „${me.data.object.domain}“ · schreiben ✓`;
+        }
+    },
+    {
+        id: 'ai-human-only',
+        group: 'KI-Zugang',
+        title: 'Die KI darf nie veröffentlichen und keine Tresor-Werte setzen (HUMAN_ONLY)',
+        needs: ['root'],
+        run: async ctx => {
+            if (!ctx.aiToken) return 'nur mit Login prüfbar – übersprungen';
+            const v = await api.put(
+                `/api/objects/${ctx.root}/visibility`,
+                { visibility: 'public' },
+                { bearer: ctx.aiToken }
+            );
+            expectStatus(v, 403, 'KI veröffentlicht');
+            expect(v.data?.code === 'HUMAN_ONLY', 'erwartet code HUMAN_ONLY', v);
+            const s = await api.put(
+                `/api/secrets/${ctx.root}/KI_TEST`,
+                { value: 'x' },
+                { bearer: ctx.aiToken, sensitive: true }
+            );
+            expectStatus(s, 403, 'KI setzt Tresor-Wert');
+            return 'veröffentlichen ⛔ · Tresor ⛔';
+        }
+    },
+    {
+        id: 'ai-audit',
+        group: 'KI-Zugang',
+        title: 'Das Protokoll zeigt den abgelehnten Versuch der KI',
+        needs: ['root'],
+        run: async ctx => {
+            if (!ctx.aiToken) return 'nur mit Login prüfbar – übersprungen';
+            // Das Backend schreibt NACH der Antwort – darum bis zu 5x kurz warten
+            let entry = null;
+            let r;
+            for (let i = 0; i < 5 && !entry; i++) {
+                if (i) await new Promise(res => setTimeout(res, 300));
+                r = await api.get(`/api/audit/actor/${ctx.root}`, { query: { limit: 20 } });
+                expectStatus(r, 200, 'Protokoll lesen');
+                entry = (r.data?.data || []).find(
+                    e => e.action === 'objekt.sichtbarkeit' && e.actorKind === 'ai' && e.success === false
+                );
+            }
+            expect(entry, 'Kein Eintrag "objekt.sichtbarkeit" (KI, abgelehnt) im Protokoll', r);
+            expect(entry.tokenUuid === ctx.aiTokenUuid, 'Eintrag nennt den falschen Schlüssel', r);
+            return `${r.data.data.length} Einträge · Versuch mit ${entry.status} protokolliert`;
+        }
+    },
+    {
+        id: 'ai-revoke',
+        group: 'KI-Zugang',
+        title: 'Widerrufen: der Schlüssel ist sofort ungültig (401)',
+        needs: ['root'],
+        run: async ctx => {
+            if (!ctx.aiToken) return 'nur mit Login prüfbar – übersprungen';
+            expectStatus(await api.del(`/api/tokens/${ctx.aiTokenUuid}`), 200, 'Schlüssel widerrufen');
+            const me = await api.get('/api/me', { bearer: ctx.aiToken });
+            expectStatus(me, 401, 'GET /api/me mit widerrufenem Schlüssel');
+            ctx.aiToken = null;
+            return 'widerrufen ✓ · 401 ✓';
         }
     },
 

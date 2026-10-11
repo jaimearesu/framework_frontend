@@ -28,7 +28,7 @@ const renderEntry = e =>
             {},
             h('span', { class: `method m-${e.method.toLowerCase()}` }, e.method),
             h('span', { class: 'log-path mono', title: e.url }, e.path),
-            e.anonymous ? badge('als Fremder', 'neutral') : null,
+            e.asAi ? badge('als KI', 'neutral') : e.anonymous ? badge('als Fremder', 'neutral') : null,
             e.mode === 'test' ? badge('Test', 'test') : null,
             h('span', { class: `log-status ${statusTone(e.status)}` }, e.status || 'offline'),
             h('span', { class: 'muted small' }, formatMs(e.ms))

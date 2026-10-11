@@ -79,6 +79,14 @@ export const ROUTES = [
         load: () => import('../pages/vault.js')
     },
     {
+        id: 'ki',
+        title: 'KI-Zugänge',
+        icon: 'robot',
+        group: 'Sicherheit',
+        intro: 'Schlüssel, mit denen eine KI (z.B. Claude) als eines deiner Objekte arbeitet – und das Protokoll, was sie getan hat.',
+        load: () => import('../pages/ai.js')
+    },
+    {
         id: 'systemcheck',
         title: 'Systemcheck',
         icon: 'check',
