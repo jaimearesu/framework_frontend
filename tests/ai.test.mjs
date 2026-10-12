@@ -91,9 +91,9 @@ describe('Seite und Systemcheck', () => {
         assert.ok(route);
         assert.equal(route.group, 'Sicherheit');
     });
-    test('Gruppe "KI-Zugang" mit 5 Prüfungen – vor "Löschen & Aufräumen"', () => {
+    test('Gruppe "KI-Zugang" mit 6 Prüfungen – vor "Löschen & Aufräumen"', () => {
         const ai = CHECKS.filter(c => c.group === 'KI-Zugang');
-        assert.equal(ai.length, 5);
+        assert.equal(ai.length, 6); // + ai-domain-co-owner (MCP Etappe 5a)
         const lastAi = CHECKS.lastIndexOf(ai[ai.length - 1]);
         const firstDelete = CHECKS.findIndex(c => c.group === 'Löschen & Aufräumen');
         assert.ok(lastAi < firstDelete);
