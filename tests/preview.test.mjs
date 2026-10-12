@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { splitHtmlDocument, placeChildren, buildPreviewDocument } from '../public/js/core/preview.js';
+import { splitHtmlDocument, placeChildren, buildPreviewDocument, htmlLang } from '../public/js/core/preview.js';
 
 describe('preview: splitHtmlDocument', () => {
     test('holt body und head aus einem ganzen Dokument (so liefert es das Backend)', () => {
@@ -73,5 +73,23 @@ describe('preview: buildPreviewDocument', () => {
     });
     test('meldet Fehler ans Cockpit (Fehler-Melder ist eingebaut)', () => {
         assert.match(doc, /at0micPreview/);
+    });
+});
+
+// Gleiche Regel wie das Backend (Finale 12.10.): lang übernehmen, nichts doppelt
+describe('preview: Kopf der Seite', () => {
+    test('lang aus dem HTML, charset/viewport genau einmal', () => {
+        const doc = buildPreviewDocument({
+            html: '<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head><body>x</body></html>'
+        });
+        assert.match(doc, /^<!doctype html><html lang="de"><head>/);
+        assert.equal(doc.match(/<meta charset/gi).length, 1);
+        assert.equal(doc.match(/name="viewport"/gi).length, 1);
+    });
+
+    test('ohne Angaben: Standard-Kopf, ungültiges lang wird ignoriert', () => {
+        const doc = buildPreviewDocument({ html: '<html lang="x" onload="y"><body>x</body></html>' });
+        assert.match(doc, /^<!doctype html><html><head>\n<meta charset="utf-8">/);
+        assert.equal(htmlLang('<html lang="fr-CH">'), 'fr-CH');
     });
 });
