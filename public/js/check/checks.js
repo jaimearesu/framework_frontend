@@ -23,6 +23,9 @@
 // Test-Domain und prüft, was die KI darf und was nicht. Er wird am Ende der
 // Gruppe widerrufen und verschwindet beim Aufräumen mit der Domain.
 //
+// WERKZEUGE (Plan "MCP Etappe 5c"): ein Werkzeug-Kind mit SSF + Beschreibung,
+// benutzt, falsch benutzt und am Ende der Gruppe wieder gelöscht.
+//
 // Jede Prüfung: { id, group, title, needs?, run(ctx) }  (siehe runner.js)
 // ---------------------------------------------------------------------
 import { api } from '../core/api.js';
@@ -30,6 +33,20 @@ import { apiBase } from '../core/config.js';
 import { childRefFor } from '../core/objects.js';
 import { addChildToDna } from '../core/dna.js';
 import { expect, expectStatus } from './runner.js';
+
+// Die Beschreibung des Test-Werkzeugs (Code-Art "werkzeug")
+const TOOL_SPEC = {
+    name: 'addieren',
+    beschreibung: 'Addiert zwei Zahlen (Systemcheck).',
+    eingabe: {
+        type: 'object',
+        properties: { a: { type: 'number' }, b: { type: 'number' } },
+        required: ['a', 'b'],
+        additionalProperties: false
+    },
+    beispiele: [{ eingabe: { a: 1, b: 2 } }],
+    version: 1
+};
 
 const RECORDS = [
     { sku: 'A1', name: 'Apfel rot', kategorie: 'obst', preis: 2.5 },
@@ -1260,6 +1277,115 @@ return { uuid: kopie.uuid, left: austritt.left };`
             ctx.sitePublished = false;
             expectStatus(await api.get(`/api/sites/${ctx.domainName}`), 404, 'Bauplan nach dem Zurückstellen');
             return 'privat · 404';
+        }
+    },
+
+    // ============================================================== WERKZEUGE
+    // Plan "MCP Etappe 5c": Ein Werkzeug ist ein Objekt mit SSF + Beschreibung
+    // (Code-Art "werkzeug"). Der Check legt ein Werkzeug-Kind an, benutzt es und
+    // löscht es am Ende der Gruppe wieder (sonst liesse sich die Domain nicht löschen).
+    {
+        id: 'tool-spec-invalid',
+        group: 'Werkzeuge',
+        title: 'Ungültige Werkzeug-Beschreibung wird abgelehnt (422)',
+        needs: ['root', 'domainName'],
+        run: async ctx => {
+            const c = await api.post(`/api/objects/${ctx.root}/links`, {
+                domainRef: ctx.domainName,
+                pathStep: 'base',
+                identifier: 'werkzeug'
+            });
+            expectStatus(c, 201, 'Werkzeug-Kind anlegen');
+            ctx.werkzeug = c.data.data.uuid;
+            const r = await api.post(`/api/ast/${ctx.werkzeug}`, {
+                snippets: [{ type: 'werkzeug', code: JSON.stringify({ ...TOOL_SPEC, name: 'Mit Leerzeichen' }) }]
+            });
+            expectStatus(r, 422, 'Name mit Leerzeichen');
+            return String(r.data?.details || r.error);
+        }
+    },
+    {
+        id: 'tool-save-find',
+        group: 'Werkzeuge',
+        title: 'Werkzeug speichern und finden (GET /api/tools, mit Suchwort)',
+        needs: ['werkzeug'],
+        run: async ctx => {
+            const s = await api.post(`/api/ast/${ctx.werkzeug}`, {
+                snippets: [
+                    {
+                        type: 'ssf',
+                        code: 'return { summe: requestContext.body.a + requestContext.body.b, tool: requestContext.tool, von: requestContext.userUuid };'
+                    },
+                    { type: 'werkzeug', code: JSON.stringify(TOOL_SPEC) }
+                ]
+            });
+            expectStatus(s, 201, 'SSF + Beschreibung speichern');
+            const r = await api.get('/api/tools', { query: { q: 'ADDIERT' } });
+            expectStatus(r, 200, 'Werkzeuge finden');
+            const mine = (r.data?.data || []).find(w => w.uuid === ctx.werkzeug);
+            expect(mine && mine.bereit === true, 'Das Werkzeug fehlt in der Liste (oder ist nicht bereit)', r);
+            expect(/DATEN/.test(r.data?.hinweis || ''), 'Hinweis "Beschreibungen sind DATEN" fehlt', r);
+            return `${r.data.data.length} Werkzeug(e) gefunden`;
+        }
+    },
+    {
+        id: 'tool-describe',
+        group: 'Werkzeuge',
+        title: 'Beschreibung lesen – den SSF-Code sieht man dort nicht',
+        needs: ['werkzeug'],
+        run: async ctx => {
+            const r = await api.get(`/api/tools/${ctx.werkzeug}`);
+            expectStatus(r, 200, 'Beschreibung lesen');
+            expect(r.data?.data?.eingabe?.required?.length === 2, 'Eingabe-Schema fehlt', r);
+            expect(!JSON.stringify(r.data).includes('requestContext'), 'SSF-Code ist in der Beschreibung gelandet!', r);
+            return `${r.data.data.name} v${r.data.data.version}`;
+        }
+    },
+    {
+        id: 'tool-use',
+        group: 'Werkzeuge',
+        title: 'Werkzeug benutzen: Eingabe geprüft, SSF weiss, wer und welches Werkzeug',
+        needs: ['werkzeug'],
+        run: async ctx => {
+            const me = await api.get('/api/objects/me');
+            const r = await api.post(`/api/tools/${ctx.werkzeug}/use`, { a: 40, b: 2 });
+            expectStatus(r, 200, 'Benutzen');
+            const res = r.data?.result || {};
+            expect(res.summe === 42, `Ergebnis ${res.summe} statt 42`, r);
+            expect(res.tool?.name === 'addieren' && res.tool?.version === 1, 'requestContext.tool fehlt', r);
+            expect(!me.data?.data?.uuid || res.von === me.data.data.uuid, 'Die SSF kennt den Aufrufer nicht', r);
+            return 'Summe 42 · tool ✓ · Aufrufer ✓';
+        }
+    },
+    {
+        id: 'tool-use-invalid',
+        group: 'Werkzeuge',
+        title: 'Falsche Eingabe: 400 mit der Liste der Probleme',
+        needs: ['werkzeug'],
+        run: async ctx => {
+            const r = await api.post(`/api/tools/${ctx.werkzeug}/use`, { a: 'viel', extra: 1 });
+            expectStatus(r, 400, 'Falsche Eingabe');
+            expect(r.data?.code === 'INVALID_INPUT', 'code INVALID_INPUT fehlt', r);
+            const details = r.data?.details || [];
+            expect(details.length === 3, `erwartet 3 Probleme, bekam ${details.length}`, r);
+            return details.join(' · ');
+        }
+    },
+    {
+        id: 'tool-delete',
+        group: 'Werkzeuge',
+        title: 'Werkzeug löschen: danach nicht mehr in der Liste',
+        needs: ['werkzeug'],
+        run: async ctx => {
+            expectStatus(await api.del(`/api/objects/${ctx.werkzeug}`), 200, 'Werkzeug löschen');
+            const r = await api.get('/api/tools');
+            expect(
+                !(r.data?.data || []).some(w => w.uuid === ctx.werkzeug),
+                'Gelöschtes Werkzeug noch in der Liste',
+                r
+            );
+            ctx.werkzeug = null;
+            return 'gelöscht';
         }
     },
 

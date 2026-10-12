@@ -55,9 +55,12 @@ const TYPES = [
     { id: 'javascript', label: 'JavaScript' },
     { id: 'ssf', label: 'SSF' },
     { id: 'syntax', label: 'DNA' },
-    { id: 'data', label: 'Daten' }
+    { id: 'data', label: 'Daten' },
+    // Werkzeug-Beschreibung (MCP Etappe 5c): zusammen mit einer SSF wird das Objekt
+    // zu einem Werkzeug, das eine KI mit find_tools / use_tool benutzen kann
+    { id: 'werkzeug', label: 'Werkzeug' }
 ];
-const JSON_TYPES = ['syntax', 'data'];
+const JSON_TYPES = ['syntax', 'data', 'werkzeug'];
 const PREVIEW_TYPES = ['html', 'css', 'javascript'];
 
 // Vorlagen für leere Reiter – zum schnellen Ausprobieren
