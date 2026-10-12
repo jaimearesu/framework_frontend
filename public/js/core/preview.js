@@ -71,6 +71,22 @@ export const placeChildren = (parentBody, parts) => {
     return [body, ...rest].filter(Boolean).join('\n');
 };
 
+// Gleiche Regeln wie das Backend (siteService.js, gefunden beim Finale 12.10.):
+// <html lang="…"> übernehmen, charset/viewport nicht doppelt
+export const htmlLang = html => {
+    const match = /<html\b[^>]*\slang=["']?([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)["'\s>]/i.exec(String(html || ''));
+    return match ? match[1] : null;
+};
+export const missingHeadDefaults = head => {
+    const text = String(head || '');
+    return [
+        /<meta\b[^>]*\bcharset\s*=/i.test(text) ? '' : '<meta charset="utf-8">',
+        /<meta\b[^>]*\bname=["']?viewport/i.test(text)
+            ? ''
+            : '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    ].filter(Boolean);
+};
+
 // Die fertige Vorschau-Seite (reine Funktion, getestet)
 //   html   – HTML (ganzes Dokument oder Stück)
 //   css    – eine oder mehrere CSS-Texte
@@ -81,8 +97,8 @@ export const buildPreviewDocument = ({ html = '', css = [], js = [] } = {}) => {
     const styles = [].concat(css).filter(s => s && s.trim());
     const scripts = [].concat(js).filter(s => s && s.trim());
     return [
-        '<!doctype html><html><head><meta charset="utf-8">',
-        '<meta name="viewport" content="width=device-width, initial-scale=1">',
+        `<!doctype html>${htmlLang(html) ? `<html lang="${htmlLang(html)}">` : '<html>'}<head>`,
+        ...missingHeadDefaults(head),
         // Vorschau immer hell, egal ob das Cockpit dunkel ist
         '<meta name="color-scheme" content="light">',
         ERROR_BRIDGE,
