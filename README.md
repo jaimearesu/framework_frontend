@@ -110,3 +110,4 @@ darum läuft der Check standardmässig im **Test-Modus**; im Live-Modus muss man
 - [x] **Gast-Hinweis:** Gäste sehen oben, dass ihre Objekte nur 24 Stunden bleiben (mit Link zum Einloggen im Live-Modus)
 - [x] **Websites** (Plan „Bauarbeiter + Bauplan-Format“, Etappe 3+4): der Bauarbeiter (`site/`) liefert `*.at0mic.site` aus; Reiter „Website“ auf der Objekt-Seite (Adresse, online oder nicht, welche Teile fehlen, Bauplan mit Dateien und JSON, bei SSF-Fehlern mit Details); Systemcheck-Gruppe „Website“ (4 Prüfungen, zwei davon mit Login) – jetzt 82 Prüfungen in 14 Gruppen
 - [x] **MCP Etappe 5a** (Backend): neue Prüfungen für Fehlerstelle (Zeile/Spalte) und ECMAScript 2022, Rechte über `/members`, Website-Vorschau für den Besitzer und „KI-Domain gehört auch dir“ (mit Login) – jetzt 90 Prüfungen
+- [x] **MCP Etappe 5b** (Backend): Prüfung „Speicher als Kind der App“ (SSF schreibt per UUID ohne Extra-Rechte, Pfad geht nicht) – jetzt 91 Prüfungen

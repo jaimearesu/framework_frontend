@@ -686,6 +686,43 @@ export const CHECKS = [
         }
     },
     {
+        // Plan "MCP Etappe 5b": Der Speicher einer App ist ein Kind der App, NICHT in
+        // der DNA. Die SSF (ein Geschwister) schreibt ohne zusätzliche Rechte hinein –
+        // aber nur per UUID (Pfade laufen über die DNA). Danach wird er gleich gelöscht.
+        id: 'ssf-storage-child',
+        group: 'SSF',
+        title: 'Speicher als Kind der App: SSF schreibt per UUID, ohne Extra-Rechte',
+        needs: ['root', 'funktion', 'domainName'],
+        run: async ctx => {
+            const c = await api.post(`/api/objects/${ctx.root}/links`, {
+                domainRef: ctx.domainName,
+                pathStep: 'base',
+                identifier: 'speicher'
+            });
+            expectStatus(c, 201, 'Speicher-Kind anlegen');
+            const speicher = c.data.data.uuid;
+            try {
+                const r = await runSsf(
+                    ctx,
+                    `await api.data.insert('${speicher}', { typ: 'eintrag' });\nreturn (await api.data.find('${speicher}', {})).data.length;`
+                );
+                expectStatus(r, 200, 'SSF schreibt per UUID');
+                expect(r.data.result === 1, `erwartet 1 Datensatz, bekam ${r.data.result}`, r);
+
+                const s = await api.post(`/api/core-data/search/${speicher}`, {});
+                expectStatus(s, 200, 'Du siehst die Daten');
+                expect(s.data?.data?.length === 1, 'Datensatz fehlt in deiner Suche', s);
+
+                // Per Pfad nicht erreichbar (nicht in der DNA) – darum empfiehlt die Anleitung die UUID
+                const p = await runSsf(ctx, `return await api.data.find('${ctx.domainName}/speicher', {});`);
+                expectStatus(p, 422, 'SSF per Pfad');
+            } finally {
+                await api.del(`/api/objects/${speicher}`);
+            }
+            return 'UUID ✓ · du siehst die Daten ✓ · Pfad ⛔ · wieder gelöscht';
+        }
+    },
+    {
         id: 'ssf-loop',
         group: 'SSF',
         title: 'Endlosschleife wird gestoppt',
