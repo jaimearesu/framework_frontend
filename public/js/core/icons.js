@@ -14,6 +14,7 @@ const PATHS = {
     shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
     lock: 'M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4',
     check: 'M9 12l2 2 4-4 M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
+    bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.9 1.9 0 0 0 3.4 0', // "Wartet auf dich"
     history: 'M3 12a9 9 0 1 0 3-6.7L3 8 M3 3v5h5 M12 7v5l4 2',
     menu: 'M4 6h16 M4 12h16 M4 18h16',
     activity: 'M22 12h-4l-3 9L9 3l-3 9H2',

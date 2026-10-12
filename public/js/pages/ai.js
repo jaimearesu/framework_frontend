@@ -107,6 +107,10 @@ export const AUDIT_ACTIONS = {
     'triplet.anlegen': 'Triplet angelegt',
     'rolle.vergeben': 'Recht vergeben',
     'rolle.entziehen': 'Recht entzogen',
+    'werkzeug.benutzen': 'Werkzeug benutzt', // MCP Etappe 5c
+    'freigabe.anfragen': 'um Veröffentlichung gebeten', // MCP Etappe 5d
+    'freigabe.erteilen': 'Veröffentlichung freigegeben',
+    'freigabe.ablehnen': 'Veröffentlichung abgelehnt',
     'tresor.setzen': 'Tresor-Schlüssel gesetzt',
     'tresor.loeschen': 'Tresor-Schlüssel gelöscht',
     'schluessel.erzeugen': 'KI-Schlüssel erzeugt',
