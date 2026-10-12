@@ -1201,3 +1201,47 @@ details.raw summary {
     border: 1px solid var(--border);
     border-radius: var(--radius-s);
 }
+
+/* ---------------------------------------------------------------------
+   "Wartet auf dich" – Freigabe-Anfragen (Übersicht, MCP Etappe 5d)
+   Was passiert, steht gross; die Begründung der KI klein darunter.
+   --------------------------------------------------------------------- */
+.request-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.request-item {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warn);
+    border-radius: var(--radius-s);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.request-what {
+    font-size: 15px;
+}
+.request-reason {
+    margin: 2px 0 0;
+    padding: 6px 10px;
+    border-left: 2px solid var(--border-strong);
+    color: var(--muted);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.request-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-top: 4px;
+}
+.request-actions .input {
+    flex: 1 1 220px;
+    width: auto;
+}

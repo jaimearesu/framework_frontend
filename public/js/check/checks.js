@@ -1389,6 +1389,72 @@ return { uuid: kopie.uuid, left: austritt.left };`
         }
     },
 
+    // ============================================================== FREIGABE-ANFRAGEN
+    // Plan "MCP Etappe 5d": um Veröffentlichung BITTEN (das darf jeder mit blue,
+    // auch eine KI) und entscheiden (nur Menschen). Der Check bittet für die
+    // Test-Domain und lehnt dann ab – veröffentlicht wird hier nie etwas.
+    {
+        id: 'publish-request-create',
+        group: 'Freigabe-Anfragen',
+        title: 'Um Veröffentlichung bitten – eine neue Bitte ersetzt die alte',
+        needs: ['root'],
+        run: async ctx => {
+            const body = { visibility: 'public', includeChildren: true, reason: 'Systemcheck' };
+            const r = await api.post(`/api/objects/${ctx.root}/publish-request`, body);
+            expectStatus(r, 201, 'Bitte stellen');
+            const again = await api.post(`/api/objects/${ctx.root}/publish-request`, body);
+            expectStatus(again, 201, 'zweite Bitte');
+            expect(again.data?.replaced === true, 'Die zweite Bitte hat die erste nicht ersetzt', again);
+            ctx.publishRequest = again.data.data.uuid;
+            const priv = await api.post(`/api/objects/${ctx.root}/publish-request`, { visibility: 'private' });
+            expectStatus(priv, 400, 'Bitte um "privat"');
+            return 'gestellt · ersetzt · "privat" ⛔';
+        }
+    },
+    {
+        id: 'publish-request-pending',
+        group: 'Freigabe-Anfragen',
+        title: '„Wartet auf dich“ zeigt die Bitte mit allem, was passieren würde',
+        needs: ['publishRequest', 'domainName'],
+        run: async ctx => {
+            const r = await api.get('/api/publish-requests/pending');
+            expectStatus(r, 200, 'Wartet auf dich');
+            const item = (r.data?.data || []).find(x => x.uuid === ctx.publishRequest);
+            expect(item, 'Die Bitte fehlt in der Liste', r);
+            expect(item.objectName === ctx.domainName && item.includeChildren === true, 'Falsche Angaben', r);
+            expect(item.childCount >= 1, `childCount ${item.childCount} – die Test-Domain hat Kinder`, r);
+            return `${ctx.domainName} + ${item.childCount} Unter-Objekte → öffentlich`;
+        }
+    },
+    {
+        id: 'publish-request-decline',
+        group: 'Freigabe-Anfragen',
+        title: 'Ablehnen mit Notiz: nichts wird veröffentlicht',
+        needs: ['publishRequest', 'root'],
+        run: async ctx => {
+            const me = await api.get('/api/me');
+            if (!me.data?.isAuthenticated) {
+                // Gäste dürfen nie veröffentlichen – auch nicht über eine Bitte
+                const a = await api.post(`/api/publish-requests/${ctx.publishRequest}/approve`, {});
+                expectStatus(a, 403, 'Freigeben als Gast');
+            }
+            const d = await api.post(`/api/publish-requests/${ctx.publishRequest}/decline`, { note: 'Systemcheck' });
+            expectStatus(d, 200, 'Ablehnen');
+            expect(d.data?.data?.status === 'declined', 'Status ist nicht "declined"', d);
+            const mine = await api.get('/api/publish-requests/mine');
+            const item = (mine.data?.data || []).find(x => x.uuid === ctx.publishRequest);
+            expect(
+                item?.status === 'declined' && item?.note === 'Systemcheck',
+                'Eigene Liste zeigt die Entscheidung nicht',
+                mine
+            );
+            const objs = await api.get('/api/objects');
+            const root = (objs.data || []).find(o => o.uuid === ctx.root);
+            expect(root?.visibility === 'private', 'Die Domain ist nicht mehr privat!', objs);
+            return `abgelehnt · noch privat${me.data?.isAuthenticated ? '' : ' · Gast darf nicht freigeben ✓'}`;
+        }
+    },
+
     // ============================================================== KI-ZUGANG
     // Plan "MCP": Eine KI arbeitet mit einem Schlüssel als ein Objekt – hier als
     // die Test-Domain. Schlüssel erzeugen darf nur ein eingeloggter Mensch; als

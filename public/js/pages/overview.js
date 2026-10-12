@@ -3,6 +3,7 @@
 // ÜBERSICHT – die Startseite des Cockpits
 //
 //   1. Status: Backend, Datenbank, SSF-Sandbox, wer du bist
+//   1b. Wartet auf dich: Freigabe-Anfragen einer KI (nur sichtbar, wenn es welche gibt)
 //   2. Deine Objekte (die neusten)
 //   3. So funktioniert at0mic – die Grundbegriffe in einfachen Worten
 //   4. Schnellstart – in welcher Reihenfolge man alles ausprobiert
@@ -16,6 +17,7 @@ import { h, mount, card, badge, spinner, emptyState, busyButton, copyButton, cal
 import { icon } from '../core/icons.js';
 import { pageHeader } from '../core/page.js';
 import { formatMs, formatNumber, shortUuid, timeAgo, pathText } from '../core/format.js';
+import { renderPendingRequests } from './publishRequests.js';
 
 // ------------------------------------------------------------------
 // 1. STATUS-KACHELN
@@ -327,10 +329,21 @@ export default {
     render(root, { session }) {
         const statusBox = h('div', { class: 'stats' });
         const objectsBox = h('div');
+        const requestsBox = h('div');
+        const requestsCard = card(
+            {
+                title: 'Wartet auf dich',
+                icon: 'bell',
+                subtitle: 'Eine KI bittet darum, etwas zu veröffentlichen. Sie selbst kann das nie – du entscheidest.'
+            },
+            requestsBox
+        );
+        requestsCard.hidden = true; // erst zeigen, wenn es Anfragen gibt
 
         const fill = s => {
             renderStatus(statusBox, s);
             renderObjects(objectsBox, s);
+            renderPendingRequests(requestsBox, requestsCard, s);
         };
 
         root.append(
@@ -342,6 +355,7 @@ export default {
                 })
             }),
             statusBox,
+            requestsCard,
             h(
                 'div',
                 { class: 'grid-2' },
