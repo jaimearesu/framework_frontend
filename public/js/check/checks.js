@@ -296,6 +296,36 @@ export const CHECKS = [
         }
     },
     {
+        id: 'code-error-location',
+        group: 'Code',
+        title: 'Syntaxfehler nennt Zeile, Spalte und Ausschnitt',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.post(`/api/ast/${ctx.root}`, {
+                snippets: [{ type: 'javascript', code: 'const a = 1;\nconst b = ;' }]
+            });
+            expectStatus(r, 422, 'kaputter JS-Code');
+            const loc = r.data?.location;
+            expect(loc?.line === 2 && loc?.column === 11, `Stelle ${loc?.line}:${loc?.column} statt 2:11`, r);
+            expect(String(loc?.excerpt || '').includes('> 2 |'), 'Ausschnitt mit Pfeil fehlt', r);
+            return `Zeile ${loc.line}, Spalte ${loc.column}`;
+        }
+    },
+    {
+        id: 'code-es2022',
+        group: 'Code',
+        title: 'ECMAScript 2022 (Klassen-Felder, ??=) lässt sich speichern',
+        needs: ['root'],
+        run: async ctx => {
+            const code = 'class Z { #n = 1; static m = 2; }\nlet q = null;\nq ??= 3;';
+            const s = await api.post(`/api/ast/${ctx.root}`, { snippets: [{ type: 'javascript', code }] });
+            expectStatus(s, 201, 'ES2022-Code speichern');
+            const g = await api.get(`/api/ast/${ctx.root}`);
+            expect(g.data?.data?.javascript?.includes('#n = 1'), 'Klassen-Feld ging verloren', g);
+            return '#privat · static · ??=';
+        }
+    },
+    {
         id: 'dna-unknown-domain',
         group: 'Code',
         title: 'DNA mit unbekannter Domain wird abgelehnt',
@@ -543,6 +573,46 @@ export const CHECKS = [
             const d = await api.del(`/api/roles/${ctx.lager}/triplets/${t2}/black`);
             expectStatus(d, 200, 'Entziehen');
             return 'vergeben und entzogen';
+        }
+    },
+    {
+        id: 'members-list',
+        group: 'Rechte',
+        title: 'Wer hat welche Rechte? (GET /members, ohne persönliche Daten)',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.get(`/api/objects/${ctx.root}/members`);
+            expectStatus(r, 200, 'Mitglieder laden');
+            const members = r.data?.data?.members || [];
+            expect(r.data?.data?.triplet === ctx.triplet || !ctx.triplet, 'falsches Triplet', r);
+            const mensch = members.find(m => m.kind === 'mensch');
+            expect(mensch && mensch.roles.includes('blue'), 'Du (Mensch mit blue) fehlst in der Liste', r);
+            expect(mensch.name === null, 'Ein Mensch darf keinen Namen in der Liste haben', r);
+            expect(
+                members.some(m => m.uuid === ctx.root && m.family === true),
+                'Die Domain selbst (family) fehlt',
+                r
+            );
+            return `${members.length} Mitglieder`;
+        }
+    },
+    {
+        id: 'members-grant-revoke',
+        group: 'Rechte',
+        title: 'Recht über das Objekt vergeben und entziehen (PUT/DELETE /members)',
+        needs: ['zwei', 'lager'],
+        run: async ctx => {
+            const g = await api.put(`/api/objects/${ctx.zwei}/members/${ctx.lager}`, { roleType: 'black' });
+            expectStatus(g, 200, 'Vergeben');
+            expect(g.data?.data?.changed === true, 'changed sollte true sein', g);
+            const again = await api.put(`/api/objects/${ctx.zwei}/members/${ctx.lager}`, { roleType: 'black' });
+            expect(again.data?.data?.changed === false, 'Zweimal vergeben: changed sollte false sein', again);
+            const d = await api.del(`/api/objects/${ctx.zwei}/members/${ctx.lager}/black`);
+            expectStatus(d, 200, 'Entziehen');
+            expect(d.data?.data?.changed === true, 'Entziehen: changed sollte true sein', d);
+            const bad = await api.put(`/api/objects/${ctx.zwei}/members/${ctx.lager}`, { roleType: 'gold' });
+            expectStatus(bad, 400, 'roleType "gold"');
+            return 'vergeben · doppelt (changed false) · entzogen · gold ⛔';
         }
     },
     {
@@ -1044,6 +1114,28 @@ return { uuid: kopie.uuid, left: austritt.left };`
         }
     },
     {
+        id: 'site-preview',
+        group: 'Website',
+        title: 'Vorschau für den Besitzer: auch privat sichtbar, mit Adresse und „noch privat“',
+        needs: ['root', 'domainName'],
+        run: async ctx => {
+            const r = await api.get(`/api/sites/${ctx.domainName}/vorschau`);
+            expectStatus(r, 200, 'Vorschau holen');
+            const meta = r.data?.meta || {};
+            expect(meta.preview === true, 'meta.preview fehlt', r);
+            expect(typeof r.data?.data?.files?.['index.html'] === 'string', 'index.html fehlt', r);
+            expect(meta.online === false, 'Die private Domain sollte nicht online sein', r);
+            expect(
+                (meta.notPublic || []).some(n => n.uuid === ctx.root),
+                'Die Domain fehlt in „noch privat“',
+                r
+            );
+            const anon = await api.get(`/api/sites/${ctx.domainName}/vorschau`, { anonymous: true });
+            expectStatus(anon, 404, 'Vorschau als anonymer Besucher');
+            return `${meta.address} · ${meta.notPublic.length} Teil(e) noch privat`;
+        }
+    },
+    {
         id: 'site-names',
         group: 'Website',
         title: 'Ungültige und reservierte Namen haben keine Website (404)',
@@ -1223,6 +1315,36 @@ return { uuid: kopie.uuid, left: austritt.left };`
             expect(entry, 'Kein Eintrag "objekt.sichtbarkeit" (KI, abgelehnt) im Protokoll', r);
             expect(entry.tokenUuid === ctx.aiTokenUuid, 'Eintrag nennt den falschen Schlüssel', r);
             return `${r.data.data.length} Einträge · Versuch mit ${entry.status} protokolliert`;
+        }
+    },
+    {
+        id: 'ai-domain-co-owner',
+        group: 'KI-Zugang',
+        title: 'Eine Domain, die die KI anlegt, gehört auch dir (black/red/blue)',
+        needs: ['root', 'domainName'],
+        run: async ctx => {
+            if (!ctx.aiToken) return 'nur mit Login prüfbar – übersprungen';
+            const me = await api.get('/api/me', { bearer: ctx.aiToken });
+            const humanUuid = me.data?.human?.uuid;
+            expect(humanUuid, 'whoami der KI nennt ihren Menschen nicht', me);
+
+            const c = await api.post('/api/objects', { domain: ctx.domainName + '-ki' }, { bearer: ctx.aiToken });
+            expectStatus(c, 201, 'KI legt Domain an');
+            const kiDomain = c.data.data.uuid;
+            try {
+                const m = await api.get(`/api/objects/${kiDomain}/members`);
+                expectStatus(m, 200, 'Du siehst die Rechte der KI-Domain');
+                const mine = (m.data?.data?.members || []).find(x => x.uuid === humanUuid);
+                expect(
+                    mine && JSON.stringify(mine.roles) === '["black","blue","red"]',
+                    `Deine Rechte: ${mine ? mine.roles.join(', ') : 'keine'}`,
+                    m
+                );
+            } finally {
+                // Gleich wieder weg (du hast blue darauf)
+                await api.del(`/api/objects/${kiDomain}`);
+            }
+            return 'black · red · blue für dich · wieder gelöscht';
         }
     },
     {
