@@ -154,6 +154,7 @@ describe('Die echten Prüfungen', () => {
             'Tresor',
             'Sicherheit (als Fremder)',
             'Website',
+            'Werkzeuge',
             'Löschen & Aufräumen'
         ])
             assert.ok(CHECK_GROUPS.includes(g), g);
