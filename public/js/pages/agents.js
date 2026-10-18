@@ -56,12 +56,17 @@ import {
     DEFAULT_PERIOD,
     errorText,
     toolLabel,
-    tokenHealth,
     addableBoxes,
     usageByTool,
-    revokeAllTokens,
     removeBox,
-    addBox
+    addBox,
+    // OAuth-Verbindungen (Plan "OAuth für MCP", Etappe 4)
+    accessHealth,
+    activeConnections,
+    connectionStatusInfo,
+    revokedReasonLabel,
+    disconnect,
+    stopAgent
 } from '../core/agent.js';
 import { LIFETIME_PRESETS } from './ai.js';
 
@@ -159,7 +164,9 @@ export default {
         // ============================================================ EINE AGENTEN-KARTE
         const agentCard = agent => {
             const out = h('div');
-            const health = tokenHealth(agent.tokens);
+            // Ampel über den ganzen Zugang: Schlüssel UND OAuth-Verbindungen
+            const health = accessHealth(agent);
+            const liveConnections = activeConnections(agent);
             // Alte Schlüssel nur erwähnen, wenn es welche gibt: "1 abgelaufen, 2 widerrufen"
             const oldKeys = [
                 agent.tokens.expired ? `${agent.tokens.expired} abgelaufen` : '',
@@ -327,26 +334,84 @@ export default {
                 { className: 'btn small', iconName: 'key' }
             );
 
-            // --- Not-Aus: alle gültigen Schlüssel widerrufen
-            const stop = agent.tokens.active
-                ? busyButton(
-                      'Alle Schlüssel widerrufen',
-                      async () => {
-                          if (
-                              !confirm(
-                                  `Alle ${agent.tokens.active} gültigen Schlüssel von „${agent.domain}“ widerrufen? Der Agent kommt ab sofort nicht mehr herein. Seine Rechte bleiben – mit einem neuen Schlüssel kann er weiterarbeiten.`
+            // --- Verbindungen (OAuth): laufende mit "Trennen", beendete klein darunter
+            const ended = (agent.connections || []).filter(c => c.status !== 'active');
+            const connectionRows =
+                agent.connections && agent.connections.length
+                    ? h(
+                          'ul',
+                          { class: 'agent-rights' },
+                          liveConnections.map(c =>
+                              h(
+                                  'li',
+                                  {},
+                                  h('strong', {}, c.clientHost),
+                                  badge(connectionStatusInfo(c.status).label, connectionStatusInfo(c.status).tone),
+                                  h(
+                                      'span',
+                                      { class: 'muted small' },
+                                      `seit ${formatDate(c.createdAt)} · bis ${formatDate(c.expiresAt)} · ${
+                                          c.lastUsedAt ? `zuletzt ${timeAgo(c.lastUsedAt)}` : 'noch nie benutzt'
+                                      }${c.byMe ? '' : ' · von jemand anderem erlaubt'}`
+                                  ),
+                                  busyButton(
+                                      'Trennen',
+                                      async () => {
+                                          if (
+                                              !confirm(
+                                                  `Verbindung „${c.clientHost}“ von „${agent.domain}“ trennen? Die KI dort kommt ab sofort nicht mehr herein. Neu verbinden geht jederzeit mit „Erlauben“.`
+                                              )
+                                          )
+                                              return;
+                                          const x = await disconnect({ api, uuid: c.uuid });
+                                          if (!x.ok) return toast(x.error, 'error');
+                                          toast(`Verbindung „${c.clientHost}“ getrennt.`, 'ok');
+                                          loadAgents();
+                                      },
+                                      { className: 'btn small ghost' }
+                                  )
+                              )
+                          ),
+                          ended.map(c =>
+                              h(
+                                  'li',
+                                  { class: 'muted small' },
+                                  `${c.clientHost} – ${connectionStatusInfo(c.status).label} ${timeAgo(c.revokedAt || c.expiresAt)}`,
+                                  c.revokedReason ? ` (${revokedReasonLabel(c.revokedReason)})` : ''
                               )
                           )
-                              return;
-                          const x = await revokeAllTokens({ api, tokens: agent.tokens.list });
-                          if (x.failed.length) {
-                              toast(`${x.revoked} widerrufen, ${x.failed.length} nicht: ${x.failed[0].error}`, 'error');
-                          } else toast(`${x.revoked} Schlüssel widerrufen – „${agent.domain}“ ist gestoppt.`, 'ok');
-                          loadAgents();
-                      },
-                      { className: 'btn small danger' }
-                  )
-                : null;
+                      )
+                    : h('p', { class: 'muted small' }, 'Keine Verbindungen.');
+
+            // --- Not-Aus: alle gültigen Schlüssel widerrufen UND alle Verbindungen trennen
+            const stop =
+                agent.tokens.active || liveConnections.length
+                    ? busyButton(
+                          'Not-Aus: alle Zugänge sperren',
+                          async () => {
+                              if (
+                                  !confirm(
+                                      `Alle Zugänge von „${agent.domain}“ sperren (${agent.tokens.active} Schlüssel, ${liveConnections.length} Verbindungen)? Der Agent kommt ab sofort nicht mehr herein. Seine Rechte bleiben – mit einem neuen Schlüssel oder „Erlauben“ kann er weiterarbeiten.`
+                                  )
+                              )
+                                  return;
+                              const x = await stopAgent({ api, agent });
+                              if (x.failed.length) {
+                                  toast(
+                                      `${x.revoked} Schlüssel und ${x.disconnected} Verbindungen gesperrt, ${x.failed.length} nicht: ${x.failed[0].error}`,
+                                      'error'
+                                  );
+                              } else {
+                                  toast(
+                                      `„${agent.domain}“ ist gestoppt (${x.revoked} Schlüssel, ${x.disconnected} Verbindungen).`,
+                                      'ok'
+                                  );
+                              }
+                              loadAgents();
+                          },
+                          { className: 'btn small danger' }
+                      )
+                    : null;
 
             return card(
                 {
@@ -355,7 +420,9 @@ export default {
                         ? `zuletzt aktiv ${timeAgo(agent.lastActivityAt)} · ${s.actions} Aktionen in ${days} Tagen`
                         : 'noch nie aktiv'
                 },
-                callout(health.tone, health.text, oldKeys ? ` (${oldKeys})` : ''),
+                callout(health.tone, health.text, oldKeys ? ` (alte Schlüssel: ${oldKeys})` : ''),
+                h('h4', {}, 'Verbindungen'),
+                connectionRows,
                 h('h4', {}, 'Werkzeugkästen'),
                 boxRows,
                 addRow,
@@ -426,18 +493,33 @@ export default {
             if (!r.ok) return mount(listBox, resultLine(r));
             const agents = Array.isArray(r.data?.data) ? r.data.data : [];
             renderUsage(agents);
+
+            // OAuth eingeschaltet? Dann zeigen, wie man claude.ai & Co. ohne Schlüssel verbindet
+            const oauth = r.data?.meta?.oauth;
+            const oauthHint =
+                oauth && oauth.enabled
+                    ? callout(
+                          'info',
+                          'Claude-App, claude.ai oder Handy verbinden – ohne Schlüssel: ',
+                          'In Claude unter Einstellungen → Connectors → „Eigenen Connector hinzufügen“ diese Adresse eintragen. Claude öffnet dann eine at0mic-Seite, auf der du den Agenten wählst und „Erlauben“ klickst.',
+                          codeBlock(oauth.mcpUrl, { label: 'Adresse des Connectors' })
+                      )
+                    : null;
+
             if (!agents.length) {
                 return mount(
                     listBox,
+                    oauthHint,
                     emptyState({
                         icon: 'robot',
                         title: 'Noch keine Agenten',
-                        text: 'Ein Agent ist ein Objekt mit einem Schlüssel von dir. Leg unten den ersten an.'
+                        text: 'Ein Agent ist ein Objekt mit einem Schlüssel oder einer Verbindung von dir. Leg unten den ersten an.'
                     })
                 );
             }
             mount(
                 listBox,
+                oauthHint,
                 ...agents.map(agentCard),
                 r.data?.meta?.capped ? callout('warn', 'Nur die ersten 100 Agenten', ' werden gezeigt.') : null,
                 h('p', { class: 'muted small' }, r.data?.meta?.hinweis || '')

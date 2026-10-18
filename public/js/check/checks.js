@@ -1644,6 +1644,49 @@ return { uuid: kopie.uuid, left: austritt.left };`
             return '⛔ HUMAN_ONLY';
         }
     },
+    // Plan "OAuth für MCP" (Etappe 4): Verbindungen trennen dürfen nur Menschen – und
+    // nur ihre eigenen. Eine erfundene Verbindung gibt es für niemanden (404).
+    {
+        id: 'oauth-disconnect-guarded',
+        group: 'KI-Zugang',
+        title: 'OAuth-Verbindung trennen: nur Menschen, unbekannte Verbindung = 404',
+        needs: ['root'],
+        run: async ctx => {
+            const fake = crypto.randomUUID();
+            const r = await api.del(`/api/agents/connections/${fake}`);
+            if (!ctx.aiToken) {
+                expectStatus(r, 403, 'Gast trennt eine Verbindung');
+                return 'Gast: abgelehnt (richtig)';
+            }
+            expectStatus(r, 404, 'Erfundene Verbindung trennen');
+            const ki = await api.del(`/api/agents/connections/${fake}`, { bearer: ctx.aiToken });
+            expectStatus(ki, 403, 'KI trennt eine Verbindung');
+            expect(ki.data?.code === 'HUMAN_ONLY', 'erwartet code HUMAN_ONLY', ki);
+            return 'erfunden: 404 · KI: ⛔ HUMAN_ONLY';
+        }
+    },
+    // Ist OAuth eingeschaltet, muss die Auskunft genau das sagen, was Claude braucht
+    // (Ausweis-Seite/CIMD, nur PKCE S256, keine Selbst-Registrierung).
+    {
+        id: 'oauth-metadata',
+        group: 'KI-Zugang',
+        title: 'OAuth-Auskunft für Claude (nur wenn OAuth eingeschaltet ist)',
+        run: async () => {
+            const res = await fetch(`${apiBase()}/.well-known/oauth-authorization-server`);
+            if (res.status === 404) return 'OAuth ist aus (OAUTH_ENABLED) – nichts zu prüfen';
+            expect(res.ok, `Auskunft antwortet mit ${res.status}`);
+            const m = await res.json();
+            expect(m.client_id_metadata_document_supported === true, 'CIMD fehlt in der Auskunft', m);
+            expect(JSON.stringify(m.token_endpoint_auth_methods_supported) === '["none"]', 'Nur "none" erwartet', m);
+            expect(JSON.stringify(m.code_challenge_methods_supported) === '["S256"]', 'Nur S256 erwartet', m);
+            expect(!m.registration_endpoint, 'Selbst-Registrierung ist offen!', m);
+            const prm = await fetch(`${apiBase()}/.well-known/oauth-protected-resource/mcp`);
+            expect(prm.ok, `Auskunft für /mcp antwortet mit ${prm.status}`);
+            const p = await prm.json();
+            expect(p.resource === `${m.issuer}/mcp`, `resource ${p.resource} passt nicht zu ${m.issuer}/mcp`, p);
+            return `eingeschaltet · ${m.issuer} · CIMD ✓ · S256 ✓ · keine Selbst-Registrierung ✓`;
+        }
+    },
     {
         id: 'ai-revoke',
         group: 'KI-Zugang',

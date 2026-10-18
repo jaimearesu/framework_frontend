@@ -21,7 +21,13 @@ import {
     usageByTool,
     revokeAllTokens,
     removeBox,
-    addBox
+    addBox,
+    accessHealth,
+    activeConnections,
+    connectionStatusInfo,
+    revokedReasonLabel,
+    disconnect,
+    stopAgent
 } from '../public/js/core/agent.js';
 
 const DAY = 24 * 3600 * 1000;
@@ -200,5 +206,79 @@ describe('Knöpfe (mit API-Attrappe)', () => {
         assert.deepEqual(api.calls, [
             { method: 'PUT', path: '/api/objects/k/members/ag', body: { roleType: 'black' } }
         ]);
+    });
+});
+
+// ---------------------------------------------------------------------
+// OAUTH-VERBINDUNGEN (Plan "OAuth für MCP", Etappe 4)
+// ---------------------------------------------------------------------
+
+describe('OAuth-Verbindungen', () => {
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const conn = (status, host = 'claude.ai', uuid = 'g1') => ({ uuid, status, clientHost: host });
+
+    test('Ampel: nur Verbindung = grün, nichts = rot, beides = Schlüssel-Text + Verbindung', () => {
+        assert.deepEqual(accessHealth({ tokens: { active: 0 }, connections: [conn('active')] }, now), {
+            tone: 'ok',
+            text: 'Verbunden über claude.ai'
+        });
+        assert.equal(accessHealth({ tokens: { active: 0 }, connections: [conn('revoked')] }, now).tone, 'error');
+        assert.equal(accessHealth({ tokens: { active: 0 } }, now).tone, 'error');
+        const both = accessHealth(
+            {
+                tokens: { active: 1, nextExpiry: new Date(now + 30 * DAY).toISOString() },
+                connections: [conn('active'), conn('active', 'claude.ai', 'g2')]
+            },
+            now
+        );
+        assert.deepEqual(both, { tone: 'ok', text: '1 gültiger Schlüssel · verbunden über claude.ai' });
+    });
+
+    test('Texte für Status und Gründe', () => {
+        assert.equal(connectionStatusInfo('active').label, 'verbunden');
+        assert.equal(connectionStatusInfo('revoked').tone, 'error');
+        assert.match(revokedReasonLabel('refresh_doppelt'), /zweimal/);
+        assert.equal(revokedReasonLabel('neu'), 'neu');
+        assert.equal(revokedReasonLabel(null), '');
+        assert.deepEqual(
+            activeConnections({ connections: [conn('active'), conn('expired')] }).map(c => c.status),
+            ['active']
+        );
+    });
+
+    test('Trennen: DELETE auf die Verbindung', async () => {
+        const api = fakeApi();
+        assert.deepEqual(await disconnect({ api, uuid: 'g1' }), { ok: true });
+        assert.deepEqual(
+            api.calls.map(c => `${c.method} ${c.path}`),
+            ['DELETE /api/agents/connections/g1']
+        );
+    });
+
+    test('Not-Aus: alle Schlüssel UND alle laufenden Verbindungen, läuft bei Fehlern weiter', async () => {
+        const api = fakeApi((m, path) => (path.endsWith('/g2') ? { ok: false, error: 'weg' } : { ok: true }));
+        const r = await stopAgent({
+            api,
+            agent: {
+                tokens: {
+                    list: [
+                        { uuid: 't1', name: 'A', status: 'active' },
+                        { uuid: 't2', name: 'B', status: 'revoked' }
+                    ]
+                },
+                connections: [
+                    conn('active', 'claude.ai', 'g1'),
+                    conn('active', 'claude.com', 'g2'),
+                    conn('revoked', 'x', 'g3')
+                ]
+            }
+        });
+        assert.deepEqual(
+            api.calls.map(c => `${c.method} ${c.path}`),
+            ['DELETE /api/tokens/t1', 'DELETE /api/agents/connections/g1', 'DELETE /api/agents/connections/g2']
+        );
+        assert.equal(r.revoked, 1);
+        assert.equal(r.disconnected, 1);
+        assert.deepEqual(r.failed, [{ name: 'Verbindung claude.com', error: 'weg' }]);
     });
 });
