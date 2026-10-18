@@ -118,6 +118,8 @@ export const AUDIT_ACTIONS = {
     'tresor.loeschen': 'Tresor-Schlüssel gelöscht',
     'schluessel.erzeugen': 'KI-Schlüssel erzeugt',
     'schluessel.widerrufen': 'KI-Schlüssel widerrufen',
+    'verbindung.erlauben': 'Verbindung erlaubt (OAuth)', // Plan "OAuth für MCP"
+    'verbindung.trennen': 'Verbindung getrennt (OAuth)',
     'anfrage.sonstige': 'Sonstige Anfrage'
 };
 export const auditActionLabel = action => AUDIT_ACTIONS[action] || action || '?';

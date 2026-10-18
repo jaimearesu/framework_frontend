@@ -346,3 +346,78 @@ export const addBox = async ({ api, agentUuid, box }) => {
     );
     return r.ok ? { ok: true } : { ok: false, error: r.error || 'Unbekannter Fehler.' };
 };
+
+// =====================================================================
+// OAUTH-VERBINDUNGEN (Plan "OAuth für MCP", Etappe 4)
+// Ein Agent kann statt (oder zusätzlich zu) einem Schlüssel über OAuth
+// verbunden sein – z.B. "claude.ai darf als agent-kassier arbeiten".
+// Die Daten kommen aus GET /api/agents (agent.connections).
+// =====================================================================
+
+// Status einer Verbindung für die Anzeige
+export const CONNECTION_STATUS = {
+    active: { label: 'verbunden', tone: 'ok' },
+    expired: { label: 'abgelaufen', tone: 'neutral' },
+    revoked: { label: 'getrennt', tone: 'error' }
+};
+export const connectionStatusInfo = status =>
+    CONNECTION_STATUS[status] || { label: status || 'unbekannt', tone: 'neutral' };
+
+// Warum wurde eine Verbindung beendet? (revoked_reason aus dem Backend)
+export const REVOKED_REASONS = {
+    getrennt: 'von Hand getrennt',
+    widerrufen: 'von der Anwendung selbst abgemeldet',
+    code_doppelt: 'zum Schutz getrennt: ein Anmelde-Code wurde zweimal benutzt',
+    refresh_doppelt: 'zum Schutz getrennt: ein Refresh-Token wurde zweimal benutzt – vielleicht kopiert'
+};
+export const revokedReasonLabel = reason => REVOKED_REASONS[reason] || reason || '';
+
+/** Nur die laufenden Verbindungen */
+export const activeConnections = agent => (agent?.connections || []).filter(c => c.status === 'active');
+
+/**
+ * Ampel für den GANZEN Zugang eines Agenten: Schlüssel UND Verbindungen.
+ *   rot  = weder gültiger Schlüssel noch laufende Verbindung
+ *   sonst wie tokenHealth (gelb, wenn ein Schlüssel bald abläuft) – plus
+ *   "verbunden über claude.ai"
+ * Rückgabe: { tone, text }
+ */
+export const accessHealth = (agent, now = Date.now()) => {
+    const hosts = [...new Set(activeConnections(agent).map(c => c.clientHost))];
+    const via = hosts.length ? `verbunden über ${hosts.join(', ')}` : '';
+    if (!agent?.tokens?.active) {
+        if (!hosts.length) {
+            return {
+                tone: 'error',
+                text: 'Kein gültiger Zugang – weder Schlüssel noch Verbindung. Der Agent kann nicht arbeiten.'
+            };
+        }
+        return { tone: 'ok', text: via.charAt(0).toUpperCase() + via.slice(1) };
+    }
+    const keys = tokenHealth(agent.tokens, now);
+    return via ? { tone: keys.tone, text: `${keys.text} · ${via}` } : keys;
+};
+
+/** Eine Verbindung trennen (DELETE /api/agents/connections/<uuid>) */
+export const disconnect = async ({ api, uuid }) => {
+    const r = await api.del(`/api/agents/connections/${encodeURIComponent(uuid)}`);
+    return r.ok ? { ok: true } : { ok: false, error: r.error || 'Unbekannter Fehler.' };
+};
+
+/**
+ * NOT-AUS für einen Agenten: alle gültigen Schlüssel widerrufen UND alle
+ * laufenden Verbindungen trennen. Läuft weiter, auch wenn einzelnes scheitert.
+ * Seine Rechte bleiben – mit einem neuen Schlüssel oder "Erlauben" geht es weiter.
+ * Rückgabe: { revoked, disconnected, failed: [{ name, error }] }
+ */
+export const stopAgent = async ({ api, agent }) => {
+    const keys = await revokeAllTokens({ api, tokens: agent?.tokens?.list });
+    let disconnected = 0;
+    const failed = [...keys.failed];
+    for (const c of activeConnections(agent)) {
+        const r = await disconnect({ api, uuid: c.uuid });
+        if (r.ok) disconnected += 1;
+        else failed.push({ name: `Verbindung ${c.clientHost}`, error: r.error });
+    }
+    return { revoked: keys.revoked, disconnected, failed };
+};

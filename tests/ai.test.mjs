@@ -92,9 +92,9 @@ describe('Seite und Systemcheck', () => {
         assert.ok(route);
         assert.equal(route.group, 'Sicherheit');
     });
-    test('Gruppe "KI-Zugang" mit 8 Prüfungen – vor "Löschen & Aufräumen"', () => {
+    test('Gruppe "KI-Zugang" mit 10 Prüfungen – vor "Löschen & Aufräumen"', () => {
         const ai = CHECKS.filter(c => c.group === 'KI-Zugang');
-        assert.equal(ai.length, 8); // + ai-domain-co-owner (MCP Etappe 5a), + agents-overview/agents-ai-denied (Agenten im Griff)
+        assert.equal(ai.length, 10); // + ai-domain-co-owner (MCP Etappe 5a), + agents-overview/agents-ai-denied (Agenten im Griff), + oauth-disconnect-guarded/oauth-metadata (OAuth Etappe 4)
         const lastAi = CHECKS.lastIndexOf(ai[ai.length - 1]);
         const firstDelete = CHECKS.findIndex(c => c.group === 'Löschen & Aufräumen');
         assert.ok(lastAi < firstDelete);
