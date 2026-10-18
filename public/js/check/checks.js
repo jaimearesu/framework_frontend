@@ -1601,6 +1601,49 @@ return { uuid: kopie.uuid, left: austritt.left };`
             return 'black · red · blue für dich · wieder gelöscht';
         }
     },
+    // Plan "Agenten im Griff" (18.10.2026): Die Test-Domain hat jetzt einen Schlüssel
+    // von dir – also ist sie einer "deiner Agenten" in GET /api/agents.
+    {
+        id: 'agents-overview',
+        group: 'KI-Zugang',
+        title: 'Agenten-Übersicht: die Test-Domain erscheint mit Schlüssel und Aktivität',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.get('/api/agents', { query: { days: 7 } });
+            if (!ctx.aiToken) {
+                expectStatus(r, 403, 'Agenten-Übersicht als Gast');
+                return 'Gast: abgelehnt (richtig) – nur mit Login';
+            }
+            expectStatus(r, 200, 'Agenten-Übersicht');
+            expect(r.data?.meta?.days === 7, 'Zeitraum ?days=7 nicht übernommen', r);
+            // Das Protokoll schreibt NACH der Antwort – darum bis zu 5x kurz warten
+            let agent = null;
+            for (let i = 0; i < 5; i++) {
+                const list = i ? await api.get('/api/agents', { query: { days: 7 } }) : r;
+                agent = (list.data?.data || []).find(a => a.uuid === ctx.root);
+                if (agent && agent.stats?.actions > 0) break;
+                await new Promise(res => setTimeout(res, 300));
+            }
+            expect(agent, 'Die Test-Domain fehlt in der Übersicht', r);
+            expect(agent.tokens?.active >= 1, 'Kein gültiger Schlüssel gezählt', r);
+            expect(agent.lastActivityAt && agent.stats.actions > 0, 'Keine Aktivität der KI gezählt', r);
+            expect(!JSON.stringify(agent).includes('tokenHash'), 'Fingerabdruck in der Antwort!', r);
+            return `${r.data.data.length} Agent(en) · ${agent.stats.actions} Aktionen · ${agent.tokens.active} Schlüssel`;
+        }
+    },
+    {
+        id: 'agents-ai-denied',
+        group: 'KI-Zugang',
+        title: 'Eine KI sieht die Agenten-Übersicht nie (HUMAN_ONLY)',
+        needs: ['root'],
+        run: async ctx => {
+            if (!ctx.aiToken) return 'nur mit Login prüfbar – übersprungen';
+            const r = await api.get('/api/agents', { bearer: ctx.aiToken });
+            expectStatus(r, 403, 'KI fragt die Agenten-Übersicht');
+            expect(r.data?.code === 'HUMAN_ONLY', 'erwartet code HUMAN_ONLY', r);
+            return '⛔ HUMAN_ONLY';
+        }
+    },
     {
         id: 'ai-revoke',
         group: 'KI-Zugang',

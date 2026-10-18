@@ -79,6 +79,14 @@ export const ROUTES = [
         load: () => import('../pages/vault.js')
     },
     {
+        id: 'agenten',
+        title: 'Agenten',
+        icon: 'robot',
+        group: 'Sicherheit',
+        intro: 'Deine Agenten im Griff: was sie dürfen, wann sie gearbeitet haben und welche Werkzeuge sie wie oft benutzen.',
+        load: () => import('../pages/agents.js') // Plan "Agenten im Griff" (18.10.2026)
+    },
+    {
         id: 'ki',
         title: 'KI-Zugänge',
         icon: 'robot',

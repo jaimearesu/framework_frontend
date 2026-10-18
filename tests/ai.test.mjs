@@ -87,13 +87,14 @@ describe('Schlüssel im Anfragen-Protokoll', () => {
 
 describe('Seite und Systemcheck', () => {
     test('die Seite "KI-Zugänge" ist im Menü unter Sicherheit', () => {
+        assert.equal(findRoute('agenten')?.group, 'Sicherheit'); // Seite "Agenten" (Agenten im Griff)
         const route = findRoute('ki');
         assert.ok(route);
         assert.equal(route.group, 'Sicherheit');
     });
-    test('Gruppe "KI-Zugang" mit 6 Prüfungen – vor "Löschen & Aufräumen"', () => {
+    test('Gruppe "KI-Zugang" mit 8 Prüfungen – vor "Löschen & Aufräumen"', () => {
         const ai = CHECKS.filter(c => c.group === 'KI-Zugang');
-        assert.equal(ai.length, 6); // + ai-domain-co-owner (MCP Etappe 5a)
+        assert.equal(ai.length, 8); // + ai-domain-co-owner (MCP Etappe 5a), + agents-overview/agents-ai-denied (Agenten im Griff)
         const lastAi = CHECKS.lastIndexOf(ai[ai.length - 1]);
         const firstDelete = CHECKS.findIndex(c => c.group === 'Löschen & Aufräumen');
         assert.ok(lastAi < firstDelete);
