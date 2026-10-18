@@ -614,6 +614,31 @@ export const CHECKS = [
         }
     },
     {
+        // Nachbesserung nach dem Finale: Kinder zeigten nur den Namen der Familie
+        id: 'members-identifier',
+        group: 'Rechte',
+        title: 'Kinder mit ihrem Namen aus der DNA (identifier in /members und /api/objects)',
+        needs: ['root', 'lager'],
+        run: async ctx => {
+            const r = await api.get(`/api/objects/${ctx.root}/members`);
+            expectStatus(r, 200, 'Mitglieder laden');
+            const members = r.data?.data?.members || [];
+            const lager = members.find(m => m.uuid === ctx.lager);
+            expect(lager && lager.identifier === 'lager', 'Das Kind "lager" hat keinen identifier', r);
+            expect(lager.name === ctx.domainName, 'name sollte bei Kindern die Familie bleiben', r);
+            const root = members.find(m => m.uuid === ctx.root);
+            expect(root && root.identifier === null, 'Die Domain selbst sollte keinen identifier haben', r);
+            const mensch = members.find(m => m.kind === 'mensch');
+            expect(mensch && mensch.identifier === null, 'Ein Mensch darf keinen identifier haben', r);
+
+            const list = await api.get('/api/objects');
+            expectStatus(list, 200, 'Objekte laden');
+            const kind = (Array.isArray(list.data) ? list.data : []).find(o => o.uuid === ctx.lager);
+            expect(kind && kind.identifier === 'lager', 'In /api/objects fehlt der identifier des Kindes', list);
+            return 'lager = "lager" · Domain und Mensch ohne';
+        }
+    },
+    {
         id: 'members-grant-revoke',
         group: 'Rechte',
         title: 'Recht über das Objekt vergeben und entziehen (PUT/DELETE /members)',
