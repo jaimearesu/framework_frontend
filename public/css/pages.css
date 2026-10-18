@@ -1245,3 +1245,14 @@ details.raw summary {
     flex: 1 1 220px;
     width: auto;
 }
+
+/* Agent anlegen (Seite KI-Zugänge): ein Werkzeugkasten zum Ankreuzen */
+.agent-box {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 0;
+}
+.agent-box .muted {
+    padding-left: 26px; /* unter dem Text, nicht unter dem Häkchen */
+}
