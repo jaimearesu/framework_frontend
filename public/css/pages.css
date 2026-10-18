@@ -1256,3 +1256,17 @@ details.raw summary {
 .agent-box .muted {
     padding-left: 26px; /* unter dem Text, nicht unter dem Häkchen */
 }
+
+/* Agenten im Griff (pages/agents.js): Rechte eines Agenten als kurze Liste */
+.agent-rights {
+    list-style: none;
+    margin: 4px 0 8px;
+    padding: 0;
+}
+.agent-rights li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+}

@@ -4,8 +4,7 @@
 //
 // Eine KI (z.B. Claude) arbeitet mit einem SCHLÜSSEL als eines deiner
 // Objekte – mit dessen Rechten, nie mit deinen. Hier:
-//   0. Agent anlegen in einem Schritt (Objekt + black auf Werkzeugkästen +
-//      Schlüssel, Logik in core/agent.js, Plan "Agent anlegen" 18.10.)
+//   0. Hinweis auf die Seite "Agenten" (dort: Agent anlegen + verwalten)
 //   1. Schlüssel erzeugen (Objekt, Name, Laufzeit 1 Stunde bis 1 Jahr)
 //   2. Meine Schlüssel ansehen und widerrufen
 //   3. Protokoll: was hat ein Objekt getan / was ist daran passiert?
@@ -48,16 +47,6 @@ import { formatDate, timeAgo, shortUuid, isUuid } from '../core/format.js';
 import { loadObjects, loadObjectNames, objectLabel, invalidateObjects } from '../core/objects.js';
 import { objectPicker } from '../core/picker.js';
 import { apiBase } from '../core/config.js';
-import {
-    AGENT_PREFIX,
-    DEFAULT_PRESET,
-    MAX_AGENT_NAME,
-    checkAgentName,
-    groupToolboxes,
-    previewAgent,
-    connectText,
-    createAgent
-} from '../core/agent.js';
 
 // ---------------------------------------------------------------------
 // REINE FUNKTIONEN (ohne Bildschirm – automatisch getestet)
@@ -365,199 +354,18 @@ export default {
             out
         );
 
-        // ============================================================ AGENT ANLEGEN
-        // Ein Agent in einem Schritt: Objekt + black auf Werkzeugkästen + Schlüssel.
-        // Die Logik (Prüfen, Vorschau, Ablauf mit Aufräumen) steht in core/agent.js.
-        const agentName = h('input', {
-            class: 'input',
-            value: AGENT_PREFIX,
-            maxlength: MAX_AGENT_NAME,
-            autocomplete: 'off',
-            spellcheck: 'false' // als Text: h() überspringt false
-        });
-        const agentPreset = h(
-            'select',
-            { class: 'input' },
-            LIFETIME_PRESETS.filter(p => p.hours !== null).map(p =>
-                h('option', { value: p.id, selected: p.id === DEFAULT_PRESET }, p.label)
+        // ============================================================ AGENTEN
+        // Agent anlegen und verwalten steht seit "Agenten im Griff" (18.10.2026,
+        // Entscheidung A) auf der eigenen Seite "Agenten" (pages/agents.js).
+        root.append(
+            callout(
+                'info',
+                'Agenten anlegen und im Griff behalten: ',
+                'Das geht jetzt auf der Seite ',
+                h('a', { href: '#/agenten' }, 'Agenten'),
+                ' – mit Werkzeugkästen, Schlüsseln und Werkzeug-Statistik.'
             )
         );
-        const boxesBox = h('div', {}, spinner('Suche deine Werkzeugkästen …'));
-        const previewBox = h('div');
-        const agentOut = h('div');
-        let boxes = []; // [{ family, rootUuid, tools, canGrant, input }]
-
-        const chosenBoxes = () => boxes.filter(b => b.input && b.input.checked);
-        const updatePreview = () => {
-            const p = previewAgent(chosenBoxes());
-            mount(
-                previewBox,
-                callout(p.count ? 'info' : 'warn', 'Vorschau: ', p.text),
-                p.notReady.length
-                    ? h(
-                          'p',
-                          { class: 'muted small' },
-                          `Noch ohne SSF (sieht er, kann sie aber noch nicht benutzen): ${p.notReady.join(', ')}`
-                      )
-                    : null
-            );
-        };
-
-        // Kästen laden: alle Werkzeuge, die DU siehst, nach Kasten gruppiert.
-        // Wählbar ist ein Kasten nur, wenn du dort blue hast (sonst darfst du
-        // dem Agenten dort kein Recht geben). Das fragen wir die Rechte-Liste:
-        // GET …/members antwortet nur mit blue mit 200.
-        const loadBoxes = async () => {
-            if (!isUser) {
-                return mount(boxesBox, h('p', { class: 'muted small' }, 'Nach dem Login siehst du hier deine Kästen.'));
-            }
-            const r = await api.get('/api/tools');
-            if (!r.ok) return mount(boxesBox, resultLine(r));
-            const grouped = groupToolboxes(Array.isArray(r.data?.data) ? r.data.data : [], objects);
-            boxes = await Promise.all(
-                grouped.map(async b => {
-                    if (!b.rootUuid) return { ...b, canGrant: false };
-                    const m = await api.get(`/api/objects/${b.rootUuid}/members`);
-                    return { ...b, canGrant: m.ok };
-                })
-            );
-            if (!boxes.length) {
-                return mount(
-                    boxesBox,
-                    emptyState({
-                        icon: 'box',
-                        title: 'Noch keine Werkzeugkästen',
-                        text: 'Ein Werkzeugkasten ist eine Domain mit Werkzeug-Kindern. Claude kann dir einen bauen (guide topic „werkzeuge“).'
-                    })
-                );
-            }
-            mount(
-                boxesBox,
-                ...boxes.map(b => {
-                    b.input = h('input', { type: 'checkbox', disabled: !b.canGrant });
-                    b.input.addEventListener('change', updatePreview);
-                    return h(
-                        'div',
-                        { class: 'agent-box' },
-                        h(
-                            'label',
-                            { class: 'check' },
-                            b.input,
-                            h('strong', {}, b.family),
-                            ` – ${b.tools.length} ${b.tools.length === 1 ? 'Werkzeug' : 'Werkzeuge'}`,
-                            b.canGrant ? null : h('span', { class: 'muted small' }, ' (kein blue – nicht wählbar)')
-                        ),
-                        h('div', { class: 'muted small' }, b.tools.map(t => t.name).join(', '))
-                    );
-                }),
-                h(
-                    'p',
-                    { class: 'muted small' },
-                    'Es gibt nur ganze Kästen: black auf ein Werkzeug gilt immer für den ganzen Kasten. Soll ein Agent nur einen Teil bekommen, mach dafür einen eigenen Kasten.'
-                )
-            );
-            updatePreview();
-        };
-
-        // Nach dem Anlegen: Schlüssel (genau einmal) + Verbindungstext für Claude Code
-        const showAgent = (name, tokenData) => {
-            const c = connectText({ agentName: name, mcpUrl: `${apiBase()}/mcp`, token: tokenData.token });
-            mount(
-                agentOut,
-                h(
-                    'div',
-                    { class: 'token-reveal' },
-                    h('strong', {}, `🤖 Agent „${name}“ ist bereit – der Schlüssel ist nur jetzt sichtbar!`),
-                    h('code', { class: 'token-value' }, tokenData.token),
-                    h(
-                        'p',
-                        { class: 'muted small' },
-                        `Gültig bis ${formatDate(tokenData.expiresAt)}. So verbindest du ihn mit Claude Code:`
-                    ),
-                    codeBlock(c.envCommand, { label: '1. PowerShell: Schlüssel als Windows-Variable speichern' }),
-                    codeBlock(c.mcpJson, { label: '2. In die Datei .mcp.json deines Projekts (ohne Schlüssel)' }),
-                    h(
-                        'p',
-                        { class: 'muted small' },
-                        '3. Claude neu starten und eine neue Session öffnen. Mit der claude-Kommandozeile geht es auch in einem Schritt:'
-                    ),
-                    codeBlock(c.cliCommand, { label: 'Alternative: claude-Kommandozeile' }),
-                    h(
-                        'button',
-                        { class: 'btn ghost', type: 'button', onclick: () => mount(agentOut) },
-                        'Ich habe alles gesichert – ausblenden'
-                    )
-                )
-            );
-        };
-
-        const agentCard = card(
-            {
-                title: 'Agent anlegen',
-                icon: 'key',
-                subtitle: 'In einem Schritt: eigenes Objekt + Werkzeugkästen + Schlüssel.'
-            },
-            field('Name des Agenten', agentName, 'Kleinbuchstaben, Ziffern, Bindestriche – z.B. „agent-buchhaltung“.'),
-            field('Welche Werkzeugkästen darf er benutzen?', boxesBox),
-            previewBox,
-            field('Laufzeit des Schlüssels', agentPreset, 'Danach ist er automatisch ungültig.'),
-            h(
-                'div',
-                {},
-                busyButton(
-                    'Agent anlegen',
-                    async () => {
-                        if (!isUser) return toast('Bitte zuerst einloggen.', 'error');
-                        const checked = checkAgentName(agentName.value);
-                        if (checked.error) return toast(checked.error, 'error');
-                        const chosen = chosenBoxes();
-                        if (!chosen.length) return toast('Bitte mindestens einen Werkzeugkasten wählen.', 'error');
-                        const preset = LIFETIME_PRESETS.find(p => p.id === agentPreset.value);
-                        const p = previewAgent(chosen);
-                        if (
-                            !confirm(
-                                `Agent „${checked.name}“ anlegen?\n\n${p.text}\n\nSchlüssel gültig: ${preset.label}.`
-                            )
-                        )
-                            return;
-
-                        const stepLine = h('p', { class: 'muted small' });
-                        mount(agentOut, stepLine);
-                        const result = await createAgent({
-                            api,
-                            name: checked.name,
-                            boxes: chosen,
-                            hours: preset.hours,
-                            onStep: text => (stepLine.textContent = text)
-                        });
-                        invalidateObjects(); // die Objekt-Liste hat sich geändert
-                        if (!result.ok) {
-                            return mount(
-                                agentOut,
-                                callout(
-                                    'error',
-                                    'Agent nicht angelegt: ',
-                                    result.error,
-                                    result.cleanedUp
-                                        ? ` Der halb angelegte Agent wurde wieder gelöscht – der Name „${checked.name}“ ist jetzt gesperrt, nimm bitte einen anderen.`
-                                        : result.agentUuid
-                                          ? ' Achtung: Der halb angelegte Agent konnte nicht gelöscht werden – bitte unter „Objekte“ von Hand löschen.'
-                                          : ''
-                                )
-                            );
-                        }
-                        showAgent(checked.name, result.token);
-                        agentName.value = AGENT_PREFIX;
-                        boxes.forEach(b => b.input && (b.input.checked = false));
-                        updatePreview();
-                        loadTokens();
-                    },
-                    { className: 'btn primary', iconName: 'key' }
-                )
-            ),
-            agentOut
-        );
-        root.append(agentCard);
 
         root.append(
             h(
@@ -717,6 +525,5 @@ export default {
 
         loadTokens();
         loadLog();
-        loadBoxes();
     }
 };

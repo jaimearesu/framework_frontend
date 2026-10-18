@@ -184,3 +184,165 @@ export const createAgent = async ({ api, name, boxes, hours, onStep = () => {} }
 
     return { ok: true, agentUuid, token: t.data.data };
 };
+
+// =====================================================================
+// AGENTEN IM GRIFF (Plan "Agenten im Griff", 18.10.2026)
+// Hilfsfunktionen für die Seite "Agenten" (pages/agents.js). Die Daten
+// kommen aus GET /api/agents (nur lesen); geändert wird über die
+// bestehenden Routen (Rechte vergeben/entziehen, Schlüssel).
+// =====================================================================
+
+// Zeitraum der Statistik (Entscheidung D, Vorschlag 30 Tage)
+export const STAT_PERIODS = [
+    { days: 7, label: '7 Tage' },
+    { days: 30, label: '30 Tage' },
+    { days: 180, label: '180 Tage' }
+];
+export const DEFAULT_PERIOD = 30;
+
+// So bald vor dem Ablauf warnt die Seite ("bald neuer Schlüssel nötig")
+export const EXPIRY_WARN_DAYS = 7;
+
+// Fehler nach Art (Entscheidung E): HTTP-Status -> Klartext
+export const ERROR_KINDS = {
+    400: 'falsche Eingabe',
+    401: 'Schlüssel ungültig',
+    403: 'kein Recht',
+    404: 'nicht gefunden',
+    409: 'Werkzeug nicht bereit',
+    429: 'zu viele Anfragen',
+    500: 'Werkzeug abgestürzt'
+};
+export const errorKindLabel = status => ERROR_KINDS[status] || `Fehler ${status}`;
+
+/**
+ * Fehler eines Werkzeugs als kurzer Text, häufigste zuerst:
+ *   { '400': 2, '500': 1 } -> "2× falsche Eingabe · 1× Werkzeug abgestürzt"
+ */
+export const errorText = byStatus => {
+    const entries = Object.entries(byStatus || {}).filter(([, n]) => n > 0);
+    if (!entries.length) return '';
+    return entries
+        .sort((a, b) => b[1] - a[1] || Number(a[0]) - Number(b[0]))
+        .map(([status, n]) => `${n}× ${errorKindLabel(Number(status))}`)
+        .join(' · ');
+};
+
+/**
+ * Name eines Werkzeugs in der Statistik. Fremde und gelöschte Werkzeuge
+ * schickt das Backend ohne Name (Entscheidung C) – hier ein Ersatztext.
+ */
+export const toolLabel = tool => {
+    if (!tool) return '?';
+    if (tool.visible) return tool.name || 'Werkzeug ohne Namen';
+    return tool.exists ? 'fremde Werkzeuge (kein Zugriff für dich)' : 'gelöschte Werkzeuge';
+};
+
+/**
+ * Wie steht es um die Schlüssel? (für die Ampel auf der Karte)
+ *   tokens = agent.tokens aus GET /api/agents
+ * Rückgabe: { tone: 'ok' | 'warn' | 'error', text }
+ *   error = kein gültiger Schlüssel (der Agent kann nicht arbeiten)
+ *   warn  = der nächste läuft in weniger als EXPIRY_WARN_DAYS Tagen ab
+ */
+export const tokenHealth = (tokens, now = Date.now()) => {
+    const active = tokens?.active || 0;
+    if (!active) return { tone: 'error', text: 'Kein gültiger Schlüssel – der Agent kann nicht arbeiten.' };
+    const left = new Date(tokens.nextExpiry).getTime() - now;
+    // Aufrunden: 2 Tage und 23 Stunden = "in 3 Tagen" (so liest man es auf der Uhr)
+    const days = Math.ceil(left / (24 * 3600 * 1000));
+    const label = `${active} ${active === 1 ? 'gültiger Schlüssel' : 'gültige Schlüssel'}`;
+    if (left < EXPIRY_WARN_DAYS * 24 * 3600 * 1000) {
+        const when = days <= 1 ? 'in weniger als einem Tag' : `in ${days} Tagen`;
+        return { tone: 'warn', text: `${label} – der nächste läuft ${when} ab.` };
+    }
+    return { tone: 'ok', text: label };
+};
+
+/**
+ * Welche Kästen kann ich diesem Agenten noch dazugeben?
+ *   boxes = Kästen aus groupToolboxes, ergänzt um canGrant (blue)
+ *   agent = Eintrag aus GET /api/agents (rights = Familien, auf die er schon Rechte hat)
+ * Nur Kästen mit blue, die er noch nicht hat.
+ */
+export const addableBoxes = (boxes, agent) => {
+    const has = new Set((agent?.rights || []).map(r => r.domain));
+    return (boxes || []).filter(b => b.canGrant && b.rootUuid && !has.has(b.family));
+};
+
+/**
+ * "Wer benutzt was?" – die Statistik aller Agenten pro Werkzeug umdrehen.
+ * Nur Werkzeuge, die du selbst siehst (fremde/gelöschte haben keine UUID).
+ * Rückgabe (am meisten benutzt zuerst):
+ *   [{ toolUuid, name, uses, errors, lastAt, agents: [{ uuid, domain, uses, errors }] }]
+ */
+export const usageByTool = agents => {
+    const byTool = new Map();
+    for (const agent of agents || []) {
+        for (const t of agent?.stats?.tools || []) {
+            if (!t.visible || !t.toolUuid) continue;
+            if (!byTool.has(t.toolUuid)) {
+                byTool.set(t.toolUuid, {
+                    toolUuid: t.toolUuid,
+                    name: toolLabel(t),
+                    uses: 0,
+                    errors: 0,
+                    lastAt: null,
+                    agents: []
+                });
+            }
+            const entry = byTool.get(t.toolUuid);
+            entry.uses += t.uses;
+            entry.errors += t.errors;
+            if (!entry.lastAt || t.lastAt > entry.lastAt) entry.lastAt = t.lastAt;
+            entry.agents.push({ uuid: agent.uuid, domain: agent.domain, uses: t.uses, errors: t.errors });
+        }
+    }
+    const list = [...byTool.values()];
+    for (const e of list) e.agents.sort((a, b) => b.uses - a.uses);
+    return list.sort((a, b) => b.uses - a.uses);
+};
+
+/**
+ * NOT-AUS: alle GÜLTIGEN Schlüssel eines Agenten widerrufen (Entscheidung F).
+ *   api    = API-Client (in Tests eine Attrappe)
+ *   tokens = agent.tokens.list aus GET /api/agents
+ * Läuft weiter, auch wenn einer scheitert – und meldet genau, was geklappt hat.
+ * Rückgabe: { revoked: n, failed: [{ name, error }] }
+ */
+export const revokeAllTokens = async ({ api, tokens }) => {
+    const active = (tokens || []).filter(t => t.status === 'active');
+    const failed = [];
+    let revoked = 0;
+    for (const t of active) {
+        const r = await api.del(`/api/tokens/${encodeURIComponent(t.uuid)}`);
+        if (r.ok) revoked += 1;
+        else failed.push({ name: t.name, error: r.error || 'Unbekannter Fehler.' });
+    }
+    return { revoked, failed };
+};
+
+/**
+ * Einen Kasten wegnehmen: ALLE Farben, die der Agent dort hat, entziehen
+ * (meist nur black). Rückgabe: { ok, removed: ['black'], error? }
+ */
+export const removeBox = async ({ api, agentUuid, right }) => {
+    const removed = [];
+    for (const role of right.roles || []) {
+        const r = await api.del(
+            `/api/objects/${encodeURIComponent(right.rootUuid)}/members/${encodeURIComponent(agentUuid)}/${role}`
+        );
+        if (!r.ok) return { ok: false, removed, error: r.error || 'Unbekannter Fehler.' };
+        removed.push(role);
+    }
+    return { ok: true, removed };
+};
+
+/** Einen Kasten dazugeben: black auf die Domain des Kastens (ganze Familie, Entscheidung B) */
+export const addBox = async ({ api, agentUuid, box }) => {
+    const r = await api.put(
+        `/api/objects/${encodeURIComponent(box.rootUuid)}/members/${encodeURIComponent(agentUuid)}`,
+        { roleType: 'black' }
+    );
+    return r.ok ? { ok: true } : { ok: false, error: r.error || 'Unbekannter Fehler.' };
+};
