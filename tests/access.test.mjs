@@ -77,3 +77,23 @@ describe('Zugriff: Hilfsfunktionen', () => {
         assert.equal(revokePath('o', 'm', 'red', 'teil'), '/api/objects/o/members/m/red?scope=teil');
     });
 });
+
+describe('Einladungen: Hilfsfunktionen', () => {
+    test('Zustand: widerrufen vor angenommen vor abgelaufen vor offen', async () => {
+        const { invitationStatus } = await import('../public/js/core/access.js');
+        const now = Date.parse('2026-10-20T12:00:00Z');
+        const base = { revokedAt: null, usedCount: 0, maxUses: 1, expiresAt: '2026-10-27T12:00:00Z' };
+        assert.equal(invitationStatus(base, now).key, 'offen');
+        assert.equal(invitationStatus({ ...base, usedCount: 1 }, now).key, 'angenommen');
+        assert.equal(invitationStatus({ ...base, expiresAt: '2026-10-19T12:00:00Z' }, now).key, 'abgelaufen');
+        assert.equal(invitationStatus({ ...base, usedCount: 1, revokedAt: '2026-10-20' }, now).key, 'widerrufen');
+    });
+
+    test('Rollen als Text und Formular-Prüfung', async () => {
+        const { invitationRolesText, checkInviteForm } = await import('../public/js/core/access.js');
+        assert.equal(invitationRolesText(['black', 'red']), 'sehen + ändern');
+        assert.equal(checkInviteForm({ roles: [], maxUses: 1 }) !== null, true);
+        assert.equal(checkInviteForm({ roles: ['black'], maxUses: 101 }) !== null, true);
+        assert.equal(checkInviteForm({ roles: ['black'], maxUses: 1 }), null);
+    });
+});

@@ -122,6 +122,9 @@ export const AUDIT_ACTIONS = {
     'verbindung.trennen': 'Verbindung getrennt (OAuth)',
     'website.anmelden': 'Auf einer Website angemeldet', // Plan "Login auf Websites"
     'schloss.entfernen': 'Zusatz-Schloss entfernt (Rollen pro Teil)',
+    'einladung.erstellen': 'Einladungs-Link erstellt',
+    'einladung.widerrufen': 'Einladungs-Link widerrufen',
+    'einladung.annehmen': 'Einladung angenommen',
     'anfrage.sonstige': 'Sonstige Anfrage'
 };
 export const auditActionLabel = action => AUDIT_ACTIONS[action] || action || '?';

@@ -71,3 +71,41 @@ export const memberLabel = (m, shortUuid = id => String(id).slice(0, 8)) => {
 export const revokePath = (targetUuid, memberUuid, role, scope = 'familie') =>
     `/api/objects/${encodeURIComponent(targetUuid)}/members/${encodeURIComponent(memberUuid)}/${encodeURIComponent(role)}` +
     (scope === 'teil' ? '?scope=teil' : '');
+
+// ---------------------------------------------------------------------
+// EINLADUNGS-LINKS (Plan "Login auf Websites", Etappe 6)
+//   POST   /api/objects/<uuid>/invitations   { roles, scope, hours, maxUses } -> { link, … }
+//   GET    /api/objects/<uuid>/invitations
+//   DELETE /api/objects/<uuid>/invitations/<einladung>
+// ---------------------------------------------------------------------
+
+// Wie lange gilt ein Link? (Stunden; Standard 7 Tage, Entscheidung E)
+export const INVITE_VALIDITY = [
+    { hours: 1, label: '1 Stunde' },
+    { hours: 24, label: '1 Tag' },
+    { hours: 7 * 24, label: '7 Tage' },
+    { hours: 30 * 24, label: '30 Tage' }
+];
+export const DEFAULT_INVITE_HOURS = 7 * 24;
+
+/**
+ * Zustand einer Einladung fürs Cockpit -> { key, label, tone }
+ *   offen · angenommen (alle Plätze weg) · abgelaufen · widerrufen
+ */
+export const invitationStatus = (inv, now = Date.now()) => {
+    if (inv.revokedAt) return { key: 'widerrufen', label: 'widerrufen', tone: 'neutral' };
+    if (inv.usedCount >= inv.maxUses) return { key: 'angenommen', label: 'angenommen', tone: 'ok' };
+    if (new Date(inv.expiresAt).getTime() <= now) return { key: 'abgelaufen', label: 'abgelaufen', tone: 'neutral' };
+    return { key: 'offen', label: 'offen', tone: 'accent' };
+};
+
+// "sehen + ändern"
+export const invitationRolesText = roles =>
+    (roles || []).map(r => ({ black: 'sehen', red: 'ändern' })[r] || r).join(' + ');
+
+// Eingaben des Formulars prüfen (vor dem Senden) -> Fehlertext oder null
+export const checkInviteForm = ({ roles, maxUses }) => {
+    if (!roles || roles.length === 0) return 'Bitte mindestens eine Rolle wählen (sehen oder ändern).';
+    if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 100) return 'Anzahl: 1 bis 100 Personen.';
+    return null;
+};

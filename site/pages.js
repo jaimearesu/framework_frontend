@@ -54,7 +54,7 @@ const MESSAGES = {
     noAccess: {
         status: 403,
         title: 'Kein Zugriff',
-        text: 'Du bist angemeldet, hast aber (noch) keinen Zugriff auf diese Website. Bitte frag die Person, der sie gehört.'
+        text: 'Du bist angemeldet, hast aber (noch) keinen Zugriff auf diese Website. Bitte frag die Person, der sie gehört – am einfachsten nach einem Einladungs-Link.'
     },
     loginFailed: {
         status: 400,
@@ -74,8 +74,9 @@ const MESSAGES = {
  * @param {Array<{href: string, label: string, primary?: boolean}>} [options.actions]
  *        Knöpfe unter dem Text (z.B. "Anmelden"). href baut immer der Bauarbeiter
  *        selbst – nie aus Eingaben des Besuchers ohne safeReturnPath.
+ * @param {string} [options.note]  kleine Zusatzzeile (z.B. "Deine at0mic-ID: …"), maskiert
  */
-const neutralPage = (kind, { actions = [] } = {}) => {
+const neutralPage = (kind, { actions = [], note = null } = {}) => {
     const { title, text } = MESSAGES[kind];
     const buttons = actions.length
         ? `<p class="actions">${actions
@@ -97,7 +98,7 @@ const neutralPage = (kind, { actions = [] } = {}) => {
         'body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.5 system-ui,sans-serif;',
         'background:#f6f7f9;color:#1d2340;padding:16px;box-sizing:border-box}',
         'main{max-width:420px;text-align:center}h1{font-size:1.4rem;margin:0 0 8px}',
-        'p{margin:0 0 16px;color:#5b6273}small{color:#8a919d}',
+        'p{margin:0 0 16px;color:#5b6273}small{color:#8a919d}.note code{font-size:.85rem;word-break:break-all;user-select:all}',
         '.actions a{display:inline-block;margin:4px;padding:10px 18px;border-radius:8px;border:1px solid #d5d9e2;',
         'color:#1d2340;text-decoration:none;font-weight:600}.actions a.primary{background:#5b4bdb;border-color:#5b4bdb;color:#fff}',
         '@media (prefers-color-scheme:dark){body{background:#14161b;color:#e8eaf0}p{color:#a9afbd}',
@@ -108,6 +109,7 @@ const neutralPage = (kind, { actions = [] } = {}) => {
         '<main>',
         `<h1>${escapeHtml(title)}</h1>`,
         `<p>${escapeHtml(text)}</p>`,
+        note ? `<p class="note"><code>${escapeHtml(note)}</code></p>` : '',
         buttons,
         '<small>at0mic</small>',
         '</main>',

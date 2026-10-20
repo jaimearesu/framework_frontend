@@ -40,6 +40,7 @@ const { MESSAGES, neutralPage, markdownPage, markdownTitle } = require('./pages'
 const login = require('./login');
 
 const FETCH_TIMEOUT_MS = 8000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // SSF der Website: /_at0mic/run/<pfad> – Pfad wie die identifier in der DNA
 const RUN_ROUTE = /^\/_at0mic\/run\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
@@ -167,7 +168,9 @@ const createBauarbeiter = ({
             return { kind: 'error', page: 'loginRequired', closed: true, tokenInvalid };
         }
         if (res.status === 403 && body && body.code === 'SITE_NO_ACCESS') {
-            return { kind: 'error', page: 'noAccess', closed: true, tokenInvalid };
+            // Seine EIGENE at0mic-ID (nur wenn sie wie eine UUID aussieht) – zum Weiterschicken
+            const visitorId = typeof body.besucher === 'string' && UUID.test(body.besucher) ? body.besucher : null;
+            return { kind: 'error', page: 'noAccess', closed: true, tokenInvalid, visitorId };
         }
         if (res.status === 429) return { kind: 'error', page: 'tooMany', retryAfter: res.headers.get('retry-after') };
         if (res.status === 401)
@@ -232,9 +235,11 @@ const createBauarbeiter = ({
         res.set('Cache-Control', 'no-store');
         if (extra.retryAfter) res.set('Retry-After', String(extra.retryAfter));
         if (kind === 'methodNotAllowed') res.set('Allow', 'GET, HEAD');
+        // "Kein Zugriff": die eigene at0mic-ID zeigen (Etappe 6, Entscheidung H)
+        const note = kind === 'noAccess' && extra.visitorId ? `Deine at0mic-ID: ${extra.visitorId}` : null;
         res.status(MESSAGES[kind].status)
             .type('html')
-            .send(neutralPage(kind, { actions: loginActions(kind, extra.returnPath) }));
+            .send(neutralPage(kind, { actions: loginActions(kind, extra.returnPath), note }));
     };
 
     // Ausweis-Cookie setzen bzw. löschen

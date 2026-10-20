@@ -710,6 +710,35 @@ export const CHECKS = [
         }
     },
     {
+        // Plan "Login auf Websites", Etappe 6: Einladungs-Links
+        id: 'invitations',
+        group: 'Rechte',
+        title: 'Einladungs-Link: nur ein eingeloggter Mensch erstellt, nie blue, auflisten, widerrufen',
+        needs: ['root'],
+        run: async ctx => {
+            const me = await api.get('/api/me');
+            if (!me.data?.isAuthenticated) {
+                const gast = await api.post(`/api/objects/${ctx.root}/invitations`, { roles: ['black'] });
+                expectStatus(gast, 403, 'Einladung als Gast');
+                return 'als Gast abgelehnt ✓ (Erstellen nur mit Login prüfbar)';
+            }
+            const blue = await api.post(`/api/objects/${ctx.root}/invitations`, { roles: ['blue'] });
+            expectStatus(blue, 400, 'blue per Link');
+            const r = await api.post(`/api/objects/${ctx.root}/invitations`, { roles: ['black'], hours: 1 });
+            expectStatus(r, 201, 'Einladung erstellen');
+            expect(/\/einladung\/[A-Za-z0-9_-]{43}$/.test(r.data?.data?.link || ''), 'Link sieht falsch aus', r);
+            const list = await api.get(`/api/objects/${ctx.root}/invitations`);
+            expectStatus(list, 200, 'Einladungen laden');
+            const mine = (list.data?.data || []).find(i => i.uuid === r.data.data.uuid);
+            expect(mine && mine.open === true, 'Die neue Einladung fehlt in der Liste', list);
+            expect(!JSON.stringify(list.data).includes('/einladung/'), 'Die Liste verrät den Link!', list);
+            const del = await api.del(`/api/objects/${ctx.root}/invitations/${r.data.data.uuid}`);
+            expectStatus(del, 200, 'Widerrufen');
+            expect(del.data?.data?.revoked === true, 'Nicht widerrufen', del);
+            return 'blue ⛔ · erstellt · Liste ohne Link · widerrufen';
+        }
+    },
+    {
         id: 'roles-invalid',
         group: 'Rechte',
         title: 'Ungültige Rolle wird abgelehnt (400)',
