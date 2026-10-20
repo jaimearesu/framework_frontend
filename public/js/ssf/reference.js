@@ -21,7 +21,12 @@ export const TOOL_GROUPS = [
     { id: 'relations', title: 'Relationen', text: 'Objekte miteinander verbinden (Grundlage für Joins).' },
     { id: 'roles', title: 'Rollen', text: 'Rechte vergeben, entziehen und ansehen.' },
     { id: 'http', title: 'Aussenwelt', text: 'Fremde Server fragen – abgesichert gegen Missbrauch.' },
-    { id: 'secrets', title: 'Tresor', text: 'Geheime Schlüssel der eigenen SSF lesen.' }
+    { id: 'secrets', title: 'Tresor', text: 'Geheime Schlüssel der eigenen SSF lesen.' },
+    {
+        id: 'visitor',
+        title: 'Besucher',
+        text: 'Wer ruft gerade auf? Bei einer Website der angemeldete Besucher (Login auf Websites).'
+    }
 ];
 
 export const TOOLS = [
@@ -187,6 +192,16 @@ export const TOOLS = [
         returns: 'true | false',
         text: 'Prüfen, ob ein Schlüssel im Tresor dieser SSF liegt – ohne ihn zu lesen.',
         snippet: "if (await api.secrets.has('WETTER_KEY')) { /* … */ }\n"
+    },
+    {
+        name: 'visitor.can',
+        group: 'visitor',
+        signature: "ziel, rolle = 'black'",
+        role: '– (nur Objekte der eigenen Domain)',
+        returns: 'true | false',
+        text: 'Hat der Besucher (requestContext.userUuid – bei einer Website der Angemeldete) diese Rolle auf ein Objekt der eigenen Domain? Anonym = immer false. Zählt nur Rollen, nicht die Sichtbarkeit. Damit schützt du Aktionen – ein versteckter Knopf ist keine Sicherheit.',
+        snippet:
+            "if (!(await api.visitor.can('portal/bereich-anna', 'red'))) {\n    return { fehler: 'Dafür fehlt dir das Recht.' };\n}\n"
     }
 ];
 

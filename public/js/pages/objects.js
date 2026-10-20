@@ -67,6 +67,7 @@ import {
     RESERVED_SITE_NAMES
 } from '../core/site.js';
 import { addChildToDna, removeChildFromDna } from '../core/dna.js';
+import { SCOPES, rolesForScope, canUsePartScope, accessOverview, memberLabel, revokePath } from '../core/access.js';
 import { renderDnaTree } from '../core/tree.js';
 import {
     buildPreviewDocument,
@@ -468,9 +469,248 @@ const renderRolesTab = async (box, o) => {
         h(
             'p',
             { class: 'muted small' },
-            'Rollen vergeben und entziehen kannst du bald auf der Seite ',
+            'Rechte vergeben und entziehen – für die ganze Website oder nur für einen Teil – im Reiter „Zugriff“. ',
+            'Triplets direkt verwalten: Seite ',
             h('a', { href: href('rechte') }, 'Rechte'),
             '.'
+        )
+    );
+};
+
+// --- Reiter "Zugriff" ---
+// Plan "Login auf Websites", Etappe 5: Wer darf dieses Objekt sehen und ändern?
+// Rechte auf die GANZE Website (Familien-Schloss) oder NUR AUF DIESEN TEIL
+// (Zusatz-Schloss, "Rollen pro Teil"). Braucht blue auf die Website.
+//   GET    /api/objects/<uuid>/members
+//   PUT    /api/objects/<uuid>/members/<wer>          { roleType, scope }
+//   DELETE /api/objects/<uuid>/members/<wer>/<rolle>[?scope=teil]
+//   DELETE /api/objects/<uuid>/lock                   Zusatz-Schloss ganz entfernen
+// Texte vom Backend immer über h() (textContent) – nie als HTML.
+const renderAccessTab = async (box, o, objects) => {
+    const rerender = () => renderAccessTab(box, o, objects);
+    mount(box, spinner('Lade Zugriff …'));
+    const res = await api.get(`/api/objects/${o.uuid}/members`);
+    if (!res.ok) {
+        return mount(
+            box,
+            callout(
+                'info',
+                'Nur für Verwalter:',
+                ' Wer welche Rechte hat, sehen und ändern nur Menschen mit blue auf diese Website.'
+            ),
+            resultLine(res)
+        );
+    }
+    const view = accessOverview(res.data?.data);
+    const isPart = canUsePartScope(o);
+    const family = objectFamily(o);
+    const nameOf = uuid => {
+        const obj = objects.find(x => x.uuid === uuid);
+        return obj ? objectLabel(obj) : shortUuid(uuid);
+    };
+
+    // Eine Zeile: wer · Rollen · je Rolle "entziehen"
+    const memberRow = (m, scope) =>
+        h(
+            'tr',
+            {},
+            h('td', {}, memberLabel(m, shortUuid), ' ', copyButton(m.uuid, 'UUID kopieren')),
+            h(
+                'td',
+                {},
+                h(
+                    'span',
+                    { class: 'role-chips' },
+                    m.roles.map(r => h('span', { class: `role ${r}` }, r))
+                )
+            ),
+            h(
+                'td',
+                { class: 'row gap-s wrap' },
+                m.roles.map(r =>
+                    busyButton(
+                        `${r} entziehen`,
+                        async () => {
+                            if (
+                                !confirm(
+                                    `${memberLabel(m, shortUuid)}: Recht „${r}“ (${SCOPES[scope].label}) entziehen?`
+                                )
+                            )
+                                return;
+                            const del = await api.del(revokePath(o.uuid, m.uuid, r, scope));
+                            if (!del.ok) return toast(del.error || 'Hat nicht geklappt.', 'error');
+                            toast('Recht entzogen.', 'ok');
+                            rerender();
+                        },
+                        { className: 'btn small' }
+                    )
+                )
+            )
+        );
+
+    const memberTable = (list, scope, emptyText) =>
+        list.length
+            ? h(
+                  'div',
+                  { class: 'table-wrap' },
+                  h(
+                      'table',
+                      { class: 'data-table' },
+                      h('thead', {}, h('tr', {}, h('th', {}, 'Wer'), h('th', {}, 'Rollen'), h('th', {}, ''))),
+                      h(
+                          'tbody',
+                          {},
+                          list.map(m => memberRow(m, scope))
+                      )
+                  )
+              )
+            : h('p', { class: 'muted small' }, emptyText);
+
+    // --- Formular: Recht vergeben ---
+    const who = h('input', {
+        class: 'input mono',
+        placeholder: 'UUID eines Menschen oder Objekts',
+        autocomplete: 'off'
+    });
+    let scope = 'familie';
+    const role = h('select', { class: 'input' });
+    const fillRoles = () =>
+        mount(
+            role,
+            rolesForScope(scope).map(r =>
+                h('option', { value: r }, `${r} – ${{ black: 'sehen', red: 'ändern', blue: 'verwalten' }[r]}`)
+            )
+        );
+    fillRoles();
+    const scopeChoice = isPart
+        ? h(
+              'div',
+              { class: 'vis-options' },
+              ['familie', 'teil'].map(value =>
+                  h(
+                      'label',
+                      { class: 'vis-option' },
+                      h('input', {
+                          type: 'radio',
+                          name: 'scope',
+                          value,
+                          checked: value === scope,
+                          onchange: () => {
+                              scope = value;
+                              fillRoles();
+                          }
+                      }),
+                      h(
+                          'span',
+                          {},
+                          h('strong', {}, SCOPES[value].label),
+                          h('span', { class: 'muted small block' }, SCOPES[value].text)
+                      )
+                  )
+              )
+          )
+        : null;
+    const out = h('div');
+    const grant = async () => {
+        const member = who.value.trim();
+        if (!member) return toast('Bitte die UUID eingeben, wer das Recht bekommen soll.', 'error');
+        const r = await api.put(`/api/objects/${o.uuid}/members/${encodeURIComponent(member)}`, {
+            roleType: role.value,
+            scope
+        });
+        mount(out, resultLine(r));
+        if (r.ok) {
+            toast(r.data?.data?.changed ? 'Recht vergeben.' : 'Hatte dieses Recht schon.', 'ok');
+            rerender();
+        }
+    };
+
+    // --- Zusatz-Schloss ganz entfernen ---
+    const removeLock = async () => {
+        const n = view.own ? view.own.members.length : 0;
+        if (
+            !confirm(
+                `Zusatz-Schloss von „${objectLabel(o)}“ entfernen?\n\n${n} Mitglied(er) verlieren ihr Recht auf diesen Teil.`
+            )
+        )
+            return;
+        const r = await api.del(`/api/objects/${o.uuid}/lock`);
+        if (!r.ok) return toast(r.error || 'Hat nicht geklappt.', 'error');
+        toast(r.data?.message || 'Zusatz-Schloss entfernt.', 'ok');
+        rerender();
+    };
+
+    mount(
+        box,
+        card(
+            {
+                title: `Ganze Website „${family}“`,
+                icon: 'shield',
+                subtitle: 'Wer hier ein Recht hat, hat es auf ALLE Teile der Website.'
+            },
+            memberTable(view.website, 'familie', 'Noch niemand ausser den Teilen der Website selbst.'),
+            view.parts
+                ? h(
+                      'p',
+                      { class: 'muted small' },
+                      `Dazu ${view.parts} Teil(e) der Website mit ihrem eigenen Schutz-Eintrag (kein vergebenes Recht).`
+                  )
+                : null
+        ),
+        isPart
+            ? card(
+                  {
+                      title: 'Nur dieser Teil',
+                      icon: 'lock',
+                      subtitle:
+                          'Rechte nur auf diesen Teil und seine Unter-Teile – z.B. ein Kunde sieht nur seinen Bereich.'
+                  },
+                  view.own
+                      ? memberTable(view.own.members, 'teil', 'Das Zusatz-Schloss hat gerade keine Mitglieder.')
+                      : h('p', { class: 'muted small' }, 'Noch niemand hat ein Recht nur auf diesen Teil.'),
+                  view.inherited.map(l =>
+                      callout(
+                          'info',
+                          'Geerbt:',
+                          ` ${l.members.length} Mitglied(er) sehen diesen Teil über das Zusatz-Schloss von `,
+                          h('a', { href: href('objekte', l.object) }, nameOf(l.object)),
+                          '.'
+                      )
+                  ),
+                  view.own
+                      ? h(
+                            'div',
+                            {},
+                            busyButton('Zusatz-Schloss entfernen', removeLock, {
+                                className: 'btn danger',
+                                iconName: 'trash'
+                            })
+                        )
+                      : null
+              )
+            : null,
+        card(
+            { title: 'Recht vergeben', icon: 'key' },
+            field(
+                'Wer?',
+                who,
+                'Objekt-UUID oder die UUID eines Menschen. Ein angemeldeter Besucher sieht seine ID auf deiner Website unter /_at0mic/me.'
+            ),
+            scopeChoice,
+            field('Rolle', role),
+            h('div', {}, busyButton('Vergeben', grant, { className: 'btn primary', iconName: 'check' })),
+            out,
+            h(
+                'ul',
+                { class: 'small muted' },
+                h('li', {}, 'black = sehen (und SSF ausführen), red = ändern, blue = Rechte vergeben und löschen.'),
+                h('li', {}, 'red schliesst black NICHT ein – wer sehen und ändern soll, braucht beide.'),
+                h(
+                    'li',
+                    {},
+                    'Ein Weg ist nur so offen wie seine engste Tür: Wer nur ein Recht auf einen Teil hat, muss auch die Website sehen dürfen (z.B. „nur eingeloggte“).'
+                )
+            )
         )
     );
 };
@@ -875,9 +1115,10 @@ const renderVisibilityTab = (box, o, objects, { onDone }) => {
 
 // --- Reiter "Website" ---
 // Plan "Bauarbeiter + Bauplan-Format": Jede Domain kann eine Website sein
-// (<name>.at0mic.site). Online ist nur, was ÖFFENTLICH ist – der Bauarbeiter
-// fragt immer als anonymer Besucher. Hier siehst du, ob die Website online
-// ist, welche Teile fehlen, und den Bauplan (GET /api/sites/<name>).
+// (<name>.at0mic.site). Ohne Anmeldung ist nur online, was ÖFFENTLICH ist.
+// Seit "Login auf Websites" sehen angemeldete Besucher zusätzlich, was sie
+// dürfen (Reiter "Zugriff"). Hier siehst du, ob die Website öffentlich ist,
+// welche Teile ohne Anmeldung fehlen, und den Bauplan (GET /api/sites/<name>).
 const renderSiteTab = (box, o, objects, { onTab }) => {
     const status = siteStatus(o, objects);
 
@@ -890,7 +1131,7 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
                 callout(
                     'info',
                     'Teil einer Website: ',
-                    `Websites gibt es pro Domain. Dieses Unter-Objekt erscheint auf der Website von „${status.family}“ – wenn es öffentlich ist.`
+                    `Websites gibt es pro Domain. Dieses Unter-Objekt erscheint auf der Website von „${status.family}“ – für alle, wenn es öffentlich ist, sonst für angemeldete Besucher, die es sehen dürfen (Reiter „Zugriff“).`
                 ),
                 parent ? h('a', { class: 'btn', href: href('objekte', parent.uuid) }, `Zu „${status.family}“`) : null
             )
@@ -994,7 +1235,8 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
             {
                 title: 'Website',
                 icon: 'external',
-                subtitle: 'Jede Domain kann eine Website sein. Online ist nur, was öffentlich ist.'
+                subtitle:
+                    'Jede Domain kann eine Website sein. Ohne Anmeldung sieht man nur Öffentliches, angemeldete Besucher dazu, was sie dürfen.'
             },
             infoList([
                 ['Adresse', url ? h('code', {}, url) : 'unbekannt (Frontend ohne /config.json)'],
@@ -1009,14 +1251,14 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
                 ? null
                 : callout(
                       'warn',
-                      'Noch nicht online: ',
-                      `„${status.name}“ ist ${visibilityInfo(o.visibility).label.toLowerCase()}. Die Website ist erst erreichbar, wenn die Domain öffentlich ist (Reiter „Sichtbarkeit“). Veröffentlichen kann nur ein eingeloggter Mensch – auch eine KI nicht.`
+                      'Nicht öffentlich: ',
+                      `„${status.name}“ ist ${visibilityInfo(o.visibility).label.toLowerCase()}. Ohne Anmeldung sieht man nur „Diese Website ist privat – Anmelden“. Wer sich auf der Website mit seinem at0mic-Konto anmeldet, sieht, was er darf (${o.visibility === 'members' ? 'jeder Angemeldete' : 'nur wer eine Rolle hat'} – siehe Reiter „Zugriff“). Für alle öffentlich: Reiter „Sichtbarkeit“ (nur ein eingeloggter Mensch, nie eine KI).`
                   ),
             status.online && status.hidden.length
                 ? callout(
                       'info',
-                      `${status.hidden.length} Teil(e) fehlen auf der Website: `,
-                      `${hiddenNames(status.hidden)} – sie sind nicht öffentlich. Das kann gewollt sein (z.B. Entwürfe).`
+                      `${status.hidden.length} Teil(e) fehlen für Besucher ohne Anmeldung: `,
+                      `${hiddenNames(status.hidden)} – sie sind nicht öffentlich. Angemeldete Besucher sehen sie, wenn sie dürfen (Reiter „Zugriff“ bzw. „Sichtbarkeit“ des Teils).`
                   )
                 : null,
             isTestMode()
@@ -1029,12 +1271,12 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
             h(
                 'div',
                 { class: 'row gap-s wrap' },
-                url && status.online
+                url
                     ? h(
                           'a',
                           { class: 'btn primary', href: url, target: '_blank', rel: 'noopener noreferrer' },
                           icon('external', { size: 16 }),
-                          'Website öffnen'
+                          status.online ? 'Website öffnen' : 'Website öffnen (mit Anmeldung)'
                       )
                     : null,
                 busyButton('Bauplan ansehen', loadPlan, { className: 'btn', iconName: 'layers' }),
@@ -1209,6 +1451,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         { id: 'vorschau', label: 'Vorschau' },
         { id: 'baum', label: 'Baum' },
         { id: 'rollen', label: 'Rollen' },
+        { id: 'zugriff', label: 'Zugriff' },
         { id: 'kind', label: 'Kind anhängen' },
         { id: 'kopie', label: 'Klonen & Zügeln' },
         { id: 'sichtbar', label: 'Sichtbarkeit' },
@@ -1224,6 +1467,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         else if (id === 'vorschau') renderPreviewTab(body, o, objects);
         else if (id === 'baum') renderTreeTab(body, o, objects);
         else if (id === 'rollen') renderRolesTab(body, o);
+        else if (id === 'zugriff') renderAccessTab(body, o, objects);
         else if (id === 'kopie') renderCopyTab(body, o, objects, { onDone: uuid => reload(uuid) });
         else if (id === 'sichtbar') renderVisibilityTab(body, o, objects, { onDone: uuid => reload(uuid) });
         else if (id === 'website') renderSiteTab(body, o, objects, { onTab: next => bar.select(next) });

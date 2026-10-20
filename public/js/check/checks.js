@@ -658,6 +658,58 @@ export const CHECKS = [
         }
     },
     {
+        // Plan "Login auf Websites", Etappe 4: Rollen pro Teil (Zusatz-Schloss)
+        id: 'members-part',
+        group: 'Rechte',
+        title: 'Recht nur auf einen Teil (Zusatz-Schloss): vergeben, anzeigen, entziehen, Schloss entfernen',
+        needs: ['root', 'zwei', 'lager'],
+        run: async ctx => {
+            const g = await api.put(`/api/objects/${ctx.lager}/members/${ctx.zwei}`, {
+                roleType: 'black',
+                scope: 'teil'
+            });
+            expectStatus(g, 200, 'Vergeben (nur dieser Teil)');
+            expect(g.data?.data?.scope === 'teil', 'scope sollte "teil" sein', g);
+
+            const list = await api.get(`/api/objects/${ctx.lager}/members`);
+            expectStatus(list, 200, 'Mitglieder laden');
+            const own = (list.data?.data?.locks || []).find(l => l.own);
+            expect(own, 'Das Zusatz-Schloss fehlt in der Liste (locks)', list);
+            expect(
+                own.members.some(m => m.uuid === ctx.zwei && m.roles.includes('black')),
+                'Das Mitglied fehlt im Zusatz-Schloss',
+                list
+            );
+            expect(
+                !(list.data?.data?.members || []).some(m => m.uuid === ctx.zwei),
+                'Das Recht ist fälschlich auf der ganzen Website gelandet',
+                list
+            );
+
+            const blue = await api.put(`/api/objects/${ctx.lager}/members/${ctx.zwei}`, {
+                roleType: 'blue',
+                scope: 'teil'
+            });
+            expectStatus(blue, 400, 'blue nur auf einen Teil');
+            const root = await api.put(`/api/objects/${ctx.root}/members/${ctx.zwei}`, {
+                roleType: 'black',
+                scope: 'teil'
+            });
+            expectStatus(root, 400, 'Zusatz-Schloss auf der Website selbst');
+
+            const d = await api.del(`/api/objects/${ctx.lager}/members/${ctx.zwei}/black?scope=teil`);
+            expectStatus(d, 200, 'Entziehen (nur dieser Teil)');
+            expect(d.data?.data?.changed === true, 'Entziehen: changed sollte true sein', d);
+
+            const lock = await api.del(`/api/objects/${ctx.lager}/lock`);
+            expectStatus(lock, 200, 'Zusatz-Schloss entfernen');
+            expect(lock.data?.data?.removed === true, 'Das Schloss wurde nicht entfernt', lock);
+            const again = await api.del(`/api/objects/${ctx.lager}/lock`);
+            expect(again.data?.data?.removed === false, 'Zweites Entfernen sollte removed: false melden', again);
+            return 'teil ✓ · locks ✓ · blue ⛔ · Website ⛔ · entzogen · Schloss weg';
+        }
+    },
+    {
         id: 'roles-invalid',
         group: 'Rechte',
         title: 'Ungültige Rolle wird abgelehnt (400)',
@@ -1184,12 +1236,33 @@ return { uuid: kopie.uuid, left: austritt.left };`
     {
         id: 'site-private',
         group: 'Website',
-        title: 'Private Domain ist nicht online – auch nicht für dich (404)',
+        title: 'Private Domain: ohne Website-Anmeldung zu – auch für dich (401 „bitte anmelden“)',
         needs: ['domainName'],
         run: async ctx => {
+            // Seit "Login auf Websites": 401 SITE_LOGIN_REQUIRED statt 404 – nie ein Bauplan.
+            // Das Cockpit-Login zählt hier nicht (nur ein Website-Ausweis über den Bauarbeiter).
             const r = await api.get(`/api/sites/${ctx.domainName}`);
-            expectStatus(r, 404, 'Bauplan einer privaten Domain');
+            expectStatus(r, 401, 'Bauplan einer privaten Domain');
+            expect(r.data?.code === 'SITE_LOGIN_REQUIRED', `code "${r.data?.code}" statt SITE_LOGIN_REQUIRED`, r);
+            expect(r.data?.data === undefined, 'Eine private Domain hat einen Bauplan geliefert!', r);
             return r.error;
+        }
+    },
+    {
+        // Plan "Login auf Websites": Ausweis holen/prüfen geht NUR mit Bauarbeiter-Schlüssel
+        id: 'site-login-bauarbeiter',
+        group: 'Website',
+        title: 'Login auf Websites: Ausweis und „wer ist angemeldet?“ nur für den Bauarbeiter (403)',
+        needs: ['domainName'],
+        run: async ctx => {
+            const ausweis = await api.post(`/api/sites/${ctx.domainName}/ausweis`, { code: 'x', state: 'y' });
+            expectStatus(ausweis, 403, 'Ausweis ohne Bauarbeiter-Schlüssel');
+            expect(ausweis.data?.code === 'BAUARBEITER_ONLY', 'code BAUARBEITER_ONLY fehlt', ausweis);
+            const wer = await api.get(`/api/sites/${ctx.domainName}/besucher`);
+            expectStatus(wer, 403, '„wer ist angemeldet?“ ohne Bauarbeiter-Schlüssel');
+            const ab = await api.post(`/api/sites/${ctx.domainName}/abmelden`, { token: 'x' });
+            expectStatus(ab, 403, 'Abmelden ohne Bauarbeiter-Schlüssel');
+            return 'ausweis · besucher · abmelden ⛔';
         }
     },
     {
@@ -1292,7 +1365,7 @@ return { uuid: kopie.uuid, left: austritt.left };`
     {
         id: 'site-unpublish',
         group: 'Website',
-        title: 'Wieder privat: die Website ist sofort weg (404)',
+        title: 'Wieder privat: die Website ist sofort zu (401 „bitte anmelden“)',
         needs: ['root', 'domainName'],
         run: async ctx => {
             if (!ctx.sitePublished) return 'nur mit Login prüfbar – übersprungen';
@@ -1300,8 +1373,8 @@ return { uuid: kopie.uuid, left: austritt.left };`
             const r = await api.put(`/api/objects/${ctx.root}/visibility`, { visibility: 'private' });
             expectStatus(r, 200, 'wieder privat');
             ctx.sitePublished = false;
-            expectStatus(await api.get(`/api/sites/${ctx.domainName}`), 404, 'Bauplan nach dem Zurückstellen');
-            return 'privat · 404';
+            expectStatus(await api.get(`/api/sites/${ctx.domainName}`), 401, 'Bauplan nach dem Zurückstellen');
+            return 'privat · 401';
         }
     },
 
