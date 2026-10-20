@@ -13,19 +13,31 @@
 // Dazu: POST /_at0mic/run/<pfad> – damit ruft das JavaScript einer Website
 // ihre eigene SSF auf (echte Logik: Formulare, Speicher, mehrere Benutzer).
 //
+// LOGIN AUF WEBSITES (Plan "Login auf Websites", Etappe 3):
+//   GET  /_at0mic/login?zurueck=/pfad   Anmeldung starten (-> at0mic, "Bei … anmelden?")
+//   GET  /_at0mic/callback?code&state   zurück von at0mic: Code gegen Ausweis tauschen
+//   GET|POST /_at0mic/logout            abmelden
+//   GET  /_at0mic/me                    { angemeldet, uuid? } – für das JavaScript der Website
+// Ist jemand angemeldet, schickt der Bauarbeiter seinen Ausweis ans Backend
+// mit – dann sieht er, was ER sehen darf. Solche Antworten landen NIE im
+// gemeinsamen Zwischenspeicher. Einzelheiten zu den Cookies: login.js.
+//
 // Was er NIE tut:
-//   - Cookies setzen oder lesen, Login-Daten weitergeben
+//   - andere Cookies setzen oder lesen als seine zwei eigenen (Ausweis, Login)
+//   - den Ausweis an das JavaScript der Website geben (HttpOnly)
+//   - einen Ausweis bei SSF-Aufrufen von einer fremden Seite mitschicken (Herkunft)
 //   - Fehlermeldungen aus dem Code einer Website an Besucher zeigen (nur ins Log)
-//   - etwas anderes als GET/HEAD annehmen – ausser POST auf /_at0mic/run/…
+//   - etwas anderes als GET/HEAD annehmen – ausser POST auf /_at0mic/run/… und /logout
 //
 // Das Backend fragt er mit dem Bauarbeiter-Schlüssel und der IP des
 // Besuchers – so bremst das Backend pro Besucher (Etappe 2). Rechte gibt
-// der Schlüssel keine: Online ist nur, was öffentlich ist.
+// der Schlüssel keine: Ohne Ausweis ist nur online, was öffentlich ist.
 // ---------------------------------------------------------------------
 const { siteNameFromHost } = require('./host');
 const { resolveFile, contentTypeFor, extensionOf } = require('./files');
 const { BauplanCache } = require('./cache');
 const { MESSAGES, neutralPage, markdownPage, markdownTitle } = require('./pages');
+const login = require('./login');
 
 const FETCH_TIMEOUT_MS = 8000;
 
@@ -94,6 +106,9 @@ const visitorIpOf = req => String(req.ip || '').replace(/^::ffff:(?=\d+\.\d+\.\d
  * @param {BauplanCache} [options.cache]       nur für Tests
  * @param {function} [options.renderMarkdown]  nur für Tests
  * @param {object} [options.log]               console-ähnlich
+ * @param {string} [options.loginUrl]   ÖFFENTLICHE Adresse des Backends für die Anmeldung
+ *                                      (der Browser des Besuchers geht dorthin), z.B.
+ *                                      "https://api.at0mic.ch". Ohne: Anmelden geht nicht.
  * @returns Express-Middleware: beantwortet Website-Anfragen, alles andere -> next()
  */
 const createBauarbeiter = ({
@@ -104,23 +119,36 @@ const createBauarbeiter = ({
     fetchImpl = fetch,
     cache = new BauplanCache(),
     renderMarkdown = defaultRenderMarkdown,
-    log = console
+    log = console,
+    loginUrl = null
 }) => {
     // Laufende Anfragen pro Website: Kommen 10 Besucher gleichzeitig, fragt
-    // der Bauarbeiter das Backend trotzdem nur EINMAL.
+    // der Bauarbeiter das Backend trotzdem nur EINMAL. (Nur für Anonyme –
+    // ein angemeldeter Besucher bekommt immer seine eigene Anfrage.)
     const inFlight = new Map();
+    const cookies = login.cookieNames(isProduction);
 
-    // Beim Backend fragen -> { kind: 'site', bauplan } | { kind: 'missing' } | { kind: 'error', page }
-    const fetchFromBackend = async (name, visitorIp) => {
-        const headers = { accept: 'application/json' };
+    // Kopfzeilen für jede Anfrage ans Backend: Schlüssel, Besucher-IP und –
+    // falls angemeldet – der Ausweis (zählt im Backend nur mit gültigem Schlüssel)
+    const backendHeaders = (visitorIp, token, extra = {}) => {
+        const headers = { accept: 'application/json', ...extra };
         if (key) headers['x-bauarbeiter-key'] = key;
         if (key && visitorIp) headers['x-besucher-ip'] = visitorIp;
+        if (key && token) headers['x-besucher-ausweis'] = token;
+        return headers;
+    };
 
+    // Sagt das Backend "dieser Ausweis gilt nicht (mehr)"?
+    const tokenRejected = res => res && res.headers && res.headers.get('x-besucher-ausweis-status') === 'ungueltig';
+
+    // Beim Backend fragen -> { kind: 'site', bauplan, personal } | { kind: 'missing' }
+    //                      | { kind: 'error', page } – jeweils mit tokenInvalid (true/false)
+    const fetchFromBackend = async (name, visitorIp, token = null) => {
         let res;
         let body = null;
         try {
             res = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}`, {
-                headers,
+                headers: backendHeaders(visitorIp, token),
                 signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
             });
             body = await res.json().catch(() => null);
@@ -128,11 +156,19 @@ const createBauarbeiter = ({
             log.warn(`[BAUARBEITER] Backend nicht erreichbar (${name}): ${error.message}`);
             return { kind: 'error', page: 'unavailable' };
         }
+        const tokenInvalid = tokenRejected(res);
 
         if (res.ok && body && body.data && typeof body.data.files === 'object') {
-            return { kind: 'site', bauplan: body.data };
+            return { kind: 'site', bauplan: body.data, personal: !!(body.meta && body.meta.personal), tokenInvalid };
         }
-        if (res.status === 404) return { kind: 'missing' };
+        if (res.status === 404) return { kind: 'missing', tokenInvalid };
+        // Login auf Websites: privat (bitte anmelden) bzw. angemeldet ohne Recht
+        if (res.status === 401 && body && body.code === 'SITE_LOGIN_REQUIRED') {
+            return { kind: 'error', page: 'loginRequired', closed: true, tokenInvalid };
+        }
+        if (res.status === 403 && body && body.code === 'SITE_NO_ACCESS') {
+            return { kind: 'error', page: 'noAccess', closed: true, tokenInvalid };
+        }
         if (res.status === 429) return { kind: 'error', page: 'tooMany', retryAfter: res.headers.get('retry-after') };
         if (res.status === 401)
             log.error('[BAUARBEITER] Der Bauarbeiter-Schlüssel ist falsch (BAUARBEITER_KEY prüfen).');
@@ -145,7 +181,17 @@ const createBauarbeiter = ({
     };
 
     // Bauplan holen: frisch aus dem Speicher, sonst vom Backend (mit Ersatz "alter Stand")
-    const getBauplan = async (name, visitorIp) => {
+    // token = Ausweis eines angemeldeten Besuchers -> immer direkt vom Backend,
+    // NIE aus dem oder in den gemeinsamen Speicher (sonst sähen andere seine Seite)
+    const getBauplan = async (name, visitorIp, token = null) => {
+        if (token) {
+            const result = await fetchFromBackend(name, visitorIp, token);
+            // Der Ausweis galt nicht: Die Antwort ist die eines Anonymen. Ist sie
+            // wirklich öffentlich (nicht persönlich), darf sie in den Speicher.
+            if (result.kind === 'site' && !result.personal) cache.setSite(name, result.bauplan);
+            return result;
+        }
+
         const entry = cache.get(name);
         if (cache.isFresh(entry)) return entry.kind === 'site' ? { kind: 'site', bauplan: entry.bauplan } : entry;
 
@@ -157,24 +203,48 @@ const createBauarbeiter = ({
         }
         const result = await inFlight.get(name);
 
-        if (result.kind === 'site') cache.setSite(name, result.bauplan);
+        if (result.kind === 'site' && !result.personal) cache.setSite(name, result.bauplan);
         else if (result.kind === 'missing') cache.setMissing(name);
-        else if (entry && entry.kind === 'site') {
+        else if (result.closed) {
+            // Website ist (jetzt) privat: den alten öffentlichen Stand sofort vergessen
+            cache.delete(name);
+        } else if (entry && entry.kind === 'site') {
             // Backend gerade weg oder Fehler: lieber der letzte gute Stand als eine Fehlerseite
             return { kind: 'site', bauplan: entry.bauplan, stale: true };
         }
         return result;
     };
 
+    // Knöpfe auf den Seiten "privat" und "kein Zugriff" (zurück = dieselbe Seite)
+    const loginActions = (kind, returnPath) => {
+        const back = encodeURIComponent(login.safeReturnPath(returnPath));
+        if (kind === 'loginRequired') {
+            return [{ href: `/_at0mic/login?zurueck=${back}`, label: 'Anmelden', primary: true }];
+        }
+        if (kind === 'noAccess') {
+            // Abmelden – z.B. um sich mit einem anderen Konto anzumelden
+            return [{ href: `/_at0mic/logout?zurueck=${back}`, label: 'Abmelden' }];
+        }
+        return [];
+    };
+
     const sendPage = (res, kind, extra = {}) => {
         res.set('Cache-Control', 'no-store');
         if (extra.retryAfter) res.set('Retry-After', String(extra.retryAfter));
         if (kind === 'methodNotAllowed') res.set('Allow', 'GET, HEAD');
-        res.status(MESSAGES[kind].status).type('html').send(neutralPage(kind));
+        res.status(MESSAGES[kind].status)
+            .type('html')
+            .send(neutralPage(kind, { actions: loginActions(kind, extra.returnPath) }));
     };
 
+    // Ausweis-Cookie setzen bzw. löschen
+    const setTokenCookie = (res, token, maxAge) =>
+        res.append('Set-Cookie', login.serializeCookie(cookies.ausweis, token, { maxAge, isProduction }));
+    const clearTokenCookie = res => setTokenCookie(res, '', 0);
+
     // Eine Datei aus dem Bauplan ausliefern
-    const sendFile = async (res, bauplan, path, status, siteName) => {
+    // personal = für einen angemeldeten Besucher gebaut -> nirgends speichern
+    const sendFile = async (res, bauplan, path, status, siteName, personal = false) => {
         let content = bauplan.files[path];
         if (extensionOf(path) === 'md') {
             const html = await renderMarkdown(content);
@@ -185,9 +255,145 @@ const createBauarbeiter = ({
         }
         // Der Browser fragt jedes Mal kurz nach (ETag macht Express selbst):
         // Änderungen sind so sichtbar, sobald der Bauplan neu ist.
-        res.set('Cache-Control', 'no-cache');
+        // Persönliche Seiten: weder Browser noch Cloudflare dürfen sie speichern.
+        res.set('Cache-Control', personal ? 'private, no-store' : 'no-cache');
         res.status(status).type(contentTypeFor(path)).send(content);
     };
+
+    // ---------------------------------------------------------------------
+    // LOGIN AUF WEBSITES (Plan "Login auf Websites", Etappe 3)
+    // ---------------------------------------------------------------------
+
+    // GET /_at0mic/login?zurueck=/pfad – Anmeldung starten
+    const startLogin = (req, res, name) => {
+        if (!loginUrl || !key) return sendPage(res, 'loginUnavailable');
+        const state = login.newState();
+        const returnPath = login.safeReturnPath(req.query.zurueck);
+        res.append(
+            'Set-Cookie',
+            login.serializeCookie(cookies.login, login.encodeLogin(state, returnPath), {
+                maxAge: login.LOGIN_SECONDS,
+                isProduction
+            })
+        );
+        res.set('Cache-Control', 'no-store');
+        const target = new URL('/site-login', loginUrl);
+        target.searchParams.set('site', name);
+        target.searchParams.set('state', state);
+        return res.redirect(302, target.href);
+    };
+
+    // GET /_at0mic/callback?code=…&state=… (oder ?error=abgebrochen&state=…)
+    const finishLogin = async (req, res, name) => {
+        res.set('Cache-Control', 'no-store');
+        // Das Login-Cookie gilt nur für EINEN Versuch – immer gleich löschen
+        const started = login.decodeLogin(login.parseCookies(req.headers.cookie)[cookies.login]);
+        res.append('Set-Cookie', login.serializeCookie(cookies.login, '', { maxAge: 0, isProduction }));
+
+        // Der Zustand muss genau der sein, den DIESER Browser beim Start bekam
+        const state = typeof req.query.state === 'string' ? req.query.state : '';
+        if (!started || !login.sameState(started.state, state)) return sendPage(res, 'loginFailed');
+
+        // Abgebrochen: einfach zurück, wo man war
+        if (req.query.error) return res.redirect(303, started.returnPath);
+
+        const code = typeof req.query.code === 'string' ? req.query.code : '';
+        if (!code || !key) return sendPage(res, 'loginFailed');
+
+        let answer;
+        let data = null;
+        try {
+            answer = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/ausweis`, {
+                method: 'POST',
+                headers: backendHeaders(visitorIpOf(req), null, { 'content-type': 'application/json' }),
+                body: JSON.stringify({ code, state }),
+                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+            });
+            data = await answer.json().catch(() => null);
+        } catch (error) {
+            log.warn(`[BAUARBEITER] Backend nicht erreichbar (Anmeldung ${name}): ${error.message}`);
+            return sendPage(res, 'unavailable');
+        }
+        const token = data && data.data && data.data.token;
+        if (!answer.ok || !login.isTokenShape(token)) return sendPage(res, 'loginFailed');
+
+        // So lange wie der Ausweis gilt (höchstens 7 Tage)
+        const seconds = Math.min((new Date(data.data.expiresAt).getTime() - Date.now()) / 1000, 7 * 24 * 3600);
+        setTokenCookie(res, token, Number.isFinite(seconds) && seconds > 0 ? seconds : 0);
+        return res.redirect(303, started.returnPath);
+    };
+
+    // GET|POST /_at0mic/logout – im Backend sperren, Cookie löschen
+    const logout = async (req, res, name, token) => {
+        res.set('Cache-Control', 'no-store');
+        if (token && key) {
+            try {
+                await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/abmelden`, {
+                    method: 'POST',
+                    headers: backendHeaders(visitorIpOf(req), null, { 'content-type': 'application/json' }),
+                    body: JSON.stringify({ token }),
+                    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+                });
+            } catch (error) {
+                // Cookie trotzdem löschen – im Browser ist man damit abgemeldet
+                log.warn(`[BAUARBEITER] Abmelden im Backend nicht möglich (${name}): ${error.message}`);
+            }
+        }
+        clearTokenCookie(res);
+        if (req.method === 'POST') return res.status(200).json({ ok: true });
+        return res.redirect(303, login.safeReturnPath(req.query.zurueck));
+    };
+
+    // GET /_at0mic/me – "wer ist angemeldet?" für das JavaScript der Website
+    // Antwort: { angemeldet: false } oder { angemeldet: true, uuid } (nur die UUID)
+    const whoAmI = async (req, res, name, token) => {
+        res.set('Cache-Control', 'no-store');
+        if (!token || !key) return res.status(200).json({ angemeldet: false });
+        try {
+            const answer = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/besucher`, {
+                headers: backendHeaders(visitorIpOf(req), token),
+                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+            });
+            if (tokenRejected(answer)) clearTokenCookie(res);
+            const data = await answer.json().catch(() => null);
+            if (!answer.ok || !data || !data.data) {
+                return res.status(503).json({ error: 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.' });
+            }
+            return res
+                .status(200)
+                .json(data.data.angemeldet ? { angemeldet: true, uuid: data.data.uuid } : { angemeldet: false });
+        } catch (error) {
+            log.warn(`[BAUARBEITER] Backend nicht erreichbar (me ${name}): ${error.message}`);
+            return res.status(503).json({ error: 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.' });
+        }
+    };
+
+    // Die Anmelde-Adressen: /_at0mic/<aktion> -> true, wenn beantwortet
+    const handleLoginRoute = async (req, res, name, token) => {
+        const action = req.path.slice('/_at0mic/'.length);
+        const methods = { login: ['GET'], callback: ['GET'], logout: ['GET', 'POST'], me: ['GET'] };
+        if (!Object.prototype.hasOwnProperty.call(methods, action)) return false;
+        if (!methods[action].includes(req.method)) {
+            res.set('Allow', methods[action].join(', '));
+            res.status(405).json({ error: 'Nicht erlaubt.' });
+            return true;
+        }
+        // Abmelden per POST: nur von der eigenen Website (nicht von einer Nachbar-Website aus)
+        if (action === 'logout' && req.method === 'POST' && !sameOriginRequest(req)) {
+            res.status(403).json({ error: 'Nur von dieser Website aus.' });
+            return true;
+        }
+        if (action === 'login') startLogin(req, res, name);
+        else if (action === 'callback') await finishLogin(req, res, name);
+        else if (action === 'logout') await logout(req, res, name, token);
+        else await whoAmI(req, res, name, token);
+        return true;
+    };
+
+    // Kommt die Anfrage von genau dieser Website? (Browser schicken "Origin" bei POST mit)
+    // Wichtig, weil alle *.at0mic.site für den Browser "Nachbarn" sind: Ohne diese
+    // Prüfung könnte andere.at0mic.site per fetch in deinem Namen eine SSF aufrufen.
+    const sameOriginRequest = req => req.get('origin') === login.ownOrigin(req, isProduction);
 
     // ---------------------------------------------------------------------
     // SSF DER WEBSITE AUFRUFEN:  POST /_at0mic/run/<pfad>   (JSON rein, JSON raus)
@@ -195,13 +401,23 @@ const createBauarbeiter = ({
     // Adresse, darum braucht es kein CORS. Der Bauarbeiter reicht weiter an
     // POST /api/sites/<name>/run/<pfad>, mit Schlüssel und Besucher-IP, ohne
     // Cookies. Fehlermeldungen aus dem SSF-Code bekommt der Besucher nie.
+    //
+    // Angemeldet? Dann geht der Ausweis mit – aber NUR, wenn der Aufruf von
+    // dieser Website selbst kommt (Origin). Eine fremde Seite, die hier eine
+    // SSF aufruft, wird abgewiesen.
     // ---------------------------------------------------------------------
-    const runFunction = async (req, res, name, runPath) => {
+    const runFunction = async (req, res, name, runPath, token) => {
         const reply = (status, body, extra = {}) => {
             res.set('Cache-Control', 'no-store');
             if (extra.retryAfter) res.set('Retry-After', String(extra.retryAfter));
             return res.status(status).json(body);
         };
+        // Von einer FREMDEN Seite (auch einer Nachbar-Website): nie
+        if (req.get('origin') && !sameOriginRequest(req)) {
+            return reply(403, { error: 'Nur von dieser Website aus.' });
+        }
+        // Ohne Herkunfts-Angabe (z.B. ein Programm statt eines Browsers): als Anonymer
+        const forwardToken = token && sameOriginRequest(req) ? token : null;
         if (!req.is('application/json')) {
             return reply(415, { error: 'Bitte als JSON schicken (Content-Type: application/json).' });
         }
@@ -212,10 +428,7 @@ const createBauarbeiter = ({
             return reply(error.status || 400, { error: error.message });
         }
 
-        const headers = { 'content-type': 'application/json', accept: 'application/json' };
-        if (key) headers['x-bauarbeiter-key'] = key;
-        const visitorIp = visitorIpOf(req);
-        if (key && visitorIp) headers['x-besucher-ip'] = visitorIp;
+        const headers = backendHeaders(visitorIpOf(req), forwardToken, { 'content-type': 'application/json' });
 
         let res2;
         let data = null;
@@ -231,6 +444,7 @@ const createBauarbeiter = ({
             log.warn(`[BAUARBEITER] Backend nicht erreichbar (${name}/${runPath}): ${error.message}`);
             return reply(503, { error: 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.' });
         }
+        if (tokenRejected(res2)) clearTokenCookie(res); // Ausweis gilt nicht mehr -> Cookie weg
 
         if (res2.ok) return reply(200, { result: data?.result ?? null });
         if (res2.status === 404) return reply(404, { error: 'Diese Funktion gibt es nicht.' });
@@ -260,6 +474,10 @@ const createBauarbeiter = ({
         try {
             setSecurityHeaders(res, isProduction);
 
+            // Angemeldet? (nur unser eigenes Cookie, und nur, wenn es wie ein Ausweis aussieht)
+            const cookieToken = login.parseCookies(req.headers.cookie)[cookies.ausweis];
+            const token = login.isTokenShape(cookieToken) ? cookieToken : null;
+
             // SSF der Website (nur POST, nur unter /_at0mic/run/)
             const run = RUN_ROUTE.exec(req.path);
             if (run && host.name) {
@@ -267,23 +485,30 @@ const createBauarbeiter = ({
                     res.set('Allow', 'POST');
                     return res.status(405).json({ error: 'Nur POST.' });
                 }
-                return await runFunction(req, res, host.name, run[1]);
+                return await runFunction(req, res, host.name, run[1], token);
+            }
+
+            // Anmelden, Rücksprung, Abmelden, "wer bin ich?"
+            if (host.name && req.path.startsWith('/_at0mic/') && (await handleLoginRoute(req, res, host.name, token))) {
+                return undefined;
             }
 
             if (req.method !== 'GET' && req.method !== 'HEAD') return sendPage(res, 'methodNotAllowed');
             if (!host.name) return sendPage(res, 'noSite');
 
-            const result = await getBauplan(host.name, visitorIpOf(req));
+            const result = await getBauplan(host.name, visitorIpOf(req), token);
+            if (result.tokenInvalid) clearTokenCookie(res); // abgelaufen/abgemeldet -> Cookie weg
             if (result.kind === 'missing') return sendPage(res, 'noSite');
-            if (result.kind === 'error') return sendPage(res, result.page, result);
+            if (result.kind === 'error') return sendPage(res, result.page, { ...result, returnPath: req.originalUrl });
 
             const { bauplan } = result;
+            const personal = !!result.personal;
             const path = resolveFile(req.path, bauplan.files);
-            if (path) return await sendFile(res, bauplan, path, 200, host.name);
+            if (path) return await sendFile(res, bauplan, path, 200, host.name, personal);
 
             // Nicht gefunden: die eigene 404-Seite der Website, sonst die neutrale
             if (Object.prototype.hasOwnProperty.call(bauplan.files, '404.html')) {
-                return await sendFile(res, bauplan, '404.html', 404, host.name);
+                return await sendFile(res, bauplan, '404.html', 404, host.name, personal);
             }
             return sendPage(res, 'notFound');
         } catch (error) {

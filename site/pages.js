@@ -44,11 +44,47 @@ const MESSAGES = {
         status: 405,
         title: 'Nicht erlaubt',
         text: 'Websites können hier nur angesehen werden.'
+    },
+    // Login auf Websites (Plan "Login auf Websites", Etappe 3)
+    loginRequired: {
+        status: 401,
+        title: 'Diese Website ist privat',
+        text: 'Melde dich mit deinem at0mic-Konto an, um sie zu sehen.'
+    },
+    noAccess: {
+        status: 403,
+        title: 'Kein Zugriff',
+        text: 'Du bist angemeldet, hast aber (noch) keinen Zugriff auf diese Website. Bitte frag die Person, der sie gehört.'
+    },
+    loginFailed: {
+        status: 400,
+        title: 'Anmeldung hat nicht geklappt',
+        text: 'Die Anmeldung ist abgelaufen oder ungültig. Bitte versuch es nochmals.'
+    },
+    loginUnavailable: {
+        status: 503,
+        title: 'Anmelden geht gerade nicht',
+        text: 'Das Anmelden ist auf diesem Server nicht eingerichtet.'
     }
 };
 
-const neutralPage = kind => {
+/**
+ * @param {string} kind     Schlüssel in MESSAGES
+ * @param {object} [options]
+ * @param {Array<{href: string, label: string, primary?: boolean}>} [options.actions]
+ *        Knöpfe unter dem Text (z.B. "Anmelden"). href baut immer der Bauarbeiter
+ *        selbst – nie aus Eingaben des Besuchers ohne safeReturnPath.
+ */
+const neutralPage = (kind, { actions = [] } = {}) => {
     const { title, text } = MESSAGES[kind];
+    const buttons = actions.length
+        ? `<p class="actions">${actions
+              .map(
+                  a =>
+                      `<a href="${escapeHtml(a.href)}"${a.primary ? ' class="primary"' : ''}>${escapeHtml(a.label)}</a>`
+              )
+              .join(' ')}</p>`
+        : '';
     return [
         '<!doctype html>',
         '<html lang="de">',
@@ -62,13 +98,17 @@ const neutralPage = kind => {
         'background:#f6f7f9;color:#1d2340;padding:16px;box-sizing:border-box}',
         'main{max-width:420px;text-align:center}h1{font-size:1.4rem;margin:0 0 8px}',
         'p{margin:0 0 16px;color:#5b6273}small{color:#8a919d}',
-        '@media (prefers-color-scheme:dark){body{background:#14161b;color:#e8eaf0}p{color:#a9afbd}}',
+        '.actions a{display:inline-block;margin:4px;padding:10px 18px;border-radius:8px;border:1px solid #d5d9e2;',
+        'color:#1d2340;text-decoration:none;font-weight:600}.actions a.primary{background:#5b4bdb;border-color:#5b4bdb;color:#fff}',
+        '@media (prefers-color-scheme:dark){body{background:#14161b;color:#e8eaf0}p{color:#a9afbd}',
+        '.actions a{color:#e8eaf0;border-color:#2c3142}.actions a.primary{background:#8b7cff;border-color:#8b7cff;color:#fff}}',
         '</style>',
         '</head>',
         '<body>',
         '<main>',
         `<h1>${escapeHtml(title)}</h1>`,
         `<p>${escapeHtml(text)}</p>`,
+        buttons,
         '<small>at0mic</small>',
         '</main>',
         '</body>',

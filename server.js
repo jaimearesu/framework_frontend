@@ -49,7 +49,10 @@ app.use(
         apiUrl: process.env.SITE_API_URL || process.env.API_URL || 'http://localhost:3000',
         key: process.env.BAUARBEITER_KEY || null,
         siteDomain: SITE_DOMAIN,
-        isProduction
+        isProduction,
+        // Login auf Websites: Hierhin schickt der Bauarbeiter den BROWSER des Besuchers
+        // zum Anmelden – darum die öffentliche Adresse (API_URL), nicht SITE_API_URL
+        loginUrl: process.env.API_URL || 'http://localhost:3000'
     })
 );
 

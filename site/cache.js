@@ -46,6 +46,11 @@ class BauplanCache {
         this._put(name, { kind: 'missing', freshUntil: this.now() + this.missingSeconds * 1000 });
     }
 
+    // Eine Website vergessen (z.B. wenn sie privat geworden ist)
+    delete(name) {
+        this.entries.delete(name);
+    }
+
     clear() {
         this.entries.clear();
     }
