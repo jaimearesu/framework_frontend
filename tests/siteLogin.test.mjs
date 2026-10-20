@@ -118,7 +118,8 @@ const fakeFetch = async (url, options = {}) => {
 const plan = (files, personal = false) =>
     reply(200, { success: true, data: { bauplan: 1, files, cache: 60 }, meta: personal ? { personal: true } : {} });
 
-let server, port, cache;
+let server, port, cache, personalCache;
+let now = Date.now(); // Uhr des privaten Speichers (im Test steuerbar)
 
 const request = (host, path = '/', { method = 'GET', cookie, origin, body, contentType } = {}) =>
     new Promise((resolve, reject) => {
@@ -144,6 +145,7 @@ const cookieValue = (r, name) => {
 
 before(async () => {
     cache = new BauplanCache();
+    personalCache = new BauplanCache({ now: () => now });
     const app = express();
     app.set('trust proxy', 1);
     app.use(
@@ -154,6 +156,7 @@ before(async () => {
             isProduction: true,
             fetchImpl: fakeFetch,
             cache,
+            personalCache,
             log: { warn: () => {}, error: () => {} },
             loginUrl: 'https://api.at0mic.ch'
         })
@@ -170,6 +173,8 @@ beforeEach(() => {
     backend.sites = {};
     backend.ausweis = null;
     cache.clear();
+    personalCache.clear();
+    now = Date.now();
 });
 
 describe('Anmelden: /_at0mic/login und /_at0mic/callback', () => {
@@ -275,9 +280,13 @@ describe('Angemeldet unterwegs', () => {
         assert.equal(anon.headers['cache-control'], 'no-cache');
         assert.equal(asked, 2);
 
-        // Und angemeldet wird immer neu gefragt (kein Speicher)
-        await request('shop.at0mic.site', '/', { cookie: COOKIE });
-        assert.equal(asked, 3);
+        // Angemeldet kommt die Seite jetzt aus dem PRIVATEN Speicher (nur für diesen Ausweis)
+        const again = await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        assert.equal(again.body, 'Hallo Kunde');
+        assert.equal(again.headers['cache-control'], 'private, no-store', 'auch aus dem Speicher nie öffentlich');
+        assert.equal(asked, 2, 'nicht nochmals gebaut');
+        // … der gemeinsame Speicher kennt die persönliche Seite nicht
+        assert.equal(cache.get('shop').bauplan.files['index.html'], 'Öffentlich');
     });
 
     test('fremde Cookies werden nie weitergereicht, Unsinn im Cookie = anonym', async () => {
@@ -414,5 +423,105 @@ describe('Kein Zugriff: eigene at0mic-ID (Etappe 6, Entscheidung H)', () => {
             reply(403, { error: 'nein', code: 'SITE_NO_ACCESS', besucher: '<script>x</script>' });
         const bad = await request('shop.at0mic.site', '/', { cookie: COOKIE });
         assert.doesNotMatch(bad.body, /at0mic-ID|<script>x/);
+    });
+});
+
+describe('Privater Zwischenspeicher für Angemeldete (gefunden 20.10.: 7× bauen pro Seite)', () => {
+    const personalPlan = () =>
+        plan({ 'index.html': 'Hallo Kunde', 'style.css': 'x', 'js/1.js': '1', 'js/2.js': '2' }, true);
+
+    test('alle Dateien einer Seite GLEICHZEITIG: nur EINE Anfrage ans Backend', async () => {
+        let asked = 0;
+        backend.sites.shop = () => {
+            asked++;
+            return personalPlan();
+        };
+        const files = ['/', '/style.css', '/js/1.js', '/js/2.js', '/', '/style.css', '/js/1.js'];
+        const results = await Promise.all(files.map(f => request('shop.at0mic.site', f, { cookie: COOKIE })));
+        assert.ok(results.every(r => r.status === 200));
+        assert.equal(asked, 1);
+    });
+
+    test('nach 30 Sekunden wird neu gebaut (Rechte können sich ändern)', async () => {
+        let asked = 0;
+        backend.sites.shop = () => {
+            asked++;
+            return personalPlan();
+        };
+        await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        now += 29 * 1000;
+        await request('shop.at0mic.site', '/style.css', { cookie: COOKIE });
+        assert.equal(asked, 1);
+        now += 2 * 1000;
+        await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        assert.equal(asked, 2);
+    });
+
+    test('nie länger, als der Bauplan selbst will (cache 5 s)', async () => {
+        let asked = 0;
+        backend.sites.shop = () => {
+            asked++;
+            return reply(200, {
+                success: true,
+                data: { bauplan: 1, files: { 'index.html': 'x' }, cache: 5 },
+                meta: { personal: true }
+            });
+        };
+        await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        now += 6 * 1000;
+        await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        assert.equal(asked, 2);
+    });
+
+    test('jeder Ausweis hat seinen EIGENEN Speicher', async () => {
+        backend.sites.shop = token =>
+            token === TOKEN ? plan({ 'index.html': 'Seite A' }, true) : plan({ 'index.html': 'Seite B' }, true);
+        assert.equal((await request('shop.at0mic.site', '/', { cookie: COOKIE })).body, 'Seite A');
+        const b = await request('shop.at0mic.site', '/', { cookie: `__Host-at0mic_ausweis=${OTHER_TOKEN}` });
+        assert.equal(b.body, 'Seite B');
+        assert.equal(
+            (await request('shop.at0mic.site', '/')).body,
+            'Seite B',
+            'anonym: nur über das Backend, nie aus einem privaten Speicher'
+        );
+    });
+
+    test('Abmelden löscht den privaten Speicher sofort', async () => {
+        let asked = 0;
+        backend.sites.shop = () => {
+            asked++;
+            return personalPlan();
+        };
+        await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        await request('shop.at0mic.site', '/_at0mic/logout', { cookie: COOKIE });
+        await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        assert.equal(asked, 2);
+    });
+
+    test('Ausweis wird ungültig: privater Speicher weg', async () => {
+        let valid = true;
+        backend.sites.shop = () =>
+            valid
+                ? personalPlan()
+                : reply(
+                      401,
+                      { error: 'privat', code: 'SITE_LOGIN_REQUIRED' },
+                      { 'x-besucher-ausweis-status': 'ungueltig' }
+                  );
+        await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        valid = false;
+        now += 31 * 1000; // abgelaufen -> fragt neu -> "ungueltig"
+        assert.equal((await request('shop.at0mic.site', '/', { cookie: COOKIE })).status, 401);
+        valid = true;
+        assert.equal(personalCache.size, 0);
+    });
+
+    test('der Ausweis steht nie im Klartext im Speicher-Index', async () => {
+        backend.sites.shop = () => personalPlan();
+        await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        const keys = [...personalCache.entries.keys()];
+        assert.equal(keys.length, 1);
+        assert.equal(keys[0].includes(TOKEN), false);
+        assert.match(keys[0], /^shop\|[0-9a-f]{64}$/);
     });
 });

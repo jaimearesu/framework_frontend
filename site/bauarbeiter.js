@@ -38,8 +38,13 @@ const { resolveFile, contentTypeFor, extensionOf } = require('./files');
 const { BauplanCache } = require('./cache');
 const { MESSAGES, neutralPage, markdownPage, markdownTitle } = require('./pages');
 const login = require('./login');
+const crypto = require('crypto');
 
 const FETCH_TIMEOUT_MS = 8000;
+// So lange behält der Bauarbeiter den Bauplan eines ANGEMELDETEN Besuchers (nur für ihn).
+// Kurz, weil sich seine Rechte ändern können: Wird ihm ein Recht entzogen, sieht er
+// den alten Stand höchstens noch so lange (Abmelden löscht ihn sofort).
+const PERSONAL_SECONDS = 30;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // SSF der Website: /_at0mic/run/<pfad> – Pfad wie die identifier in der DNA
@@ -119,6 +124,8 @@ const createBauarbeiter = ({
     isProduction = false,
     fetchImpl = fetch,
     cache = new BauplanCache(),
+    // Privater Speicher für angemeldete Besucher (eigener Speicher, nie mit "cache" gemischt)
+    personalCache = new BauplanCache({ maxEntries: 1000 }),
     renderMarkdown = defaultRenderMarkdown,
     log = console,
     loginUrl = null
@@ -127,6 +134,11 @@ const createBauarbeiter = ({
     // der Bauarbeiter das Backend trotzdem nur EINMAL. (Nur für Anonyme –
     // ein angemeldeter Besucher bekommt immer seine eigene Anfrage.)
     const inFlight = new Map();
+    // Dasselbe für angemeldete Besucher – getrennt pro Website UND Ausweis
+    const personalInFlight = new Map();
+    // Schlüssel des privaten Speichers: Website + Fingerabdruck des Ausweises
+    // (der Ausweis selbst liegt so nie als Klartext im Arbeitsspeicher-Index)
+    const personalKey = (name, token) => `${name}|${crypto.createHash('sha256').update(token).digest('hex')}`;
     const cookies = login.cookieNames(isProduction);
 
     // Kopfzeilen für jede Anfrage ans Backend: Schlüssel, Besucher-IP und –
@@ -188,10 +200,36 @@ const createBauarbeiter = ({
     // NIE aus dem oder in den gemeinsamen Speicher (sonst sähen andere seine Seite)
     const getBauplan = async (name, visitorIp, token = null) => {
         if (token) {
-            const result = await fetchFromBackend(name, visitorIp, token);
-            // Der Ausweis galt nicht: Die Antwort ist die eines Anonymen. Ist sie
-            // wirklich öffentlich (nicht persönlich), darf sie in den Speicher.
-            if (result.kind === 'site' && !result.personal) cache.setSite(name, result.bauplan);
+            // PRIVATER Zwischenspeicher (gefunden am 20.10.: vorher wurde für JEDE Datei
+            // einer Seite – index.html, style.css, js/1.js … – die ganze Website neu
+            // gebaut, also z.B. 7× pro Seitenaufruf). Jetzt: höchstens alle
+            // PERSONAL_SECONDS einmal pro Website UND Ausweis. Der Schlüssel enthält nur
+            // einen Fingerabdruck des Ausweises – nie den Ausweis selbst.
+            const pKey = personalKey(name, token);
+            const entry = personalCache.get(pKey);
+            if (personalCache.isFresh(entry)) return { kind: 'site', bauplan: entry.bauplan, personal: true };
+
+            // Der Browser lädt die Dateien einer Seite GLEICHZEITIG: Auch diese
+            // Anfragen teilen sich eine einzige Anfrage ans Backend.
+            if (!personalInFlight.has(pKey)) {
+                personalInFlight.set(
+                    pKey,
+                    fetchFromBackend(name, visitorIp, token).finally(() => personalInFlight.delete(pKey))
+                );
+            }
+            const result = await personalInFlight.get(pKey);
+            if (result.kind === 'site' && result.personal) {
+                // Höchstens PERSONAL_SECONDS – und nie länger, als der Bauplan selbst will
+                const seconds = Math.min(
+                    PERSONAL_SECONDS,
+                    Number.isInteger(result.bauplan.cache) ? result.bauplan.cache : PERSONAL_SECONDS
+                );
+                personalCache.setSite(pKey, { ...result.bauplan, cache: seconds });
+            } else if (result.kind === 'site') {
+                // Der Ausweis galt nicht: Die Antwort ist die eines Anonymen. Ist sie
+                // wirklich öffentlich (nicht persönlich), darf sie in den gemeinsamen Speicher.
+                cache.setSite(name, result.bauplan);
+            }
             return result;
         }
 
@@ -331,6 +369,8 @@ const createBauarbeiter = ({
     // GET|POST /_at0mic/logout – im Backend sperren, Cookie löschen
     const logout = async (req, res, name, token) => {
         res.set('Cache-Control', 'no-store');
+        // Privaten Zwischenspeicher sofort vergessen
+        if (token) personalCache.delete(personalKey(name, token));
         if (token && key) {
             try {
                 await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/abmelden`, {
@@ -502,7 +542,10 @@ const createBauarbeiter = ({
             if (!host.name) return sendPage(res, 'noSite');
 
             const result = await getBauplan(host.name, visitorIpOf(req), token);
-            if (result.tokenInvalid) clearTokenCookie(res); // abgelaufen/abgemeldet -> Cookie weg
+            if (result.tokenInvalid) {
+                clearTokenCookie(res); // abgelaufen/abgemeldet -> Cookie weg
+                personalCache.delete(personalKey(host.name, token)); // und sein privater Speicher
+            }
             if (result.kind === 'missing') return sendPage(res, 'noSite');
             if (result.kind === 'error') return sendPage(res, result.page, { ...result, returnPath: req.originalUrl });
 

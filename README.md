@@ -52,7 +52,7 @@ und liefert die Dateien aus. Plan in Notion: "Plan: Bauarbeiter + Bauplan-Format
     - Zwei eigene Cookies (`site/login.js`): Ausweis (7 Tage) und Login (10 Min.), immer `HttpOnly` +
       `SameSite=Lax`, auf dem Server `__Host-` + `Secure`. Das JavaScript der Website sieht den Ausweis nie.
     - Angemeldet: Ausweis geht als `X-Besucher-Ausweis` ans Backend, Antwort `private, no-store`, **nie** in den
-      gemeinsamen Zwischenspeicher. Private Website: Seite „Diese Website ist privat – Anmelden“ (401), ohne Recht
+      gemeinsamen Zwischenspeicher. Dafür ein **privater** Speicher pro Website und Ausweis (30 s, Schlüssel = Fingerabdruck des Ausweises, Abmelden löscht ihn); gleichzeitige Anfragen derselben Seite teilen sich eine Backend-Anfrage. Private Website: Seite „Diese Website ist privat – Anmelden“ (401), ohne Recht
       „Kein Zugriff – Abmelden“ (403).
     - `POST /_at0mic/run/…` und `POST /_at0mic/logout`: von einer fremden Seite (auch einer Nachbar-Website
       `*.at0mic.site`) → 403. Ohne Herkunft (kein Browser) läuft die SSF nur als Anonymer.
