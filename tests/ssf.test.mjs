@@ -89,7 +89,8 @@ describe('ssf: Werkzeug-Referenz', () => {
             'roles.list',
             'roles.revoke',
             'secrets.get',
-            'secrets.has'
+            'secrets.has',
+            'visitor.can'
         ]);
     });
     test('jedes Werkzeug ist vollständig und gehört zu einer Gruppe', () => {

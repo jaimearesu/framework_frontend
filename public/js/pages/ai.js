@@ -120,6 +120,8 @@ export const AUDIT_ACTIONS = {
     'schluessel.widerrufen': 'KI-Schlüssel widerrufen',
     'verbindung.erlauben': 'Verbindung erlaubt (OAuth)', // Plan "OAuth für MCP"
     'verbindung.trennen': 'Verbindung getrennt (OAuth)',
+    'website.anmelden': 'Auf einer Website angemeldet', // Plan "Login auf Websites"
+    'schloss.entfernen': 'Zusatz-Schloss entfernt (Rollen pro Teil)',
     'anfrage.sonstige': 'Sonstige Anfrage'
 };
 export const auditActionLabel = action => AUDIT_ACTIONS[action] || action || '?';
