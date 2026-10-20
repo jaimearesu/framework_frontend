@@ -44,8 +44,26 @@ und liefert die Dateien aus. Plan in Notion: "Plan: Bauarbeiter + Bauplan-Format
 - **Echte Logik:** `POST /_at0mic/run/<pfad>` (JSON-Objekt, max. 64 KB) startet eine öffentliche SSF der eigenen
   Domain (Backend `POST /api/sites/<name>/run/<pfad>`). Antwort `{ result }`; Fehler im SSF-Code nur im Log
   (Besucher sehen 502).
-- **Sicherheit:** keine Cookies, nur GET/HEAD (ausser `POST /_at0mic/run/…`), Schutz-Header (`nosniff`, `frame-ancestors 'self'` …), Fehler aus dem
-  Code einer Website nur im Log. Online ist nur, was im Backend öffentlich ist.
+- **Login auf Websites** (Plan „Login auf Websites“, Notion): Besucher melden sich mit ihrem at0mic-Konto auf
+  **einer** Website an und sehen dann, was sie dürfen (öffentlich, „nur eingeloggte“, ihre Rollen).
+    - `/_at0mic/login?zurueck=/pfad` → at0mic-Seite „Bei … anmelden?“ → `/_at0mic/callback` (Zustand prüfen, Code
+      gegen Ausweis tauschen) → zurück. `/_at0mic/logout?zurueck=/pfad` (Link) bzw. `POST /_at0mic/logout`.
+      `GET /_at0mic/me` → `{ angemeldet: false }` oder `{ angemeldet: true, uuid }` (nur die UUID).
+    - Zwei eigene Cookies (`site/login.js`): Ausweis (7 Tage) und Login (10 Min.), immer `HttpOnly` +
+      `SameSite=Lax`, auf dem Server `__Host-` + `Secure`. Das JavaScript der Website sieht den Ausweis nie.
+    - Angemeldet: Ausweis geht als `X-Besucher-Ausweis` ans Backend, Antwort `private, no-store`, **nie** in den
+      gemeinsamen Zwischenspeicher. Private Website: Seite „Diese Website ist privat – Anmelden“ (401), ohne Recht
+      „Kein Zugriff – Abmelden“ (403).
+    - `POST /_at0mic/run/…` und `POST /_at0mic/logout`: von einer fremden Seite (auch einer Nachbar-Website
+      `*.at0mic.site`) → 403. Ohne Herkunft (kein Browser) läuft die SSF nur als Anonymer.
+    - Im JavaScript der Website:
+        ```js
+        const ich = await (await fetch('/_at0mic/me')).json();
+        if (!ich.angemeldet) location.href = '/_at0mic/login?zurueck=' + encodeURIComponent(location.pathname);
+        ```
+- **Sicherheit:** nur die zwei eigenen Login-Cookies, nur GET/HEAD (ausser `POST /_at0mic/run/…` und
+  `/_at0mic/logout`), Schutz-Header (`nosniff`, `frame-ancestors 'self'` …), Fehler aus dem Code einer Website nur
+  im Log. Ohne Anmeldung ist nur online, was im Backend öffentlich ist.
 - **Lokal ausprobieren:** Browser schicken jede Adresse auf `.localhost` an den eigenen PC – also einfach
   `http://<domain>.site.localhost:3001` öffnen (die Domain muss öffentlich sein).
 
@@ -54,7 +72,8 @@ und liefert die Dateien aus. Plan in Notion: "Plan: Bauarbeiter + Bauplan-Format
 ```
 server.js                 Kunden-Websites (site/) zuerst, sonst das Cockpit: public/ und /config.json
 site/                     der Bauarbeiter: bauarbeiter.js (Ablauf), host.js (Adresse -> Name),
-                          files.js (Adresse -> Datei), cache.js (Zwischenspeicher), pages.js (Fehler/Markdown)
+                          files.js (Adresse -> Datei), cache.js (Zwischenspeicher), pages.js (Fehler/Markdown),
+                          login.js (Login auf Websites: Cookies, Rücksprung, Zustand)
 public/
 ├── index.html            das Gerüst: Menü links, Topbar, Inhalt
 ├── css/app.css           Grund-Design (Farben Hell/Dunkel, Gerüst, Bausteine)
