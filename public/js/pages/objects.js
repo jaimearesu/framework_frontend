@@ -67,7 +67,19 @@ import {
     RESERVED_SITE_NAMES
 } from '../core/site.js';
 import { addChildToDna, removeChildFromDna } from '../core/dna.js';
-import { SCOPES, rolesForScope, canUsePartScope, accessOverview, memberLabel, revokePath } from '../core/access.js';
+import {
+    SCOPES,
+    rolesForScope,
+    canUsePartScope,
+    accessOverview,
+    memberLabel,
+    revokePath,
+    INVITE_VALIDITY,
+    DEFAULT_INVITE_HOURS,
+    invitationStatus,
+    invitationRolesText,
+    checkInviteForm
+} from '../core/access.js';
 import { renderDnaTree } from '../core/tree.js';
 import {
     buildPreviewDocument,
@@ -711,7 +723,209 @@ const renderAccessTab = async (box, o, objects) => {
                     'Ein Weg ist nur so offen wie seine engste Tür: Wer nur ein Recht auf einen Teil hat, muss auch die Website sehen dürfen (z.B. „nur eingeloggte“).'
                 )
             )
+        ),
+        invitationsCard(o, isPart)
+    );
+};
+
+// --- Karte "Einladungen" im Reiter "Zugriff" ---
+// Plan "Login auf Websites", Etappe 6: Statt einer UUID einen Link schicken.
+// Erstellen nur ein eingeloggter Mensch (keine Gäste, keine KI). Der Link
+// steht NUR in der Antwort beim Erstellen – danach kennt ihn niemand mehr.
+const invitationsCard = (o, isPart) => {
+    const loggedIn = getSession().identity?.kind === 'user';
+    const listBox = h('div');
+    const created = h('div');
+
+    const loadList = async () => {
+        mount(listBox, spinner('Lade Einladungen …'));
+        const res = await api.get(`/api/objects/${o.uuid}/invitations`);
+        if (!res.ok) return mount(listBox, resultLine(res));
+        const items = res.data?.data || [];
+        if (!items.length) return mount(listBox, h('p', { class: 'muted small' }, 'Noch keine Einladungen.'));
+        mount(
+            listBox,
+            h(
+                'div',
+                { class: 'table-wrap' },
+                h(
+                    'table',
+                    { class: 'data-table' },
+                    h(
+                        'thead',
+                        {},
+                        h(
+                            'tr',
+                            {},
+                            h('th', {}, 'Rechte'),
+                            h('th', {}, 'Bereich'),
+                            h('th', {}, 'Angenommen'),
+                            h('th', {}, 'Gültig bis'),
+                            h('th', {}, 'Status'),
+                            h('th', {}, '')
+                        )
+                    ),
+                    h(
+                        'tbody',
+                        {},
+                        items.map(inv => {
+                            const status = invitationStatus(inv);
+                            return h(
+                                'tr',
+                                {},
+                                h('td', {}, invitationRolesText(inv.roles)),
+                                h('td', {}, SCOPES[inv.scope]?.label || inv.scope),
+                                h(
+                                    'td',
+                                    { title: (inv.uses || []).map(u => u.uuid).join('\n') },
+                                    `${inv.usedCount} / ${inv.maxUses}`
+                                ),
+                                h('td', {}, formatDate(inv.expiresAt)),
+                                h('td', {}, badge(status.label, status.tone)),
+                                h(
+                                    'td',
+                                    {},
+                                    status.key === 'offen'
+                                        ? busyButton(
+                                              'Widerrufen',
+                                              async () => {
+                                                  if (
+                                                      !confirm(
+                                                          'Diese Einladung widerrufen? Der Link gilt danach nicht mehr.'
+                                                      )
+                                                  )
+                                                      return;
+                                                  const del = await api.del(
+                                                      `/api/objects/${o.uuid}/invitations/${inv.uuid}`
+                                                  );
+                                                  if (!del.ok)
+                                                      return toast(del.error || 'Hat nicht geklappt.', 'error');
+                                                  toast('Einladung widerrufen.', 'ok');
+                                                  loadList();
+                                              },
+                                              { className: 'btn small' }
+                                          )
+                                        : null
+                                )
+                            );
+                        })
+                    )
+                )
+            ),
+            h(
+                'p',
+                { class: 'muted small' },
+                'Schon vergebene Rechte bleiben beim Widerrufen bestehen – die nimmst du oben weg.'
+            )
+        );
+    };
+
+    // --- Formular ---
+    const roleBox = value => h('input', { type: 'checkbox', value, checked: value === 'black', disabled: !loggedIn });
+    const black = roleBox('black');
+    const red = roleBox('red');
+    let scope = 'familie';
+    const validity = h(
+        'select',
+        { class: 'input', disabled: !loggedIn },
+        INVITE_VALIDITY.map(v =>
+            h('option', { value: String(v.hours), selected: v.hours === DEFAULT_INVITE_HOURS }, v.label)
         )
+    );
+    const uses = h('input', {
+        class: 'input',
+        type: 'number',
+        min: '1',
+        max: '100',
+        value: '1',
+        disabled: !loggedIn
+    });
+    const scopeChoice = isPart
+        ? h(
+              'div',
+              { class: 'row gap-s wrap' },
+              ['familie', 'teil'].map(value =>
+                  h(
+                      'label',
+                      { class: 'check' },
+                      h('input', {
+                          type: 'radio',
+                          name: 'invite-scope',
+                          value,
+                          checked: value === scope,
+                          disabled: !loggedIn,
+                          onchange: () => (scope = value)
+                      }),
+                      h('span', {}, SCOPES[value].label)
+                  )
+              )
+          )
+        : null;
+
+    const create = async () => {
+        const roles = [black, red].filter(x => x.checked).map(x => x.value);
+        const maxUses = Number(uses.value);
+        const problem = checkInviteForm({ roles, maxUses });
+        if (problem) return toast(problem, 'error');
+        const res = await api.post(`/api/objects/${o.uuid}/invitations`, {
+            roles,
+            scope,
+            hours: Number(validity.value),
+            maxUses
+        });
+        if (!res.ok) return mount(created, resultLine(res));
+        const link = res.data?.data?.link || '';
+        mount(
+            created,
+            callout(
+                'ok',
+                'Einladung erstellt. ',
+                'Kopiere den Link jetzt und schick ihn der Person – er wird nur dieses eine Mal angezeigt.'
+            ),
+            h(
+                'div',
+                { class: 'row gap-s' },
+                h('code', { class: 'mono small', style: 'word-break: break-all' }, link),
+                copyButton(link, 'Link kopieren')
+            )
+        );
+        loadList();
+    };
+
+    loadList();
+    return card(
+        {
+            title: 'Einladungen',
+            icon: 'link',
+            subtitle: 'Statt einer UUID einen Link schicken: Wer ihn annimmt (mit at0mic-Konto), bekommt das Recht.'
+        },
+        loggedIn
+            ? null
+            : callout(
+                  'info',
+                  'Nur mit Login:',
+                  ' Einladungen erstellt nur ein eingeloggter Mensch (keine Gäste, keine KI). Logge dich oben rechts ein.'
+              ),
+        h(
+            'div',
+            { class: 'row gap-s wrap' },
+            h('label', { class: 'check' }, black, h('span', {}, 'sehen (black)')),
+            h('label', { class: 'check' }, red, h('span', {}, 'ändern (red)'))
+        ),
+        scopeChoice,
+        h('div', { class: 'row gap-s wrap' }, field('Gültig', validity), field('Wie viele Personen?', uses)),
+        loggedIn
+            ? h('div', {}, busyButton('Link erstellen', create, { className: 'btn primary', iconName: 'link' }))
+            : null,
+        created,
+        h(
+            'ul',
+            { class: 'small muted' },
+            h('li', {}, 'Annehmen geht nur per Klick – eine Vorschau in WhatsApp & Co. verbraucht den Link nicht.'),
+            h('li', {}, 'Nie blue per Link. Hast du selbst kein blue mehr, gilt deine Einladung nicht mehr.')
+        ),
+        h('h4', {}, 'Bisherige Einladungen'),
+        listBox
     );
 };
 

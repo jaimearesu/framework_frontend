@@ -401,3 +401,18 @@ describe('Abmelden und "wer bin ich?"', () => {
         assert.deepEqual(JSON.parse(ok.body), { ok: true });
     });
 });
+
+describe('Kein Zugriff: eigene at0mic-ID (Etappe 6, Entscheidung H)', () => {
+    test('zeigt die eigene ID – nur wenn sie wie eine UUID aussieht, maskiert', async () => {
+        const id = '12345678-1234-1234-1234-123456789abc';
+        backend.sites.shop = () => reply(403, { error: 'nein', code: 'SITE_NO_ACCESS', besucher: id });
+        const r = await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        assert.equal(r.status, 403);
+        assert.match(r.body, new RegExp(`Deine at0mic-ID: ${id}`));
+
+        backend.sites.shop = () =>
+            reply(403, { error: 'nein', code: 'SITE_NO_ACCESS', besucher: '<script>x</script>' });
+        const bad = await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        assert.doesNotMatch(bad.body, /at0mic-ID|<script>x/);
+    });
+});
