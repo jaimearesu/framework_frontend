@@ -621,3 +621,14 @@ describe('Bauarbeiter: Webhooks (POST|PUT /_at0mic/hook/…, Plan "SSF-Ausbau" B
         assert.equal((await hook('zahlung')).status, 503);
     });
 });
+
+describe('Webhook-Status lesbar machen (Cockpit, Etappe B2)', () => {
+    test('die wichtigsten Status haben einen Text und eine Farbe', async () => {
+        const { webhookStatusText } = await import('../public/js/core/site.js');
+        assert.deepEqual(webhookStatusText(200), { tone: 'ok', text: 'OK' });
+        assert.equal(webhookStatusText(422).tone, 'error');
+        assert.match(webhookStatusText(422).text, /Fehler in der SSF/);
+        assert.equal(webhookStatusText(429).tone, 'warn');
+        assert.match(webhookStatusText(418).text, /Status 418/);
+    });
+});

@@ -80,7 +80,7 @@ describe('ssf: Beispiel-Bibliothek', () => {
 });
 
 describe('ssf: Werkzeug-Referenz', () => {
-    test('alle 17 Werkzeuge des Backends sind beschrieben', () => {
+    test('alle 19 Werkzeuge des Backends sind beschrieben', () => {
         assert.deepEqual(TOOLS.map(t => t.name).sort(), [
             'data.delete',
             'data.find',
@@ -99,7 +99,8 @@ describe('ssf: Werkzeug-Referenz', () => {
             'roles.revoke',
             'secrets.get',
             'secrets.has',
-            'visitor.can'
+            'visitor.can',
+            'webhook.verify'
         ]);
     });
     test('jedes Werkzeug ist vollständig und gehört zu einer Gruppe', () => {

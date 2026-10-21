@@ -26,6 +26,11 @@ export const TOOL_GROUPS = [
         id: 'visitor',
         title: 'Besucher',
         text: 'Wer ruft gerade auf? Bei einer Website der angemeldete Besucher (Login auf Websites).'
+    },
+    {
+        id: 'webhook',
+        title: 'Webhooks',
+        text: 'Ein fremder Server (Stripe, GitHub, ein ERP …) ruft die SSF über <website>/_at0mic/hook/<name> auf – prüfen, ob der Aufruf echt ist.'
     }
 ];
 
@@ -202,6 +207,17 @@ export const TOOLS = [
         text: 'Hat der Besucher (requestContext.userUuid – bei einer Website der Angemeldete) diese Rolle auf ein Objekt der eigenen Domain? Anonym = immer false. Zählt nur Rollen, nicht die Sichtbarkeit. Damit schützt du Aktionen – ein versteckter Knopf ist keine Sicherheit.',
         snippet:
             "if (!(await api.visitor.can('portal/bereich-anna', 'red'))) {\n    return { fehler: 'Dafür fehlt dir das Recht.' };\n}\n"
+    },
+    {
+        name: 'webhook.verify',
+        group: 'webhook',
+        signature:
+            "{ secret, format: 'stripe' | 'github' | 'hmac-sha256', header?, encoding?, prefix?, toleranceSec? }",
+        role: '– (nur der eigene Tresor, nur im Webhook-Aufruf)',
+        returns: 'true | false',
+        text: "Stimmt die Unterschrift des LAUFENDEN Webhook-Aufrufs? Das Geheimnis kommt aus dem Tresor dieser SSF und verlässt den Server nie. Stripe: Zeitstempel höchstens 5 Minuten alt. Frei (z.B. Shopify): header + encoding 'base64'. Die Daten stehen in requestContext.webhook = { method, headers, query, rawBody, body }.",
+        snippet:
+            "const echt = await api.webhook.verify({ secret: 'STRIPE_WEBHOOK_SECRET', format: 'stripe' });\nif (!echt) throw new Error('Unterschrift ungültig');\nconst ereignis = requestContext.webhook.body;\n"
     }
 ];
 

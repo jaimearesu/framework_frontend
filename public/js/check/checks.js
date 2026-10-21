@@ -926,6 +926,43 @@ export const CHECKS = [
                 'lange Anfrage auf 127.0.0.1'
             )
     },
+    // Webhooks (Plan "SSF-Ausbau", Teil B)
+    {
+        id: 'ssf-webhook-only',
+        group: 'SSF',
+        title: 'Webhooks: verify geht nur in einem echten Webhook-Aufruf',
+        needs: ['funktion'],
+        run: ctx =>
+            expectSsfError(
+                ctx,
+                "await api.webhook.verify({ secret: 'CHECK_KEY', format: 'github' });",
+                /nur, wenn die SSF als Webhook aufgerufen wird/,
+                'verify ohne Webhook'
+            )
+    },
+    {
+        id: 'webhook-route-protected',
+        group: 'SSF',
+        title: 'Webhooks: die Backend-Route nimmt nur den Bauarbeiter an',
+        run: async () => {
+            const r = await api.post('/api/sites/check-gibt-es-nicht/hook/api', { rawBodyBase64: '' });
+            expectStatus(r, 403, 'Webhook ohne Bauarbeiter-Schlüssel');
+            expect(r.data?.code === 'BAUARBEITER_ONLY', `unerwarteter Code "${r.data?.code}"`, r);
+            return 'ohne Schlüssel: 403';
+        }
+    },
+    {
+        id: 'webhook-calls',
+        group: 'SSF',
+        title: 'Webhooks: Protokoll der letzten Aufrufe lesbar (mit red)',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await api.get(`/api/objects/${ctx.funktion}/webhook-calls`);
+            expectStatus(r, 200, 'Webhook-Protokoll');
+            expect(Array.isArray(r.data?.data?.calls), 'calls fehlt', r);
+            return `${r.data.data.calls.length} Aufrufe`;
+        }
+    },
     {
         id: 'ssf-call-limit',
         group: 'SSF',
