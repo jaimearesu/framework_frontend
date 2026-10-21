@@ -963,6 +963,56 @@ export const CHECKS = [
             return `${r.data.data.calls.length} Aufrufe`;
         }
     },
+    // Hintergrund-Aufträge (Plan "SSF-Ausbau", Teil C). Der Auftrag startet erst in einer
+    // Stunde (startInSec) und wird gleich abgebrochen – der Arbeiter führt ihn also nie aus.
+    {
+        id: 'jobs-start-cancel',
+        group: 'SSF',
+        title: 'Aufträge: anlegen (api.jobs.start), in der Liste sehen, abbrechen',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `return await api.jobs.start('${ctx.funktion}', { check: true }, { startInSec: 3600 });`
+            );
+            expectStatus(r, 200, 'api.jobs.start');
+            const job = r.data?.result;
+            expect(job && job.status === 'queued', `unerwarteter Status "${job && job.status}"`, r);
+
+            const list = await api.get(`/api/objects/${ctx.funktion}/jobs`);
+            expectStatus(list, 200, 'Liste der Aufträge');
+            expect(
+                list.data.data.jobs.some(j => j.id === job.id),
+                'der neue Auftrag fehlt in der Liste',
+                list
+            );
+
+            const cancel = await api.post(`/api/objects/${ctx.funktion}/jobs/${job.id}/cancel`, {});
+            expectStatus(cancel, 200, 'Abbrechen');
+            expect(cancel.data?.data?.status === 'cancelled', 'nicht abgebrochen', cancel);
+            return 'angelegt, gelistet, abgebrochen';
+        }
+    },
+    {
+        id: 'jobs-schedule',
+        group: 'SSF',
+        title: 'Zeitplan: zu oft wird abgelehnt, setzen und entfernen geht',
+        needs: ['funktion'],
+        run: async ctx => {
+            const tooOften = await api.put(`/api/objects/${ctx.funktion}/schedule`, { cron: '* * * * *' });
+            expectStatus(tooOften, 400, 'Zeitplan jede Minute');
+            expect(/höchstens alle 5 Minuten/.test(tooOften.data?.error || ''), 'unerwartete Meldung', tooOften);
+
+            const set = await api.put(`/api/objects/${ctx.funktion}/schedule`, { cron: '0 3 * * *', enabled: false });
+            expectStatus(set, 200, 'Zeitplan setzen');
+            expect(set.data?.data?.timeZone === 'Europe/Zurich', 'Zeitzone fehlt', set);
+
+            const del = await api.del(`/api/objects/${ctx.funktion}/schedule`);
+            expectStatus(del, 200, 'Zeitplan entfernen');
+            expect(del.data?.data?.deleted === true, 'nicht entfernt', del);
+            return 'abgelehnt, gesetzt (pausiert), entfernt';
+        }
+    },
     {
         id: 'ssf-call-limit',
         group: 'SSF',

@@ -125,6 +125,9 @@ export const AUDIT_ACTIONS = {
     'einladung.erstellen': 'Einladungs-Link erstellt',
     'einladung.widerrufen': 'Einladungs-Link widerrufen',
     'einladung.annehmen': 'Einladung angenommen',
+    'zeitplan.setzen': 'Zeitplan einer SSF gesetzt', // Plan "SSF-Ausbau", Teil C
+    'zeitplan.entfernen': 'Zeitplan einer SSF entfernt',
+    'auftrag.abbrechen': 'Hintergrund-Auftrag abgebrochen',
     'anfrage.sonstige': 'Sonstige Anfrage'
 };
 export const auditActionLabel = action => AUDIT_ACTIONS[action] || action || '?';

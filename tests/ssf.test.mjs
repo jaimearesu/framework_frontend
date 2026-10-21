@@ -80,7 +80,7 @@ describe('ssf: Beispiel-Bibliothek', () => {
 });
 
 describe('ssf: Werkzeug-Referenz', () => {
-    test('alle 19 Werkzeuge des Backends sind beschrieben', () => {
+    test('alle 22 Werkzeuge des Backends sind beschrieben', () => {
         assert.deepEqual(TOOLS.map(t => t.name).sort(), [
             'data.delete',
             'data.find',
@@ -88,6 +88,9 @@ describe('ssf: Werkzeug-Referenz', () => {
             'data.insert',
             'data.update',
             'http.fetch',
+            'jobs.cancel',
+            'jobs.start',
+            'jobs.status',
             'objects.clone',
             'objects.create',
             'objects.get',

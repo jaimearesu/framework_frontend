@@ -31,6 +31,11 @@ export const TOOL_GROUPS = [
         id: 'webhook',
         title: 'Webhooks',
         text: 'Ein fremder Server (Stripe, GitHub, ein ERP …) ruft die SSF über <website>/_at0mic/hook/<name> auf – prüfen, ob der Aufruf echt ist.'
+    },
+    {
+        id: 'jobs',
+        title: 'Hintergrund-Aufträge',
+        text: 'Lange Arbeit Stück für Stück: viele kurze Durchläufe einer SSF mit Merkzettel – übersteht Fehler und Neustarts (Reiter „Aufträge“ eines Objekts).'
     }
 ];
 
@@ -218,6 +223,34 @@ export const TOOLS = [
         text: "Stimmt die Unterschrift des LAUFENDEN Webhook-Aufrufs? Das Geheimnis kommt aus dem Tresor dieser SSF und verlässt den Server nie. Stripe: Zeitstempel höchstens 5 Minuten alt. Frei (z.B. Shopify): header + encoding 'base64'. Die Daten stehen in requestContext.webhook = { method, headers, query, rawBody, body }.",
         snippet:
             "const echt = await api.webhook.verify({ secret: 'STRIPE_WEBHOOK_SECRET', format: 'stripe' });\nif (!echt) throw new Error('Unterschrift ungültig');\nconst ereignis = requestContext.webhook.body;\n"
+    },
+    {
+        name: 'jobs.start',
+        group: 'jobs',
+        signature: 'ziel, eingabe = {}, { startInSec }',
+        role: 'black auf die Ziel-SSF',
+        budget: 'jobs (max. 5 pro Ausführung; offene pro Konto: Gast 5, eingeloggt 50)',
+        returns: "{ id, status: 'queued', nextRunAt }",
+        text: 'Legt einen Hintergrund-Auftrag an. Die Ziel-SSF bekommt requestContext.job = { id, input, state, run, attempt } und gibt { continue: merkzettel, waitSec? } zurück, solange es weitergeht – alles andere ist das Ergebnis. Nach Fehlern: neuer Versuch nach 1, 5, 30, 120 Min., nach 5 Fehlversuchen "failed". Ein Durchlauf darf 60 s dauern.',
+        snippet: "const auftrag = await api.jobs.start('shop/import', { seite: 1 });\n"
+    },
+    {
+        name: 'jobs.status',
+        group: 'jobs',
+        signature: 'id',
+        role: '– (nur selbst angelegte oder selbst ausgeführte Aufträge)',
+        returns: '{ id, status, runs, attempts, state, result, lastError, createdAt, finishedAt }',
+        text: 'Stand eines Auftrags. Status: queued (wartet), running (läuft), done (fertig), failed (gescheitert), cancelled (abgebrochen).',
+        snippet: 'const stand = await api.jobs.status(auftrag.id);\n'
+    },
+    {
+        name: 'jobs.cancel',
+        group: 'jobs',
+        signature: 'id',
+        role: '– (nur selbst angelegte oder selbst ausgeführte Aufträge)',
+        returns: 'der Auftrag danach (status cancelled, wenn er noch offen war)',
+        text: 'Bricht einen Auftrag ab. Ein wartender startet nie mehr; ein laufender Durchlauf rechnet zu Ende, sein Ergebnis wird verworfen.',
+        snippet: 'await api.jobs.cancel(auftrag.id);\n'
     }
 ];
 
