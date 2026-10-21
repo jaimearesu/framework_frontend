@@ -120,7 +120,7 @@ darum läuft der Check standardmässig im **Test-Modus**; im Live-Modus muss man
 
 - [x] **1 Grundgerüst:** Design, Menü, API-Client, Login-Status, Übersicht, Test-Modus, Anfragen-Protokoll
 - [x] **2 Objekte + Code & DNA:** Objekt-Baum, Details, Rollen, Kind anhängen (mit DNA-Eintrag), Pfad auflösen, Code-Editor (CodeMirror) mit Live-Vorschau, DNA-Prüfung mit Baum
-- [x] **3 SSF-Studio:** Spielwiese per Klick, Editor, Ausführen (POST mit Body / GET mit Ziel / als Fremder), Ergebnis mit HTML-Vorschau und Fehler-Tipps, 10 Beispiele (inkl. Verkaufsautomat), Referenz aller 17 Werkzeuge, Grenzen
+- [x] **3 SSF-Studio:** Spielwiese per Klick, Editor, Ausführen (POST mit Body / GET mit Ziel / als Fremder), Ergebnis mit HTML-Vorschau und Fehler-Tipps, 11 Beispiele (inkl. Verkaufsautomat), Referenz aller 17 Werkzeuge, Grenzen
 - [x] **4 Daten & Suche, Relationen, Rechte, Tresor:** 15 Such-Beispiele, Tabelle/JSON, Blättern, Löschen, Testdaten; Relationen mit Join-Erklärung; Triplets, Rollen vergeben/entziehen, „Was sieht ein Fremder?“; Tresor (Werte nie sichtbar, im Protokoll geschwärzt)
 - [x] **KI-Zugänge** (Plan „MCP“, Etappe 3): Schlüssel erzeugen (Laufzeit 1 Stunde bis 1 Jahr, nur einmal sichtbar, im Anfragen-Protokoll geschwärzt), auflisten, widerrufen; Protokoll „was hat es getan / was ist daran passiert“; Systemcheck-Gruppe „KI-Zugang“ (5 Prüfungen, mit Login)
 - [x] **Agenten** (Plan „Agenten im Griff“, 18.10.2026): eigene Seite mit allen Agenten – Schlüssel-Ampel, Werkzeugkästen dazu/weg, weitere Rechte (fremde nur als Zahl), Werkzeug-Statistik 7/30/180 Tage mit Fehlern nach Art, „Wer benutzt was?“, neuer Schlüssel, Not-Aus (alle Schlüssel widerrufen); der Assistent „Agent anlegen“ ist hierher gezogen; 2 Prüfungen im Systemcheck

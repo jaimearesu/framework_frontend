@@ -885,6 +885,84 @@ export const CHECKS = [
         needs: ['funktion'],
         run: ctx => expectSsfError(ctx, "await api.http.fetch('http://example.com/');", /https/, 'http://')
     },
+    // Lange Anfragen (Plan "SSF-Ausbau", Teil A): ohne fremden Server prüfbar –
+    // die Grenze und die Sperrliste gelten auch mit timeoutMs
+    {
+        id: 'ssf-long-max',
+        group: 'SSF',
+        title: 'Lange Anfragen: timeoutMs höchstens 85 s',
+        needs: ['funktion'],
+        run: ctx =>
+            expectSsfError(
+                ctx,
+                "await api.http.fetch('https://example.com/', { timeoutMs: 999999 });",
+                /höchstens 85000/,
+                'timeoutMs zu gross'
+            )
+    },
+    {
+        id: 'ssf-long-invalid',
+        group: 'SSF',
+        title: 'Lange Anfragen: timeoutMs muss eine ganze Zahl sein',
+        needs: ['funktion'],
+        run: ctx =>
+            expectSsfError(
+                ctx,
+                "await api.http.fetch('https://example.com/', { timeoutMs: '60000' });",
+                /timeoutMs muss eine ganze Zahl/,
+                'timeoutMs als Text'
+            )
+    },
+    {
+        id: 'ssf-long-ssrf',
+        group: 'SSF',
+        title: 'Lange Anfragen: interne Adressen bleiben gesperrt',
+        needs: ['funktion'],
+        run: ctx =>
+            expectSsfError(
+                ctx,
+                "await api.http.fetch('https://127.0.0.1/', { timeoutMs: 20000 });",
+                /interne oder reservierte/,
+                'lange Anfrage auf 127.0.0.1'
+            )
+    },
+    // Webhooks (Plan "SSF-Ausbau", Teil B)
+    {
+        id: 'ssf-webhook-only',
+        group: 'SSF',
+        title: 'Webhooks: verify geht nur in einem echten Webhook-Aufruf',
+        needs: ['funktion'],
+        run: ctx =>
+            expectSsfError(
+                ctx,
+                "await api.webhook.verify({ secret: 'CHECK_KEY', format: 'github' });",
+                /nur, wenn die SSF als Webhook aufgerufen wird/,
+                'verify ohne Webhook'
+            )
+    },
+    {
+        id: 'webhook-route-protected',
+        group: 'SSF',
+        title: 'Webhooks: die Backend-Route nimmt nur den Bauarbeiter an',
+        run: async () => {
+            const r = await api.post('/api/sites/check-gibt-es-nicht/hook/api', { rawBodyBase64: '' });
+            expectStatus(r, 403, 'Webhook ohne Bauarbeiter-Schlüssel');
+            expect(r.data?.code === 'BAUARBEITER_ONLY', `unerwarteter Code "${r.data?.code}"`, r);
+            return 'ohne Schlüssel: 403';
+        }
+    },
+    {
+        id: 'webhook-calls',
+        group: 'SSF',
+        title: 'Webhooks: Protokoll der letzten Aufrufe lesbar (mit red)',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await api.get(`/api/objects/${ctx.funktion}/webhook-calls`);
+            expectStatus(r, 200, 'Webhook-Protokoll');
+            expect(Array.isArray(r.data?.data?.calls), 'calls fehlt', r);
+            return `${r.data.data.calls.length} Aufrufe`;
+        }
+    },
     {
         id: 'ssf-call-limit',
         group: 'SSF',

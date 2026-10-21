@@ -64,7 +64,8 @@ import {
     bauplanFiles,
     fileUrl,
     formatBytes,
-    RESERVED_SITE_NAMES
+    RESERVED_SITE_NAMES,
+    webhookStatusText
 } from '../core/site.js';
 import { addChildToDna, removeChildFromDna } from '../core/dna.js';
 import {
@@ -1333,13 +1334,113 @@ const renderVisibilityTab = (box, o, objects, { onDone }) => {
 // Seit "Login auf Websites" sehen angemeldete Besucher zusätzlich, was sie
 // dürfen (Reiter "Zugriff"). Hier siehst du, ob die Website öffentlich ist,
 // welche Teile ohne Anmeldung fehlen, und den Bauplan (GET /api/sites/<name>).
+// ---------------------------------------------------------------------
+// WEBHOOK EINER SSF (Plan "SSF-Ausbau", Etappe B2)
+// Nur für Kinder mit SSF: Adresse zum Kopieren (für Stripe, GitHub, ein ERP …)
+// und die letzten 20 Aufrufe – damit man sieht, warum etwas nicht ankam.
+// Das Backend zeigt nie Inhalt oder Header, nur Zeit, Status, Dauer, Fehler.
+// ---------------------------------------------------------------------
+const renderWebhookCard = async (box, o) => {
+    const code = await loadCode(o.uuid);
+    if (!code.ok || !Object.prototype.hasOwnProperty.call(code.code, 'ssf')) return; // keine SSF -> keine Karte
+
+    const listBox = h('div');
+    const load = async () => {
+        mount(listBox, spinner('Hole die letzten Aufrufe …'));
+        const res = await api.get(`/api/objects/${o.uuid}/webhook-calls`);
+        if (!res.ok) {
+            return mount(
+                listBox,
+                resultLine(res),
+                res.status === 403
+                    ? h('p', { class: 'small muted' }, 'Das Protokoll sehen nur Menschen mit red auf dieser SSF.')
+                    : null
+            );
+        }
+        const { address, calls } = res.data.data;
+        mount(
+            listBox,
+            address
+                ? h(
+                      'div',
+                      { class: 'row' },
+                      h('code', { class: 'mono' }, address),
+                      copyButton(() => address, 'Adresse kopieren')
+                  )
+                : callout(
+                      'info',
+                      'Keine Adresse: ',
+                      'Die SSF muss ein Kind einer Website sein, deren Name als Adresse taugt.'
+                  ),
+            calls.length === 0
+                ? h('p', { class: 'small muted' }, 'Noch keine Aufrufe.')
+                : h(
+                      'div',
+                      { class: 'table-wrap' },
+                      h(
+                          'table',
+                          { class: 'data-table' },
+                          h(
+                              'thead',
+                              {},
+                              h(
+                                  'tr',
+                                  {},
+                                  h('th', {}, 'Wann'),
+                                  h('th', {}, 'Status'),
+                                  h('th', {}, 'Dauer'),
+                                  h('th', {}, 'Grösse'),
+                                  h('th', {}, 'Fehler')
+                              )
+                          ),
+                          h(
+                              'tbody',
+                              {},
+                              calls.map(c => {
+                                  const st = webhookStatusText(c.status);
+                                  return h(
+                                      'tr',
+                                      {},
+                                      h('td', { title: formatDate(c.createdAt) }, timeAgo(c.createdAt)),
+                                      h('td', {}, badge(`${c.status} · ${st.text}`, st.tone)),
+                                      h('td', { class: 'mono' }, formatMs(c.durationMs)),
+                                      h('td', { class: 'mono' }, formatBytes(c.bytes)),
+                                      // Fehlermeldung als Text (nie innerHTML)
+                                      h('td', { class: 'small' }, c.error || '–')
+                                  );
+                              })
+                          )
+                      )
+                  )
+        );
+    };
+
+    mount(
+        box,
+        card(
+            { title: 'Webhook', icon: 'external' },
+            h(
+                'p',
+                { class: 'small muted' },
+                'Unter dieser Adresse kann ein fremder Server (Stripe, GitHub, ein ERP …) diese SSF aufrufen. Dafür muss sie öffentlich sein – und sie muss die Unterschrift prüfen (api.webhook.verify). Das Geheimnis des Anbieters gehört in den Tresor dieser SSF.'
+            ),
+            listBox,
+            h('button', { class: 'btn small', onclick: load }, 'Neu laden')
+        )
+    );
+    await load();
+};
+
 const renderSiteTab = (box, o, objects, { onTab }) => {
     const status = siteStatus(o, objects);
 
     if (status.kind === 'child') {
         const parent = objects.find(x => x.domain === status.family);
+        const webhookBox = h('div');
+        renderWebhookCard(webhookBox, o);
         return mount(
             box,
+            webhookBox,
             card(
                 { title: 'Website', icon: 'external' },
                 callout(

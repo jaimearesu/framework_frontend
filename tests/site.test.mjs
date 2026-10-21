@@ -251,6 +251,7 @@ const KEY = 'k'.repeat(40);
 const backend = {
     sites: {}, // name -> { status, body, headers }
     runs: {}, // "name/pfad" -> { status, body, headers }  (POST …/run/…)
+    hooks: {}, // "name/pfad" -> { status, body, headers }  (POST …/hook/…)
     calls: [], // { url, method, headers, body }
     down: false
 };
@@ -261,7 +262,9 @@ const fakeFetch = async (url, options) => {
     const rest = decodeURIComponent(url.split('/api/sites/')[1]);
     const answer = rest.includes('/run/')
         ? backend.runs[rest.replace('/run/', '/')] || { status: 404, body: { error: 'nicht gefunden' } }
-        : backend.sites[rest] || { status: 404, body: { error: 'Keine Website' } };
+        : rest.includes('/hook/')
+          ? backend.hooks[rest.replace('/hook/', '/')] || { status: 404, body: { error: 'nicht gefunden' } }
+          : backend.sites[rest] || { status: 404, body: { error: 'Keine Website' } };
     return {
         ok: answer.status >= 200 && answer.status < 300,
         status: answer.status,
@@ -279,9 +282,9 @@ let server, port, cache;
 const logs = [];
 
 // Anfrage mit eigenem Host-Header (fetch erlaubt das nicht, darum node:http)
-const request = (host, path = '/', { method = 'GET', ip, body, contentType } = {}) =>
+const request = (host, path = '/', { method = 'GET', ip, body, contentType, headers: extraHeaders = {} } = {}) =>
     new Promise((resolve, reject) => {
-        const headers = { host };
+        const headers = { host, ...extraHeaders };
         if (ip) headers['x-forwarded-for'] = ip;
         if (contentType) headers['content-type'] = contentType;
         const req = http.request({ host: '127.0.0.1', port, path, method, headers }, res => {
@@ -329,6 +332,7 @@ after(() => new Promise(r => server.close(r)));
 beforeEach(() => {
     backend.sites = {};
     backend.runs = {};
+    backend.hooks = {};
     backend.calls = [];
     backend.down = false;
     cache.clear();
@@ -538,5 +542,93 @@ describe('Bauarbeiter: SSF der Website aufrufen (POST /_at0mic/run/…)', () => 
     test('ohne Website-Namen (at0mic.site selbst) gibt es keine SSF', async () => {
         assert.equal((await runSsf('at0mic.site', 'api', {})).status, 405);
         assert.equal(backend.calls.length, 0);
+    });
+});
+
+describe('Bauarbeiter: Webhooks (POST|PUT /_at0mic/hook/…, Plan "SSF-Ausbau" B1)', () => {
+    // Was ein Anbieter schickt: Rohtext mit Umlauten, eine Unterschrift, dazu Cookies, die nie weiter dürfen
+    const ROH = '{"ereignis":"bezahlt","name":"Zoë"}';
+    const hook = (path, extra = {}) =>
+        request('shop.at0mic.site', `/_at0mic/hook/${path}`, {
+            method: 'POST',
+            contentType: 'application/json',
+            body: ROH,
+            headers: { 'x-hub-signature-256': 'sha256=abc', cookie: 'at0mic_ausweis=at0s_geheim' },
+            ...extra
+        });
+
+    test('reicht weiter: Rohtext unverändert (Base64), Header ohne Cookies, Abfrage – ohne Ausweis', async () => {
+        backend.hooks['shop/zahlung'] = { status: 200, body: { success: true, result: { ok: 1 } } };
+        const r = await hook('zahlung?konto=haupt');
+        assert.equal(r.status, 200);
+        assert.deepEqual(JSON.parse(r.body), { ok: true, result: { ok: 1 } });
+        assert.equal(r.headers['cache-control'], 'no-store');
+
+        const call = backend.calls[0];
+        assert.equal(call.url, 'http://backend.test/api/sites/shop/hook/zahlung');
+        assert.equal(call.method, 'POST');
+        assert.equal(call.headers['x-bauarbeiter-key'], KEY);
+        assert.equal(call.headers['x-besucher-ausweis'], undefined, 'nie ein Ausweis');
+        const sent = JSON.parse(call.body);
+        assert.equal(Buffer.from(sent.rawBodyBase64, 'base64').toString('utf8'), ROH);
+        assert.equal(sent.method, 'POST');
+        assert.deepEqual(sent.query, { konto: 'haupt' });
+        assert.equal(sent.headers['x-hub-signature-256'], 'sha256=abc');
+        assert.equal(sent.headers.cookie, undefined);
+        assert.equal(sent.headers.host, undefined);
+    });
+
+    test('keine Herkunfts-Prüfung: Server schicken kein Origin, auch ein fremdes Origin ist ok', async () => {
+        backend.hooks['shop/zahlung'] = { status: 200, body: { result: null } };
+        const r = await hook('zahlung', { headers: { origin: 'https://boese.example' } });
+        assert.equal(r.status, 200);
+    });
+
+    test('PUT geht, GET nicht; ungültige Pfade erreichen das Backend nie', async () => {
+        backend.hooks['shop/zahlung'] = { status: 200, body: { result: null } };
+        assert.equal((await hook('zahlung', { method: 'PUT' })).status, 200);
+        const get = await request('shop.at0mic.site', '/_at0mic/hook/zahlung');
+        assert.equal(get.status, 405);
+        assert.equal(get.headers.allow, 'POST, PUT');
+        assert.equal((await hook('../zahlung')).status, 405);
+        assert.equal(backend.calls.length, 1);
+    });
+
+    test('höchstens 512 KB', async () => {
+        const r = await hook('zahlung', { body: 'x'.repeat(600 * 1024) });
+        assert.equal(r.status, 413);
+        assert.equal(backend.calls.length, 0);
+    });
+
+    test('Fehler in der SSF: 500 (der Anbieter versucht es später nochmals), Details nur im Log', async () => {
+        backend.hooks['shop/zahlung'] = {
+            status: 422,
+            body: { error: 'Fehler', details: 'Error: Unterschrift ungültig' }
+        };
+        const r = await hook('zahlung');
+        assert.equal(r.status, 500);
+        assert.doesNotMatch(r.body, /Unterschrift/);
+        assert.ok(logs.some(l => /Unterschrift ungültig/.test(l)));
+    });
+
+    test('404, 429 mit Wartezeit, Backend weg = 503', async () => {
+        assert.equal((await hook('gibtsnicht')).status, 404);
+        backend.hooks['shop/zahlung'] = { status: 429, body: { retryAfter: 7 } };
+        const limited = await hook('zahlung');
+        assert.equal(limited.status, 429);
+        assert.equal(limited.headers['retry-after'], '7');
+        backend.down = true;
+        assert.equal((await hook('zahlung')).status, 503);
+    });
+});
+
+describe('Webhook-Status lesbar machen (Cockpit, Etappe B2)', () => {
+    test('die wichtigsten Status haben einen Text und eine Farbe', async () => {
+        const { webhookStatusText } = await import('../public/js/core/site.js');
+        assert.deepEqual(webhookStatusText(200), { tone: 'ok', text: 'OK' });
+        assert.equal(webhookStatusText(422).tone, 'error');
+        assert.match(webhookStatusText(422).text, /Fehler in der SSF/);
+        assert.equal(webhookStatusText(429).tone, 'warn');
+        assert.match(webhookStatusText(418).text, /Status 418/);
     });
 });

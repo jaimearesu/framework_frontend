@@ -14,9 +14,18 @@ import { CHILDREN, SEED_PRODUCTS, SEED_STOCK } from '../public/js/ssf/playground
 const AsyncFunction = (async () => {}).constructor;
 
 describe('ssf: Beispiel-Bibliothek', () => {
-    test('es gibt 10 Beispiele mit eindeutiger id', () => {
-        assert.equal(EXAMPLES.length, 10);
-        assert.equal(new Set(EXAMPLES.map(e => e.id)).size, 10);
+    test('es gibt 11 Beispiele mit eindeutiger id', () => {
+        assert.equal(EXAMPLES.length, 11);
+        assert.equal(new Set(EXAMPLES.map(e => e.id)).size, 11);
+    });
+
+    test('„LLM fragen“ wartet lange (timeoutMs) und holt den Schlüssel aus dem Tresor', () => {
+        const ex = findExample('llm');
+        for (const part of ['timeoutMs: 80000', "api.secrets.get('ANTHROPIC_API_KEY')", "b.type === 'text'"]) {
+            assert.ok(ex.code.includes(part), part);
+        }
+        // timeoutMs muss innerhalb der Grenze des Backends liegen (max. 85000)
+        assert.ok(Number(/timeoutMs: (\d+)/.exec(ex.code)[1]) <= 85000);
     });
 
     test('der Verkaufsautomat klont, verschenkt und tritt zurück', () => {
@@ -71,7 +80,7 @@ describe('ssf: Beispiel-Bibliothek', () => {
 });
 
 describe('ssf: Werkzeug-Referenz', () => {
-    test('alle 17 Werkzeuge des Backends sind beschrieben', () => {
+    test('alle 19 Werkzeuge des Backends sind beschrieben', () => {
         assert.deepEqual(TOOLS.map(t => t.name).sort(), [
             'data.delete',
             'data.find',
@@ -90,7 +99,8 @@ describe('ssf: Werkzeug-Referenz', () => {
             'roles.revoke',
             'secrets.get',
             'secrets.has',
-            'visitor.can'
+            'visitor.can',
+            'webhook.verify'
         ]);
     });
     test('jedes Werkzeug ist vollständig und gehört zu einer Gruppe', () => {

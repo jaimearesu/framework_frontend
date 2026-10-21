@@ -13,6 +13,11 @@
 // Dazu: POST /_at0mic/run/<pfad> – damit ruft das JavaScript einer Website
 // ihre eigene SSF auf (echte Logik: Formulare, Speicher, mehrere Benutzer).
 //
+// WEBHOOKS (Plan "SSF-Ausbau", Teil B): POST|PUT /_at0mic/hook/<pfad> – damit
+// ruft ein fremder SERVER (Stripe, GitHub, ein ERP …) eine SSF der Website auf.
+// Der Bauarbeiter reicht den ROHTEXT (für Unterschriften) und die Header des
+// Anbieters weiter – nie Cookies, nie einen Ausweis.
+//
 // LOGIN AUF WEBSITES (Plan "Login auf Websites", Etappe 3):
 //   GET  /_at0mic/login?zurueck=/pfad   Anmeldung starten (-> at0mic, "Bei … anmelden?")
 //   GET  /_at0mic/callback?code&state   zurück von at0mic: Code gegen Ausweis tauschen
@@ -28,6 +33,7 @@
 //   - einen Ausweis bei SSF-Aufrufen von einer fremden Seite mitschicken (Herkunft)
 //   - Fehlermeldungen aus dem Code einer Website an Besucher zeigen (nur ins Log)
 //   - etwas anderes als GET/HEAD annehmen – ausser POST auf /_at0mic/run/… und /logout
+//     sowie POST/PUT auf /_at0mic/hook/…
 //
 // Das Backend fragt er mit dem Bauarbeiter-Schlüssel und der IP des
 // Besuchers – so bremst das Backend pro Besucher (Etappe 2). Rechte gibt
@@ -41,6 +47,11 @@ const login = require('./login');
 const crypto = require('crypto');
 
 const FETCH_TIMEOUT_MS = 8000;
+// SSF-Aufrufe der Website (/_at0mic/run/…) dürfen länger dauern: Eine SSF kann auf
+// eine lange Anfrage warten, z.B. an ein LLM (Plan "SSF-Ausbau", Teil A). Das Backend
+// beendet jede SSF nach spätestens 90 s – wir warten etwas länger, damit seine
+// Meldung noch ankommt. Mehr geht nicht: Cloudflare schneidet nach 100 s ab.
+const RUN_TIMEOUT_MS = 95000;
 // So lange behält der Bauarbeiter den Bauplan eines ANGEMELDETEN Besuchers (nur für ihn).
 // Kurz, weil sich seine Rechte ändern können: Wird ihm ein Recht entzogen, sieht er
 // den alten Stand höchstens noch so lange (Abmelden löscht ihn sofort).
@@ -50,6 +61,32 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // SSF der Website: /_at0mic/run/<pfad> – Pfad wie die identifier in der DNA
 const RUN_ROUTE = /^\/_at0mic\/run\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
 const MAX_RUN_BODY_BYTES = 64 * 1024; // Eingabe für die SSF: höchstens 64 KB
+
+// Webhook: /_at0mic/hook/<pfad> (gleiche Pfad-Regeln wie bei run)
+const HOOK_ROUTE = /^\/_at0mic\/hook\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
+const HOOK_METHODS = ['POST', 'PUT'];
+const MAX_HOOK_BODY_BYTES = 512 * 1024; // Rohtext: höchstens 512 KB (wie SYSTEM.webhooks im Backend)
+// Diese Header gibt der Bauarbeiter NIE weiter (das Backend filtert zusätzlich)
+const HOOK_DROP_HEADERS = ['cookie', 'host', 'connection', 'content-length', 'transfer-encoding', 'keep-alive'];
+
+// Rohtext aus der Anfrage lesen – genau die Bytes, ohne etwas zu verändern (Fehler mit .status)
+const readRawBody = (req, maxBytes) =>
+    new Promise((resolve, reject) => {
+        const fail = (status, message) => reject(Object.assign(new Error(message), { status }));
+        let size = 0;
+        let chunks = [];
+        req.on('data', chunk => {
+            size += chunk.length;
+            if (size > maxBytes)
+                chunks = []; // zu gross: den Rest still wegwerfen
+            else chunks.push(chunk);
+        });
+        req.on('end', () => {
+            if (size > maxBytes) return fail(413, `Zu gross (max. ${Math.round(maxBytes / 1024)} KB).`);
+            resolve(Buffer.concat(chunks));
+        });
+        req.on('error', () => fail(400, 'Anfrage abgebrochen.'));
+    });
 
 // JSON aus der Anfrage lesen – mit Grössen-Grenze (Fehler mit .status)
 const readJsonBody = (req, maxBytes) =>
@@ -482,7 +519,7 @@ const createBauarbeiter = ({
                 method: 'POST',
                 headers,
                 body: JSON.stringify(body),
-                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+                signal: AbortSignal.timeout(RUN_TIMEOUT_MS)
             });
             data = await res2.json().catch(() => null);
         } catch (error) {
@@ -512,6 +549,77 @@ const createBauarbeiter = ({
         return reply(503, { error: 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.' });
     };
 
+    // ---------------------------------------------------------------------
+    // WEBHOOK:  POST|PUT /_at0mic/hook/<pfad>   (Plan "SSF-Ausbau", Teil B)
+    // Ein fremder Server ruft eine SSF der Website auf. Anders als bei run:
+    //   - keine Herkunfts-Prüfung (Server schicken kein Origin) – dafür prüft die
+    //     SSF die Unterschrift des Anbieters (api.webhook.verify)
+    //   - NIE ein Ausweis: ein Webhook ist kein angemeldeter Besucher
+    //   - der Rohtext geht unverändert (als Base64) ans Backend, dazu die Header
+    //     und die Abfrage (?a=1) – nie Cookies
+    // Antwort an den Anbieter: 200 bei Erfolg. Bei einem Fehler in der SSF 500 –
+    // dann versuchen es Stripe & Co. später nochmals. Details nie nach aussen.
+    // ---------------------------------------------------------------------
+    const runWebhook = async (req, res, name, hookPath) => {
+        const reply = (status, body, extra = {}) => {
+            res.set('Cache-Control', 'no-store');
+            if (extra.retryAfter) res.set('Retry-After', String(extra.retryAfter));
+            return res.status(status).json(body);
+        };
+        let raw;
+        try {
+            raw = await readRawBody(req, MAX_HOOK_BODY_BYTES);
+        } catch (error) {
+            return reply(error.status || 400, { error: error.message });
+        }
+
+        const forwarded = {};
+        for (const [headerName, value] of Object.entries(req.headers)) {
+            if (HOOK_DROP_HEADERS.includes(headerName) || typeof value !== 'string') continue;
+            forwarded[headerName] = value;
+        }
+        const query = {};
+        for (const [queryName, value] of Object.entries(req.query || {})) {
+            if (typeof value === 'string') query[queryName] = value;
+        }
+
+        let res2;
+        let data = null;
+        try {
+            res2 = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/hook/${hookPath}`, {
+                method: 'POST',
+                headers: backendHeaders(null, null, { 'content-type': 'application/json' }),
+                body: JSON.stringify({
+                    method: req.method,
+                    headers: forwarded,
+                    query,
+                    rawBodyBase64: raw.toString('base64')
+                }),
+                signal: AbortSignal.timeout(RUN_TIMEOUT_MS)
+            });
+            data = await res2.json().catch(() => null);
+        } catch (error) {
+            log.warn(`[BAUARBEITER] Backend nicht erreichbar (Webhook ${name}/${hookPath}): ${error.message}`);
+            return reply(503, { error: 'Gerade nicht erreichbar.' });
+        }
+
+        if (res2.ok) return reply(200, { ok: true, result: data?.result ?? null });
+        if (res2.status === 404) return reply(404, { error: 'Diesen Webhook gibt es nicht.' });
+        if (res2.status === 400) return reply(400, { error: data?.error || 'Ungültiger Webhook-Aufruf.' });
+        if (res2.status === 429) {
+            const retryAfter = data?.retryAfter || res2.headers.get('retry-after') || 30;
+            return reply(429, { error: 'Zu viele Aufrufe – bitte später nochmals.' }, { retryAfter });
+        }
+        if (res2.status === 422) {
+            // Fehler im Code der SSF (z.B. Unterschrift ungültig): nur ins Log
+            log.warn(`[BAUARBEITER] Webhook "${name}/${hookPath}" mit Fehler: ${data?.details || data?.error}`);
+            return reply(500, { error: 'Der Webhook hatte einen Fehler.' });
+        }
+        if (res2.status === 401 || res2.status === 403)
+            log.error('[BAUARBEITER] Der Bauarbeiter-Schlüssel ist falsch (BAUARBEITER_KEY prüfen).');
+        return reply(503, { error: 'Gerade nicht erreichbar.' });
+    };
+
     return async (req, res, next) => {
         const host = siteNameFromHost(req.headers.host, siteDomain);
         if (!host.isSiteHost) return next(); // keine Website -> Cockpit
@@ -522,6 +630,16 @@ const createBauarbeiter = ({
             // Angemeldet? (nur unser eigenes Cookie, und nur, wenn es wie ein Ausweis aussieht)
             const cookieToken = login.parseCookies(req.headers.cookie)[cookies.ausweis];
             const token = login.isTokenShape(cookieToken) ? cookieToken : null;
+
+            // Webhook (nur POST/PUT, nur unter /_at0mic/hook/) – ohne Ausweis
+            const hook = HOOK_ROUTE.exec(req.path);
+            if (hook && host.name) {
+                if (!HOOK_METHODS.includes(req.method)) {
+                    res.set('Allow', HOOK_METHODS.join(', '));
+                    return res.status(405).json({ error: 'Nur POST oder PUT.' });
+                }
+                return await runWebhook(req, res, host.name, hook[1]);
+            }
 
             // SSF der Website (nur POST, nur unter /_at0mic/run/)
             const run = RUN_ROUTE.exec(req.path);

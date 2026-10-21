@@ -67,3 +67,17 @@ export const fileUrl = (base, path) => {
 
 export const formatBytes = n =>
     n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
+
+// ---------------------------------------------------------------------
+// WEBHOOKS (Plan "SSF-Ausbau", Etappe B2): was heisst der Status eines
+// Aufrufs für Menschen? (Antwort des Backends, siehe webhook_calls)
+// ---------------------------------------------------------------------
+export const webhookStatusText = status => {
+    if (status === 200) return { tone: 'ok', text: 'OK' };
+    if (status === 422) return { tone: 'error', text: 'Fehler in der SSF' };
+    if (status === 429) return { tone: 'warn', text: 'gebremst (zu viele Aufrufe)' };
+    if (status === 503) return { tone: 'warn', text: 'Server ausgelastet' };
+    if (status === 404) return { tone: 'error', text: 'nicht gefunden' };
+    if (status === 400) return { tone: 'error', text: 'ungültiger Aufruf' };
+    return { tone: 'error', text: `Status ${status}` };
+};
