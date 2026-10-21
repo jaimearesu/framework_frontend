@@ -41,6 +41,11 @@ const login = require('./login');
 const crypto = require('crypto');
 
 const FETCH_TIMEOUT_MS = 8000;
+// SSF-Aufrufe der Website (/_at0mic/run/…) dürfen länger dauern: Eine SSF kann auf
+// eine lange Anfrage warten, z.B. an ein LLM (Plan "SSF-Ausbau", Teil A). Das Backend
+// beendet jede SSF nach spätestens 90 s – wir warten etwas länger, damit seine
+// Meldung noch ankommt. Mehr geht nicht: Cloudflare schneidet nach 100 s ab.
+const RUN_TIMEOUT_MS = 95000;
 // So lange behält der Bauarbeiter den Bauplan eines ANGEMELDETEN Besuchers (nur für ihn).
 // Kurz, weil sich seine Rechte ändern können: Wird ihm ein Recht entzogen, sieht er
 // den alten Stand höchstens noch so lange (Abmelden löscht ihn sofort).
@@ -482,7 +487,7 @@ const createBauarbeiter = ({
                 method: 'POST',
                 headers,
                 body: JSON.stringify(body),
-                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+                signal: AbortSignal.timeout(RUN_TIMEOUT_MS)
             });
             data = await res2.json().catch(() => null);
         } catch (error) {
