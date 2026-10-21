@@ -885,6 +885,47 @@ export const CHECKS = [
         needs: ['funktion'],
         run: ctx => expectSsfError(ctx, "await api.http.fetch('http://example.com/');", /https/, 'http://')
     },
+    // Lange Anfragen (Plan "SSF-Ausbau", Teil A): ohne fremden Server prüfbar –
+    // die Grenze und die Sperrliste gelten auch mit timeoutMs
+    {
+        id: 'ssf-long-max',
+        group: 'SSF',
+        title: 'Lange Anfragen: timeoutMs höchstens 85 s',
+        needs: ['funktion'],
+        run: ctx =>
+            expectSsfError(
+                ctx,
+                "await api.http.fetch('https://example.com/', { timeoutMs: 999999 });",
+                /höchstens 85000/,
+                'timeoutMs zu gross'
+            )
+    },
+    {
+        id: 'ssf-long-invalid',
+        group: 'SSF',
+        title: 'Lange Anfragen: timeoutMs muss eine ganze Zahl sein',
+        needs: ['funktion'],
+        run: ctx =>
+            expectSsfError(
+                ctx,
+                "await api.http.fetch('https://example.com/', { timeoutMs: '60000' });",
+                /timeoutMs muss eine ganze Zahl/,
+                'timeoutMs als Text'
+            )
+    },
+    {
+        id: 'ssf-long-ssrf',
+        group: 'SSF',
+        title: 'Lange Anfragen: interne Adressen bleiben gesperrt',
+        needs: ['funktion'],
+        run: ctx =>
+            expectSsfError(
+                ctx,
+                "await api.http.fetch('https://127.0.0.1/', { timeoutMs: 20000 });",
+                /interne oder reservierte/,
+                'lange Anfrage auf 127.0.0.1'
+            )
+    },
     {
         id: 'ssf-call-limit',
         group: 'SSF',

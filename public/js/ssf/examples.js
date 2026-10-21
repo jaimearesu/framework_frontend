@@ -227,7 +227,7 @@ return {
         level: 'Fortgeschritten',
         summary: 'Einen fremden Server fragen – mit einem geheimen Schlüssel aus dem Tresor.',
         learn: [
-            'api.http.fetch: nur https, max. 3 s, 1 MB, 10 pro Ausführung',
+            'api.http.fetch: nur https, max. 3 s, 1 MB, 10 pro Ausführung (länger: Beispiel "LLM fragen")',
             'Die Antwort (body) ist Text – JSON selbst auslesen',
             'api.secrets.has/get: Schlüssel nie in den Code schreiben',
             'Gelesene Schlüssel werden in der Antwort automatisch zu *** geschwärzt'
@@ -272,6 +272,62 @@ return {
 
     // ------------------------------------------------------------------
     {
+        id: 'llm',
+        title: 'Ein LLM fragen (Claude)',
+        level: 'Fortgeschritten',
+        summary: 'Claude eine Frage stellen und die Antwort zurückgeben – mit einem Schlüssel aus dem Tresor.',
+        learn: [
+            'api.http.fetch mit timeoutMs: bis 85 s warten statt 3 s',
+            'Die Wartezeit zählt nicht zur Gesamtzeit (5 s), die Rechenzeit (1 s) bleibt',
+            'Der API-Schlüssel kommt aus dem Tresor (Name ANTHROPIC_API_KEY)',
+            'Die Antwort enthält mehrere Blöcke – nur die Text-Blöcke sind die Antwort',
+            'Jede Frage kostet Geld: Länge begrenzen, auf Websites nur für Angemeldete'
+        ],
+        tools: ['http.fetch', 'secrets.has', 'secrets.get'],
+        body: { frage: 'Erkläre in zwei Sätzen, was ein Objekt in at0mic ist.' },
+        presets: {
+            Kurz: { frage: 'Was ist die Hauptstadt der Schweiz?' },
+            Gedicht: { frage: 'Schreib ein Vierzeiler über Berge.' }
+        },
+        code: `// 6) EIN LLM FRAGEN (Claude)
+// Vorher: Seite "Tresor" -> bei DIESER SSF den Schlüssel ANTHROPIC_API_KEY anlegen
+// (von platform.claude.com). Ohne Schlüssel gibt es nur einen Hinweis.
+if (!(await api.secrets.has('ANTHROPIC_API_KEY'))) {
+    return { fehler: 'Bitte zuerst den Schlüssel ANTHROPIC_API_KEY im Tresor dieser SSF anlegen.' };
+}
+const frage = String((requestContext.body || {}).frage || '').slice(0, 4000);
+if (!frage) return { fehler: 'Keine Frage.' };
+
+const antwort = await api.http.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    timeoutMs: 80000, // ein LLM braucht oft 10–60 s – ohne timeoutMs wäre nach 3 s Schluss
+    headers: {
+        'x-api-key': await api.secrets.get('ANTHROPIC_API_KEY'),
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'server-side-fallback-2026-07-01'
+    },
+    body: {
+        model: 'claude-opus-5-5',
+        max_tokens: 2000,
+        output_config: { effort: 'low' }, // schneller und günstiger; 'medium'/'high' für schwierige Fragen
+        fallbacks: 'default', // lehnt das Modell ab, springt automatisch ein anderes ein
+        messages: [{ role: 'user', content: frage }]
+    }
+});
+
+const daten = JSON.parse(antwort.body);
+// 429 = zu viele Anfragen, 529 = überlastet: später nochmals versuchen
+if (!antwort.ok) return { fehler: 'Das LLM ist gerade nicht erreichbar (' + antwort.status + ').' };
+if (daten.stop_reason === 'refusal') return { fehler: 'Diese Frage kann ich nicht beantworten.' };
+
+// content ist eine Liste von Blöcken – nur die Text-Blöcke sind die Antwort
+const text = daten.content.filter(b => b.type === 'text').map(b => b.text).join('');
+return { antwort: text, tokens: daten.usage };
+`
+    },
+
+    // ------------------------------------------------------------------
+    {
         id: 'blaettern',
         title: 'Alle Daten durchblättern',
         level: 'Fortgeschritten',
@@ -283,7 +339,7 @@ return {
         ],
         tools: ['data.find'],
         body: { seitengroesse: 3 },
-        code: `// 6) ALLE DATEN DURCHBLÄTTERN
+        code: `// 7) ALLE DATEN DURCHBLÄTTERN
 const SHOP = '{{SHOP}}';
 const groesse = Math.min(Math.max(Number(requestContext.body?.seitengroesse) || 3, 1), 500);
 
@@ -327,7 +383,7 @@ return {
             'Zu viele': { sku: 'MUE-01', menge: 20 },
             Unbekannt: { sku: 'XYZ-99', menge: 1 }
         },
-        code: `// 7) BESTELLUNG MIT LAGER
+        code: `// 8) BESTELLUNG MIT LAGER
 const SHOP = '{{SHOP}}';
 const { sku, menge = 1 } = requestContext.body || {};
 const anzahl = Number(menge);
@@ -385,7 +441,7 @@ return {
         ],
         tools: ['data.find (joins)'],
         body: { knappAb: 5 },
-        code: `// 8) BERICHT MIT JOINS
+        code: `// 9) BERICHT MIT JOINS
 const SHOP = '{{SHOP}}';
 const knappAb = Number(requestContext.body?.knappAb ?? 5);
 
@@ -440,7 +496,7 @@ return {
             'Reserviertes Feld': { test: 'reserviert' },
             'Eigener Fehler': { test: 'fehler' }
         },
-        code: `// 9) GRENZEN ERLEBEN – jeder Test endet absichtlich mit einem Fehler (Status 422)
+        code: `// 10) GRENZEN ERLEBEN – jeder Test endet absichtlich mit einem Fehler (Status 422)
 const SHOP = '{{SHOP}}';
 const test = requestContext.body?.test || 'rechte';
 
@@ -504,7 +560,7 @@ return { hinweis: 'Unbekannter Test. Erlaubt: rechte, schleife, aufrufe, ssrf, r
             'Mit Daten': { mitDaten: true },
             'Nur Code': { mitDaten: false }
         },
-        code: `// 10) VERKAUFSAUTOMAT
+        code: `// 11) VERKAUFSAUTOMAT
 // Achtung: legt bei jedem Ausführen eine ECHTE neue Domain an.
 // Die Kopie gehört danach dem Besucher – unter "Objekte" kann er sie
 // in seine eigene Domain zügeln.

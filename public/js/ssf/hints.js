@@ -14,7 +14,7 @@ const HINTS = [
     },
     {
         test: /Gesamtzeit/i,
-        tip: 'Die SSF lief länger als 5 Sekunden (z.B. eine langsame fremde API oder viele Aufrufe nacheinander).'
+        tip: 'Die SSF lief länger als 5 Sekunden (z.B. eine langsame fremde API oder viele Aufrufe nacheinander). Für langsame Dienste wie ein LLM: api.http.fetch mit timeoutMs (bis 85000) – dann zählt das Warten nicht mit. Absolut ist nach 90 s Schluss.'
     },
     {
         test: /Kein Zugriff oder nicht gefunden/i,

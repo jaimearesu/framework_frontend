@@ -167,11 +167,11 @@ export const TOOLS = [
     {
         name: 'http.fetch',
         group: 'http',
-        signature: 'url, { method, headers, body }',
+        signature: 'url, { method, headers, body, timeoutMs }',
         role: '–',
-        budget: 'http (max. 10, dazu 60 pro Minute je SSF)',
+        budget: 'http (max. 10, dazu 60 pro Minute je SSF; lange: 20 pro Minute, 6 gleichzeitig auf dem Server)',
         returns: '{ status, ok, headers, body (Text), url, redirected }',
-        text: 'Nur https:// auf Port 443, höchstens 3 s und 1 MB. Interne Adressen (localhost, private Netze, Cloud-Metadaten) sind gesperrt, auch nach Weiterleitungen.',
+        text: 'Nur https:// auf Port 443, höchstens 3 s und 1 MB. Interne Adressen (localhost, private Netze, Cloud-Metadaten) sind gesperrt, auch nach Weiterleitungen. Für langsame Dienste wie ein LLM: timeoutMs bis 85000 (85 s, Antwort bis 4 MB) – diese Wartezeit zählt nicht zur Gesamtzeit.',
         snippet:
             "const antwort = await api.http.fetch('https://api.example.com/daten', { method: 'GET' });\nconst daten = JSON.parse(antwort.body);\n"
     },
@@ -208,7 +208,8 @@ export const TOOLS = [
 // Die Grenzen einer Ausführung (Stand Backend, siehe README "Grenzen pro Ausführung")
 export const LIMITS = [
     ['Rechenzeit', '1 Sekunde (Wachhund, auch nach await)'],
-    ['Gesamtzeit', '5 Sekunden'],
+    ['Gesamtzeit', '5 Sekunden (Warten auf lange Anfragen zählt nicht)'],
+    ['Obergrenze', '90 Sekunden, auch mit langen Anfragen'],
     ['Speicher', '64 MB'],
     ['Werkzeug-Aufrufe', '50, davon 4 gleichzeitig'],
     ['Geschriebene Datensätze', '500'],
