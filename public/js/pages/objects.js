@@ -69,6 +69,15 @@ import {
 } from '../core/site.js';
 import { addChildToDna, removeChildFromDna } from '../core/dna.js';
 import {
+    jobStatusText,
+    canCancel,
+    SCHEDULE_PRESETS,
+    describeCron,
+    parseJsonInput,
+    jobSummary,
+    untilText
+} from '../core/jobs.js';
+import {
     SCOPES,
     rolesForScope,
     canUsePartScope,
@@ -1335,6 +1344,237 @@ const renderVisibilityTab = (box, o, objects, { onDone }) => {
 // dürfen (Reiter "Zugriff"). Hier siehst du, ob die Website öffentlich ist,
 // welche Teile ohne Anmeldung fehlen, und den Bauplan (GET /api/sites/<name>).
 // ---------------------------------------------------------------------
+// REITER "AUFTRÄGE" (Plan "SSF-Ausbau", Etappe C3)
+// Hintergrund-Aufträge einer SSF: was läuft, was ist fertig, was ging schief –
+// abbrechen, einen Auftrag von Hand starten, den Zeitplan setzen.
+// Ansehen/Abbrechen/Zeitplan braucht red, Starten black (prüft das Backend).
+// Texte vom Backend immer als Text (h/textContent), nie als HTML.
+// ---------------------------------------------------------------------
+const renderJobsTab = async (box, o) => {
+    mount(box, spinner('Lade Aufträge …'));
+    const code = await loadCode(o.uuid);
+    if (!code.ok || !Object.prototype.hasOwnProperty.call(code.code, 'ssf')) {
+        return mount(
+            box,
+            card(
+                { title: 'Aufträge', icon: 'history' },
+                callout(
+                    'info',
+                    'Nur für Server-Funktionen: ',
+                    'Aufträge (lange Arbeit Stück für Stück, z.B. ein ERP-Import) und Zeitpläne gibt es nur für Objekte mit einer SSF.'
+                )
+            )
+        );
+    }
+
+    const listBox = h('div');
+    const scheduleBox = h('div');
+    let renderSchedule = () => {};
+
+    const load = async () => {
+        mount(listBox, spinner('Lade Aufträge …'));
+        const res = await api.get(`/api/objects/${o.uuid}/jobs`);
+        if (!res.ok) {
+            mount(scheduleBox);
+            return mount(
+                listBox,
+                resultLine(res),
+                res.status === 403
+                    ? h(
+                          'p',
+                          { class: 'small muted' },
+                          'Aufträge und Zeitplan sehen nur Menschen mit red auf dieser SSF.'
+                      )
+                    : null
+            );
+        }
+        const { jobs, schedule } = res.data.data;
+        renderSchedule(schedule);
+        const sum = jobSummary(jobs);
+        mount(
+            listBox,
+            h(
+                'p',
+                { class: 'small muted' },
+                `${jobs.length} Aufträge (neueste zuerst) · ${sum.offen} offen · ${sum.fertig} fertig · ${sum.gescheitert} gescheitert`
+            ),
+            jobs.length === 0
+                ? h('p', { class: 'small muted' }, 'Noch keine Aufträge.')
+                : h(
+                      'div',
+                      { class: 'table-wrap' },
+                      h(
+                          'table',
+                          { class: 'data-table' },
+                          h(
+                              'thead',
+                              {},
+                              h(
+                                  'tr',
+                                  {},
+                                  h('th', {}, 'Angelegt'),
+                                  h('th', {}, 'Status'),
+                                  h('th', {}, 'Durchläufe'),
+                                  h('th', {}, 'Nächster Durchlauf'),
+                                  h('th', {}, 'Letzter Fehler'),
+                                  h('th', {}, '')
+                              )
+                          ),
+                          h(
+                              'tbody',
+                              {},
+                              jobs.map(j => {
+                                  const st = jobStatusText(j.status);
+                                  const cancel = async () => {
+                                      const r = await api.post(`/api/objects/${o.uuid}/jobs/${j.id}/cancel`, {});
+                                      if (!r.ok) return toast(r.error, 'error');
+                                      toast('Auftrag abgebrochen.', 'ok');
+                                      await load();
+                                  };
+                                  return h(
+                                      'tr',
+                                      {},
+                                      h('td', { title: formatDate(j.createdAt) }, timeAgo(j.createdAt)),
+                                      h('td', {}, badge(st.text, st.tone)),
+                                      h(
+                                          'td',
+                                          { class: 'mono' },
+                                          j.attempts > 0 ? `${j.runs} (${j.attempts} Fehlversuche)` : String(j.runs)
+                                      ),
+                                      h(
+                                          'td',
+                                          { title: canCancel(j.status) ? formatDate(j.nextRunAt) : '' },
+                                          canCancel(j.status) ? untilText(j.nextRunAt) : '–'
+                                      ),
+                                      h('td', { class: 'small' }, j.lastError || '–'),
+                                      h(
+                                          'td',
+                                          {},
+                                          canCancel(j.status)
+                                              ? busyButton('Abbrechen', cancel, { className: 'btn small' })
+                                              : null
+                                      )
+                                  );
+                              })
+                          )
+                      )
+                  )
+        );
+    };
+
+    // --- Zeitplan ---
+    renderSchedule = schedule => {
+        const cronInput = h('input', { type: 'text', class: 'mono', placeholder: '0 3 * * *' });
+        cronInput.value = schedule ? schedule.cron : '';
+        const inputArea = h('textarea', { rows: 3, class: 'mono', placeholder: '{ }' });
+        inputArea.value = schedule && schedule.input ? JSON.stringify(schedule.input, null, 2) : '';
+        const enabledBox = h('input', { type: 'checkbox' });
+        enabledBox.checked = schedule ? schedule.enabled : true;
+        const presetText = h('span', {}, describeCron(cronInput.value) || '');
+        cronInput.addEventListener('input', () => {
+            presetText.textContent = describeCron(cronInput.value) || '';
+        });
+
+        const save = async () => {
+            const parsed = parseJsonInput(inputArea.value);
+            if (!parsed.ok) return toast(parsed.error, 'error');
+            const r = await api.put(`/api/objects/${o.uuid}/schedule`, {
+                cron: cronInput.value.trim(),
+                input: parsed.value,
+                enabled: enabledBox.checked
+            });
+            if (!r.ok) return toast(r.error, 'error');
+            toast('Zeitplan gespeichert.', 'ok');
+            await load();
+        };
+        const remove = async () => {
+            const r = await api.del(`/api/objects/${o.uuid}/schedule`);
+            if (!r.ok) return toast(r.error, 'error');
+            toast('Zeitplan entfernt.', 'ok');
+            await load();
+        };
+
+        mount(
+            scheduleBox,
+            card(
+                { title: 'Zeitplan', icon: 'history' },
+                h(
+                    'p',
+                    { class: 'small muted' },
+                    'Zu jedem Termin startet ein Auftrag dieser SSF. Uhrzeit in Schweizer Zeit, höchstens alle 5 Minuten. Läuft der letzte Auftrag noch, fällt ein Termin aus.'
+                ),
+                schedule
+                    ? infoList([
+                          ['Nächster Termin', schedule.enabled ? formatDate(schedule.nextRunAt) : 'pausiert'],
+                          ['Letzter Termin', schedule.lastRunAt ? formatDate(schedule.lastRunAt) : '–'],
+                          schedule.lastError ? ['Hinweis', schedule.lastError] : null
+                      ])
+                    : null,
+                h(
+                    'div',
+                    { class: 'chip-list' },
+                    SCHEDULE_PRESETS.map(p =>
+                        h(
+                            'button',
+                            {
+                                class: 'chip',
+                                type: 'button',
+                                onclick: () => {
+                                    cronInput.value = p.cron;
+                                    presetText.textContent = p.label;
+                                }
+                            },
+                            p.label
+                        )
+                    )
+                ),
+                field('Zeitplan (Minute Stunde Tag Monat Wochentag)', cronInput, presetText),
+                field('Eingabe für jeden Auftrag (JSON, optional)', inputArea),
+                h('label', { class: 'row small' }, enabledBox, h('span', {}, 'eingeschaltet')),
+                h(
+                    'div',
+                    { class: 'row' },
+                    busyButton('Zeitplan speichern', save, { className: 'btn primary', iconName: 'history' }),
+                    schedule ? busyButton('Zeitplan entfernen', remove, { className: 'btn' }) : null
+                )
+            )
+        );
+    };
+
+    // --- Von Hand starten ---
+    const startArea = h('textarea', { rows: 3, class: 'mono', placeholder: '{ "seite": 1 }' });
+    const start = async () => {
+        const parsed = parseJsonInput(startArea.value);
+        if (!parsed.ok) return toast(parsed.error, 'error');
+        const r = await api.post(`/api/objects/${o.uuid}/jobs`, { input: parsed.value });
+        if (!r.ok) return toast(r.error, 'error');
+        toast('Auftrag angelegt – der Arbeiter holt ihn in wenigen Sekunden ab.', 'ok');
+        await load();
+    };
+
+    mount(
+        box,
+        card(
+            { title: 'Aufträge', icon: 'history' },
+            h(
+                'p',
+                { class: 'small muted' },
+                'Lange Arbeit Stück für Stück: Die SSF bekommt requestContext.job und gibt { continue: merkzettel } zurück, solange es weitergeht. Nach Fehlern versucht at0mic es später nochmals (1, 5, 30, 120 Min.), nach 5 Fehlversuchen ist der Auftrag gescheitert.'
+            ),
+            listBox,
+            h('button', { class: 'btn small', type: 'button', onclick: () => load() }, 'Neu laden')
+        ),
+        card(
+            { title: 'Auftrag jetzt starten', icon: 'bolt' },
+            field('Eingabe (JSON, optional)', startArea, 'kommt als requestContext.job.input an'),
+            busyButton('Starten', start, { className: 'btn primary', iconName: 'bolt' })
+        ),
+        scheduleBox
+    );
+    await load();
+};
+
+// ---------------------------------------------------------------------
 // WEBHOOK EINER SSF (Plan "SSF-Ausbau", Etappe B2)
 // Nur für Kinder mit SSF: Adresse zum Kopieren (für Stripe, GitHub, ein ERP …)
 // und die letzten 20 Aufrufe – damit man sieht, warum etwas nicht ankam.
@@ -1771,6 +2011,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         { id: 'kopie', label: 'Klonen & Zügeln' },
         { id: 'sichtbar', label: 'Sichtbarkeit' },
         { id: 'website', label: 'Website' },
+        { id: 'auftraege', label: 'Aufträge' },
         { id: 'loeschen', label: 'Löschen' }
     ];
     let bar = null;
@@ -1786,6 +2027,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         else if (id === 'kopie') renderCopyTab(body, o, objects, { onDone: uuid => reload(uuid) });
         else if (id === 'sichtbar') renderVisibilityTab(body, o, objects, { onDone: uuid => reload(uuid) });
         else if (id === 'website') renderSiteTab(body, o, objects, { onTab: next => bar.select(next) });
+        else if (id === 'auftraege') renderJobsTab(body, o);
         else if (id === 'loeschen')
             renderDeleteTab(body, o, objects, {
                 // Nach dem Löschen: zum Eltern-Objekt (bei einem Kind) oder zur Liste
