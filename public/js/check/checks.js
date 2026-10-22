@@ -32,6 +32,7 @@ import { api } from '../core/api.js';
 import { apiBase } from '../core/config.js';
 import { childRefFor } from '../core/objects.js';
 import { addChildToDna } from '../core/dna.js';
+import { screenshotSource } from '../core/site.js';
 import { expect, expectStatus } from './runner.js';
 
 // Die Beschreibung des Test-Werkzeugs (Code-Art "werkzeug")
@@ -1613,6 +1614,27 @@ return { uuid: kopie.uuid, left: austritt.left };`
             const anon = await api.get(`/api/sites/${ctx.domainName}/vorschau`, { anonymous: true });
             expectStatus(anon, 404, 'Vorschau als anonymer Besucher');
             return `${meta.address} · ${meta.notPublic.length} Teil(e) noch privat`;
+        }
+    },
+    // Plan "Screenshots in der Vorschau", S3: ein Bild aus einem echten Browser (Cloudflare)
+    {
+        id: 'site-screenshot',
+        group: 'Website',
+        title: 'Screenshot der Vorschau: Bild + Fehler aus der Browser-Konsole (Cloudflare)',
+        needs: ['domainName'],
+        run: async ctx => {
+            const bad = await api.get(`/api/sites/${ctx.domainName}/vorschau`, { query: { screenshot: 'riesig' } });
+            expectStatus(bad, 400, 'falscher Wert');
+            const r = await api.get(`/api/sites/${ctx.domainName}/vorschau`, { query: { screenshot: 'mobile' } });
+            // Gäste bekommen keine Screenshots (kostet Geld) – dann ist hier nichts zu prüfen
+            if (r.status === 403) return 'nur mit Login prüfbar – übersprungen';
+            expectStatus(r, 200, 'Vorschau mit Screenshot');
+            const shot = r.data?.meta?.screenshot || {};
+            if (/nicht eingerichtet/.test(shot.error || '')) return 'Cloudflare-Schlüssel fehlt hier – übersprungen';
+            expect(!shot.error, `Screenshot: ${shot.error}`, r);
+            expect(screenshotSource(shot) !== null, 'Kein gültiges Bild', r);
+            expect(Array.isArray(shot.consoleErrors), 'consoleErrors fehlt', r);
+            return `${shot.width}×${shot.height} ${shot.mimeType}, ${shot.consoleErrors.length} Konsolen-Meldung(en)`;
         }
     },
     {

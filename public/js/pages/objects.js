@@ -66,6 +66,7 @@ import {
     formatBytes,
     RESERVED_SITE_NAMES,
     webhookStatusText,
+    screenshotSource,
     customDomainStatusText,
     dnsNameHint,
     customDomainInputProblem
@@ -1895,6 +1896,73 @@ const renderCustomDomainCard = async (box, o) => {
     await load();
 };
 
+// ------------------------------------------------------------------
+// KARTE "SCREENSHOT" (Plan "Screenshots in der Vorschau", S3)
+// Cloudflare öffnet die Vorschau (mit DEINEN Rechten zusammengesetzt) in einem
+// echten Browser: Bild + Fehler aus der Browser-Konsole. Live-Daten aus SSFs
+// fehlen noch (Stufe S2) – die Karte sagt, wie viele Aufrufe ausgelassen wurden.
+// ------------------------------------------------------------------
+const renderScreenshotCard = (box, name) => {
+    const out = h('div');
+    const take = viewport => async () => {
+        mount(out, spinner('Cloudflare macht den Screenshot …'));
+        const res = await api.get(`/api/sites/${encodeURIComponent(name)}/vorschau`, {
+            query: { screenshot: viewport }
+        });
+        if (!res.ok) return mount(out, resultLine(res));
+        const shot = res.data.meta?.screenshot || {};
+        if (shot.error) return mount(out, callout('warn', 'Kein Screenshot: ', shot.error));
+        const src = screenshotSource(shot);
+        const errors = Array.isArray(shot.consoleErrors) ? shot.consoleErrors : [];
+        mount(
+            out,
+            src
+                ? h('img', {
+                      src,
+                      alt: `Screenshot (${viewport === 'mobile' ? 'Handy' : 'Desktop'})`,
+                      style: `display:block;max-width:${viewport === 'mobile' ? '390px' : '100%'};border:1px solid var(--border);border-radius:8px;margin:12px 0`
+                  })
+                : callout('warn', 'Das Bild ist ungültig.'),
+            errors.length
+                ? callout(
+                      'warn',
+                      `${errors.length} Meldung(en) aus der Browser-Konsole:`,
+                      h(
+                          'ul',
+                          { class: 'small' },
+                          errors.map(e => h('li', {}, h('code', {}, String(e.kind)), ' ', String(e.message)))
+                      )
+                  )
+                : callout('ok', 'Keine Fehler in der Browser-Konsole.'),
+            shot.blockedLiveCalls
+                ? callout(
+                      'info',
+                      `${shot.blockedLiveCalls} Aufruf(e) an /_at0mic/… `,
+                      'liefen im Screenshot nicht – Daten aus Server-Funktionen und das Login fehlen hier noch.'
+                  )
+                : null
+        );
+    };
+    mount(
+        box,
+        card(
+            {
+                title: 'Screenshot',
+                icon: 'search',
+                subtitle:
+                    'So sieht die Website in einem echten Browser aus (mit deinen Rechten zusammengesetzt, auch Privates) – dazu Fehler aus der Browser-Konsole. Höchstens 30 pro Stunde.'
+            },
+            h(
+                'div',
+                { class: 'row gap-s wrap' },
+                busyButton('Desktop', take('desktop'), { className: 'btn' }),
+                busyButton('Handy', take('mobile'), { className: 'btn' })
+            ),
+            out
+        )
+    );
+};
+
 const renderSiteTab = (box, o, objects, { onTab }) => {
     const status = siteStatus(o, objects);
 
@@ -2011,6 +2079,9 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
     // Eigene Domain (Plan "SSF-Ausbau", D3): eigene Karte unter der Website-Karte
     const domainBox = h('div');
     renderCustomDomainCard(domainBox, o);
+    // Screenshot (Plan "Screenshots in der Vorschau", S3)
+    const screenshotBox = h('div');
+    renderScreenshotCard(screenshotBox, status.name);
     mount(
         box,
         card(
@@ -2091,6 +2162,7 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
                 )
             )
         ),
+        screenshotBox,
         domainBox
     );
 };

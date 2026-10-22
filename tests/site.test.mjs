@@ -21,7 +21,8 @@ import {
     hiddenNames,
     bauplanFiles,
     fileUrl,
-    formatBytes
+    formatBytes,
+    screenshotSource
 } from '../public/js/core/site.js';
 
 const require = createRequire(import.meta.url);
@@ -648,5 +649,22 @@ describe('Eigene Domains: Helfer für die Karte (Etappe D3)', () => {
         assert.match(customDomainInputProblem('shop.at0mic.site'), /Adressen von at0mic/);
         assert.match(customDomainInputProblem('www.grüne.ch'), /Nur Buchstaben/);
         assert.match(customDomainInputProblem(''), /Bitte eine Domain/);
+    });
+});
+
+// Plan "Screenshots in der Vorschau", S3: nur echte Bilder anzeigen
+describe('screenshotSource', () => {
+    test('JPEG/PNG in Base64 -> Bild-Adresse', () => {
+        assert.equal(
+            screenshotSource({ mimeType: 'image/jpeg', base64: '/9j/AA==' }),
+            'data:image/jpeg;base64,/9j/AA=='
+        );
+        assert.equal(screenshotSource({ mimeType: 'image/png', base64: 'iVBOR' }), 'data:image/png;base64,iVBOR');
+    });
+    test('alles andere: null (nichts blind übernehmen)', () => {
+        assert.equal(screenshotSource(null), null);
+        assert.equal(screenshotSource({ mimeType: 'text/html', base64: 'PHA+' }), null);
+        assert.equal(screenshotSource({ mimeType: 'image/png', base64: 'abc"><script>' }), null);
+        assert.equal(screenshotSource({ mimeType: 'image/png' }), null);
     });
 });

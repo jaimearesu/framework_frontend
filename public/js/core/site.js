@@ -119,3 +119,15 @@ export const customDomainInputProblem = value => {
         return 'Adressen von at0mic kann man nicht verbinden.';
     return null;
 };
+
+// ---------------------------------------------------------------------
+// SCREENSHOT (Plan "Screenshots in der Vorschau", S3) – reine Funktion, getestet
+// Aus meta.screenshot eine Bild-Adresse machen – aber nur, wenn es wirklich ein
+// JPEG/PNG in Base64 ist (das Bild kommt von Cloudflare, nie blind übernehmen).
+// ---------------------------------------------------------------------
+const SCREENSHOT_TYPES = ['image/jpeg', 'image/png'];
+export const screenshotSource = shot => {
+    if (!shot || !SCREENSHOT_TYPES.includes(shot.mimeType)) return null;
+    if (typeof shot.base64 !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(shot.base64)) return null;
+    return `data:${shot.mimeType};base64,${shot.base64}`;
+};
