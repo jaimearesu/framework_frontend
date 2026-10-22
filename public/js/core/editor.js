@@ -31,6 +31,7 @@ export const MODES = {
     css: 'css',
     javascript: 'javascript',
     ssf: 'javascript',
+    library: 'javascript', // Bibliothek (Restaurant-Test, E6)
     syntax: { name: 'javascript', json: true },
     data: { name: 'javascript', json: true }
 };

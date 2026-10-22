@@ -15,7 +15,8 @@
 //   ├── lager                Datensätze { sku, bestand }
 //   │                        + Relation produkte --"lager"--> lager (für Joins)
 //   ├── nachrichten          leer (Kontaktformular schreibt hierhin)
-//   └── bestellungen         leer (Bestell-Beispiel schreibt hierhin)
+//   ├── bestellungen         leer (Bestell-Beispiel schreibt hierhin)
+//   └── helfer               eine Bibliothek (Code-Art library) – Beispiel 12
 //
 // Aufbau eines Beispiels:
 //   id, title, level (Einstieg | Fortgeschritten | Profi), summary,
@@ -596,6 +597,50 @@ return {
 ];
 
 // Platzhalter ersetzen (reine Funktion, getestet)
+// (Das Beispiel "Bibliothek" steht am Ende der Liste – siehe EXAMPLES.push unten.)
 export const fillExample = (code, { shop }) => String(code).replaceAll('{{SHOP}}', shop || 'meine-domain');
 
 export const findExample = id => EXAMPLES.find(e => e.id === id) || null;
+
+// ------------------------------------------------------------------
+// 12) BIBLIOTHEK (Plan "Lehren aus dem Restaurant-Test", E6)
+EXAMPLES.push({
+    id: 'bibliothek',
+    title: 'Bibliothek',
+    level: 'Fortgeschritten',
+    summary: 'Gemeinsamen Code aus einer Bibliothek laden statt ihn in jede SSF zu kopieren.',
+    learn: [
+        'Eine Bibliothek ist ein Objekt mit der Code-Art „Bibliothek“ (library) – hier das Kind „helfer“',
+        'api.lib.load lädt sie: exports.chf = … wird zu helfer.chf',
+        'Die Bibliothek läuft IN dieser SSF – mit ihren Rechten (darum darf sie api.data benutzen)',
+        'Aus einer fremden Domain nur mit angehefteter Version: { version: 3 }'
+    ],
+    tools: ['lib.load'],
+    body: { menge: 3, preis: 19.9 },
+    presets: {
+        '3 Stück': { menge: 3, preis: 19.9 },
+        'Zu viele': { menge: 50, preis: 19.9 }
+    },
+    code: `// 12) BIBLIOTHEK
+// Den Code der Bibliothek siehst du unter "Code & DNA" beim Kind "helfer" (Reiter Bibliothek).
+let helfer;
+try {
+    helfer = await api.lib.load('{{SHOP}}/helfer');
+} catch (e) {
+    if (e.code === 'NOT_FOUND') {
+        return { fehler: 'Deine Spielwiese ist älter als die Bibliotheken – bitte eine neue anlegen.' };
+    }
+    throw e;
+}
+
+const { menge, preis } = requestContext.body || {};
+if (!helfer.pruefeMenge(menge)) {
+    return { ok: false, fehler: 'Menge muss 1 bis 20 sein.' };
+}
+return {
+    ok: true,
+    total: helfer.chf(menge * preis),
+    produkteImShop: await helfer.anzahlProdukte('{{SHOP}}')
+};
+`
+});

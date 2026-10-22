@@ -38,6 +38,11 @@ export const TOOL_GROUPS = [
         text: 'Lange Arbeit Stück für Stück: viele kurze Durchläufe einer SSF mit Merkzettel – übersteht Fehler und Neustarts (Reiter „Aufträge“ eines Objekts).'
     },
     {
+        id: 'lib',
+        title: 'Bibliotheken',
+        text: 'Gemeinsamer Code mehrerer SSFs: einmal als Objekt mit der Code-Art „Bibliothek“ ablegen, in jeder SSF laden.'
+    },
+    {
         id: 'crypto',
         title: 'Sicherer Zufall',
         text: 'Geheime Tokens und IDs, die niemand erraten kann – für Geheimes nie Math.random() benutzen.'
@@ -295,6 +300,16 @@ export const TOOLS = [
         returns: 'der Auftrag danach (status cancelled, wenn er noch offen war)',
         text: 'Bricht einen Auftrag ab. Ein wartender startet nie mehr; ein laufender Durchlauf rechnet zu Ende, sein Ergebnis wird verworfen.',
         snippet: 'await api.jobs.cancel(auftrag.id);\n'
+    },
+    {
+        name: 'lib.load',
+        group: 'lib',
+        signature: 'ziel, { version }',
+        role: 'black',
+        budget: 'libraries (max. 10 pro Ausführung, je 256 KB)',
+        returns: 'was die Bibliothek exportiert (exports.x = … wird zu helfer.x)',
+        text: "Lädt eine Bibliothek (Code-Art library) und führt sie in DIESER SSF aus – mit deren Rechten. Ohne version die neueste. Aus einer fremden Domain nur mit angehefteter Version (sonst e.code 'VERSION_REQUIRED'), damit ihr Besitzer den Code nicht nachträglich ändern kann.",
+        snippet: "const helfer = await api.lib.load('shop/helfer');\nreturn helfer.chf(12.5);\n"
     },
     {
         name: 'crypto.randomToken',
