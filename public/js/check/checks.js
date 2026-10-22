@@ -64,10 +64,11 @@ const RECORDS = [
 ];
 
 // SSF speichern und ausführen (Hilfsfunktion für mehrere Prüfungen)
-const runSsf = async (ctx, code, body = {}) => {
+// query: z.B. '?as=anonymous' (Plan "Lehren aus dem Restaurant-Test", E2)
+const runSsf = async (ctx, code, body = {}, query = '') => {
     const save = await api.post(`/api/ast/${ctx.funktion}`, { snippets: [{ type: 'ssf', code }] });
     expectStatus(save, 201, 'SSF speichern');
-    return api.post(`/api/functions/${ctx.funktion}/executions`, body);
+    return api.post(`/api/functions/${ctx.funktion}/executions${query}`, body);
 };
 
 // Eine SSF MUSS mit einer bestimmten Meldung scheitern (422)
@@ -1038,6 +1039,92 @@ export const CHECKS = [
                 /reserviert/,
                 '_sys_id schreiben'
             )
+    },
+    // Plan "Lehren aus dem Restaurant-Test", E4: Schlüssel und "nur wenn" (Migration 020)
+    {
+        id: 'ssf-data-key',
+        group: 'SSF',
+        title: 'Schlüssel: derselbe Schlüssel nur einmal pro Speicher (KEY_TAKEN)',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `const ziel = '${ctx.domainName}/daten';
+                 const key = 'check|' + (await api.crypto.randomToken(16, 'hex'));
+                 const eins = await api.data.insert(ziel, { check: 'schluessel' }, { key });
+                 let zwei = null;
+                 try { await api.data.insert(ziel, { check: 'schluessel' }, { key }); } catch (e) { zwei = e.code; }
+                 const gefunden = await api.data.getByKey(ziel, key);
+                 const weg = await api.data.deleteByKey(ziel, key);
+                 return { eins: eins._sys_key === key, zwei, gefunden: gefunden && gefunden._sys_id === eins._sys_id, weg: weg.deleted };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const x = r.data.result;
+            expect(x.eins && x.zwei === 'KEY_TAKEN' && x.gefunden && x.weg, JSON.stringify(x), r);
+            return 'zweiter Versuch: KEY_TAKEN';
+        }
+    },
+    {
+        id: 'ssf-data-onlyif',
+        group: 'SSF',
+        title: 'Nur wenn noch: onlyIf schaltet einen Status nur einmal weiter',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `const ziel = '${ctx.domainName}/daten';
+                 const neu = await api.data.insert(ziel, { check: 'onlyif', status: 'eingegangen' });
+                 const ok = await api.data.update(ziel, neu._sys_id, { status: 'fertig' }, { onlyIf: { status: 'eingegangen' } });
+                 let nochmals = null;
+                 try { await api.data.update(ziel, neu._sys_id, { status: 'fertig' }, { onlyIf: { status: 'eingegangen' } }); }
+                 catch (e) { nochmals = e.code; }
+                 await api.data.delete(ziel, neu._sys_id);
+                 return { status: ok.status, nochmals };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            expect(
+                r.data.result.status === 'fertig' && r.data.result.nochmals === 'CONDITION_FAILED',
+                JSON.stringify(r.data.result),
+                r
+            );
+            return 'zweites Mal: CONDITION_FAILED';
+        }
+    },
+    // Plan "Lehren aus dem Restaurant-Test", E2: sicherer Zufall und anonym testen
+    {
+        id: 'ssf-crypto',
+        group: 'SSF',
+        title: 'Sicherer Zufall: api.crypto.randomToken und randomUuid',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                'return { a: await api.crypto.randomToken(), b: await api.crypto.randomToken(), id: await api.crypto.randomUuid() };'
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const { a, b, id } = r.data.result;
+            expect(/^[A-Za-z0-9_-]{43}$/.test(a) && a !== b, `Tokens: ${a} / ${b}`, r);
+            expect(/^[0-9a-f-]{36}$/.test(id), `UUID: ${id}`, r);
+            return '43 Zeichen, jedes Mal anders';
+        }
+    },
+    {
+        id: 'ssf-run-anonymous',
+        group: 'SSF',
+        title: 'Als anonymer Besucher ausführen (?as=anonymous)',
+        needs: ['funktion'],
+        run: async ctx => {
+            const code = 'return { user: requestContext.userUuid };';
+            const normal = await runSsf(ctx, code);
+            expectStatus(normal, 200, 'normal');
+            expect(normal.data.result.user !== null, 'normal: kein Besucher', normal);
+            const anonym = await runSsf(ctx, code, {}, '?as=anonymous');
+            expectStatus(anonym, 200, 'anonym');
+            expect(anonym.data.result.user === null, `anonym: ${anonym.data.result.user}`, anonym);
+            const falsch = await runSsf(ctx, code, {}, '?as=jemand');
+            expectStatus(falsch, 400, 'as=jemand');
+            return 'anonym: userUuid null, nur "anonymous" erlaubt';
+        }
     },
     {
         id: 'ssf-no-globals',

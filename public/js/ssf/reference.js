@@ -36,6 +36,11 @@ export const TOOL_GROUPS = [
         id: 'jobs',
         title: 'Hintergrund-Aufträge',
         text: 'Lange Arbeit Stück für Stück: viele kurze Durchläufe einer SSF mit Merkzettel – übersteht Fehler und Neustarts (Reiter „Aufträge“ eines Objekts).'
+    },
+    {
+        id: 'crypto',
+        title: 'Sicherer Zufall',
+        text: 'Geheime Tokens und IDs, die niemand erraten kann – für Geheimes nie Math.random() benutzen.'
     }
 ];
 
@@ -62,21 +67,21 @@ export const TOOLS = [
     {
         name: 'data.insert',
         group: 'data',
-        signature: 'ziel, datensatz | [datensätze]',
+        signature: 'ziel, datensatz | [datensätze], { key | keys, onlyIfNone }',
         role: 'red',
         budget: 'writes (je Datensatz 1, max. 500)',
-        returns: '{ _sys_id, _sys_created_at } bzw. eine Liste davon',
-        text: 'Einen oder mehrere Datensätze anlegen – alles oder nichts. Felder mit _sys_ sind reserviert, Felder mit null werden nicht gespeichert.',
+        returns: '{ _sys_id, _sys_created_at, _sys_key? } bzw. eine Liste davon',
+        text: "Einen oder mehrere Datensätze anlegen – alles oder nichts. Felder mit _sys_ sind reserviert, Felder mit null werden nicht gespeichert. Sicher auch bei gleichzeitigen Anfragen: key = Schlüssel, den es pro Speicher nur einmal gibt (sonst Fehler mit e.code 'KEY_TAKEN'); onlyIfNone = Filter wie bei find, gespeichert wird nur, wenn nichts passt (sonst 'ALREADY_EXISTS') – z.B. gegen überlappende Reservationen.",
         snippet: "const neu = await api.data.insert('shop/nachrichten', { name: 'Anna', text: 'Hallo' });\n"
     },
     {
         name: 'data.update',
         group: 'data',
-        signature: 'ziel, datensatzId, änderungen',
+        signature: 'ziel, datensatzId, änderungen, { onlyIf }',
         role: 'red',
         budget: 'writes (1)',
         returns: 'der ganze Datensatz nach der Änderung',
-        text: 'Nur die angegebenen Felder ändern. null löscht ein Feld.',
+        text: "Nur die angegebenen Felder ändern. null löscht ein Feld. Mit onlyIf nur, wenn die Felder noch genau diese Werte haben (sonst e.code 'CONDITION_FAILED') – z.B. Status nur von 'eingegangen' auf 'in Zubereitung'.",
         snippet: "const geaendert = await api.data.update('shop/lager', id, { bestand: 7 });\n"
     },
     {
@@ -88,6 +93,45 @@ export const TOOLS = [
         returns: '{ deleted: true }',
         text: 'Einen Datensatz löschen.',
         snippet: "await api.data.delete('shop/nachrichten', id);\n"
+    },
+    {
+        name: 'data.getByKey',
+        group: 'data',
+        signature: 'ziel, key',
+        role: 'black',
+        returns: '{ _sys_id, _sys_key, _sys_created_at, …felder } oder null',
+        text: 'Einen Datensatz über seinen Schlüssel holen (schnell, der Schlüssel ist eindeutig pro Speicher).',
+        snippet: "const buchung = await api.data.getByKey('resto/buchungen', 'tisch5|2026-10-24|19:00');\n"
+    },
+    {
+        name: 'data.updateByKey',
+        group: 'data',
+        signature: 'ziel, key, änderungen, { onlyIf }',
+        role: 'red',
+        budget: 'writes (1)',
+        returns: 'der ganze Datensatz nach der Änderung',
+        text: "Wie update, nur über den Schlüssel. Gibt es ihn nicht: e.code 'NOT_FOUND'.",
+        snippet: "await api.data.updateByKey('resto/buchungen', key, { bestaetigt: true });\n"
+    },
+    {
+        name: 'data.deleteByKey',
+        group: 'data',
+        signature: 'ziel, key',
+        role: 'red',
+        budget: 'writes (1)',
+        returns: '{ deleted: true | false }',
+        text: 'Über den Schlüssel löschen. false = es gab ihn nicht (mehr) – kein Fehler.',
+        snippet: "await api.data.deleteByKey('resto/buchungen', key);\n"
+    },
+    {
+        name: 'data.upsert',
+        group: 'data',
+        signature: 'ziel, key, daten',
+        role: 'red',
+        budget: 'writes (1)',
+        returns: '{ _sys_id, _sys_key, _sys_created_at, created }',
+        text: 'Anlegen oder GANZ ersetzen: Gibt es den Schlüssel schon, bekommt der Datensatz genau diese Daten (ID bleibt). Gut für Einstellungen oder den aktuellen Stand von etwas.',
+        snippet: "await api.data.upsert('resto/einstellungen', 'oeffnungszeiten', { mo: '11–22' });\n"
     },
     {
         name: 'objects.get',
@@ -251,6 +295,25 @@ export const TOOLS = [
         returns: 'der Auftrag danach (status cancelled, wenn er noch offen war)',
         text: 'Bricht einen Auftrag ab. Ein wartender startet nie mehr; ein laufender Durchlauf rechnet zu Ende, sein Ergebnis wird verworfen.',
         snippet: 'await api.jobs.cancel(auftrag.id);\n'
+    },
+    {
+        name: 'crypto.randomToken',
+        group: 'crypto',
+        signature: "bytes = 32, encoding = 'base64url' | 'hex'",
+        role: '– (braucht keine Rechte)',
+        returns: 'Text, z.B. 43 Zeichen (32 Byte als base64url)',
+        text: 'Ein geheimer Zufalls-Text aus dem Zufall des Servers – für Tisch-Tokens, Einladungs-Links oder Bestätigungs-Codes. bytes 16 bis 64. base64url enthält nur Buchstaben, Ziffern, - und _ und passt direkt in eine Adresse.',
+        snippet:
+            "const token = await api.crypto.randomToken();\nconst link = 'https://mein-restaurant.at0mic.site/tisch?t=' + token;\n"
+    },
+    {
+        name: 'crypto.randomUuid',
+        group: 'crypto',
+        signature: '(keine Angaben)',
+        role: '– (braucht keine Rechte)',
+        returns: 'UUID (Version 4)',
+        text: 'Eine zufällige UUID, z.B. als eigene ID für einen Datensatz.',
+        snippet: 'const id = await api.crypto.randomUuid();\n'
     }
 ];
 

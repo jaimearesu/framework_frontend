@@ -5,7 +5,14 @@
 // ---------------------------------------------------------------------
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { splitHtmlDocument, placeChildren, buildPreviewDocument, htmlLang } from '../public/js/core/preview.js';
+import {
+    splitHtmlDocument,
+    placeChildren,
+    buildPreviewDocument,
+    htmlLang,
+    childBodyWarning,
+    tagAttributes
+} from '../public/js/core/preview.js';
 
 describe('preview: splitHtmlDocument', () => {
     test('holt body und head aus einem ganzen Dokument (so liefert es das Backend)', () => {
@@ -88,8 +95,54 @@ describe('preview: Kopf der Seite', () => {
     });
 
     test('ohne Angaben: Standard-Kopf, ungültiges lang wird ignoriert', () => {
+        // Seit E1 (22.10.) bleiben die übrigen Angaben an <html> (hier onload) – nur lang wird geprüft
         const doc = buildPreviewDocument({ html: '<html lang="x" onload="y"><body>x</body></html>' });
-        assert.match(doc, /^<!doctype html><html><head>\n<meta charset="utf-8">/);
+        assert.match(doc, /^<!doctype html><html onload="y"><head>\n<meta charset="utf-8">/);
         assert.equal(htmlLang('<html lang="fr-CH">'), 'fr-CH');
+    });
+});
+
+// Plan "Lehren aus dem Restaurant-Test", E1 (22.10.): gleiche Regeln wie beim Ausliefern
+describe('preview: nichts geht still verloren (E1)', () => {
+    const ROOT =
+        '<html lang="de" class="hell"><head><title>R</title><link rel="preconnect" href="https://fonts.gstatic.com"></head><body class="dunkel"><main>x</main></body></html>';
+
+    test('Kopf der Wurzel und der Kinder, Angaben an <html>/<body> der Wurzel', () => {
+        const warnings = [];
+        const doc = buildPreviewDocument({
+            html: ROOT,
+            body: '<main>zusammengesetzt</main>',
+            childHeads: [
+                {
+                    identifier: 'kueche',
+                    head: '<title>K</title><link rel="preconnect" href="https://fonts.gstatic.com"><link rel="stylesheet" href="https://fonts.example/a.css">'
+                }
+            ],
+            warnings
+        });
+        assert.match(doc, /<html lang="de" class="hell">/);
+        assert.match(doc, /<\/head><body class="dunkel">/);
+        assert.match(doc, /<title>R<\/title>/);
+        assert.match(doc, /fonts\.example\/a\.css/);
+        assert.doesNotMatch(doc, /<title>K<\/title>/);
+        assert.equal(doc.match(/fonts\.gstatic\.com/g).length, 1);
+        assert.match(doc, /<main>zusammengesetzt<\/main>/);
+        assert.equal(warnings.length, 1);
+        assert.match(warnings[0], /"kueche": <title>/);
+    });
+
+    test('ohne body: wie bisher der eigene <body>-Inhalt', () => {
+        assert.match(buildPreviewDocument({ html: ROOT }), /<body class="dunkel">\n<main>x<\/main>/);
+    });
+
+    test('childBodyWarning und Plätze', () => {
+        assert.match(childBodyWarning('k', '<body id="x">'), /\(id\)/);
+        const unplaced = [];
+        placeChildren('<div data-slot="a"></div>', [{ identifier: 'b', html: 'B' }], unplaced);
+        assert.deepEqual(unplaced, ['b']);
+        assert.deepEqual(tagAttributes('<html lang="de" data-x>', 'html'), [
+            { name: 'lang', value: 'de' },
+            { name: 'data-x', value: null }
+        ]);
     });
 });

@@ -99,7 +99,9 @@ import {
     createPreviewFrame,
     previewConsole,
     splitHtmlDocument,
-    placeChildren
+    placeChildren,
+    childBodyWarning,
+    tidyWarnings
 } from '../core/preview.js';
 
 // Passendes Objekt zu einem DNA-Knoten finden (für anklickbare Bäume)
@@ -343,11 +345,23 @@ const composeObject = async (rootObject, objects) => {
     const treeRes = await api.get(`/api/ast/${rootObject.uuid}/tree`);
     const tree = treeRes.ok ? treeRes.data?.tree : null;
 
-    const visit = async (node, obj) => {
+    // Plan E1 (Restaurant-Test 22.10.): Köpfe der Kinder und Warnungen – wie beim Ausliefern
+    const childHeads = [];
+    const warnings = [];
+    let rootHtml = '';
+
+    const visit = async (node, obj, isRoot) => {
         if (used.length >= MAX_PREVIEW_OBJECTS) return { html: '', css: [], js: [] };
         used.push(obj);
         const code = await getCode(obj.uuid);
         const own = splitHtmlDocument(code.html || '');
+        const name = node?.identifier ?? 'Wurzel';
+        if (isRoot) rootHtml = code.html || '';
+        else {
+            childHeads.push({ identifier: name, head: own.head });
+            const bodyWarning = childBodyWarning(name, code.html || '');
+            if (bodyWarning) warnings.push(bodyWarning);
+        }
         const parts = [];
         const css = [code.css || ''];
         const js = [code.javascript || ''];
@@ -357,16 +371,25 @@ const composeObject = async (rootObject, objects) => {
                 missing.push(child.identifier || JSON.stringify(child.source));
                 continue;
             }
-            const sub = await visit(child, childObj);
+            const sub = await visit(child, childObj, false);
             parts.push({ identifier: child.identifier, html: sub.html });
             css.push(...sub.css);
             js.push(...sub.js);
         }
-        return { html: placeChildren(own.body, parts), head: own.head, css, js };
+        const unplaced = [];
+        const html = placeChildren(own.body, parts, unplaced);
+        if (unplaced.length > 0 && /\sdata-slot=/i.test(own.body)) {
+            for (const id of unplaced) {
+                warnings.push(
+                    `Kind "${id}": kein Platz <div data-slot="${id}"> im HTML von "${name}" – es steht darunter angehängt.`
+                );
+            }
+        }
+        return { html, head: own.head, css, js };
     };
 
-    const result = await visit(tree, rootObject);
-    return { ...result, used, missing };
+    const result = await visit(tree, rootObject, true);
+    return { ...result, rootHtml, childHeads, warnings, used, missing };
 };
 
 const renderComposedPreview = async (box, o, objects, { height = '520px', compact = false } = {}) => {
@@ -375,6 +398,16 @@ const renderComposedPreview = async (box, o, objects, { height = '520px', compac
     const composed = await composeObject(o, objects);
     const pConsole = previewConsole();
     currentPreview = createPreviewFrame({ onMessage: pConsole.add, height });
+    // Die Seite zuerst bauen: dabei kommen noch die Warnungen zu den Köpfen dazu
+    const doc = buildPreviewDocument({
+        html: composed.rootHtml,
+        body: composed.html,
+        css: composed.css,
+        js: composed.js,
+        childHeads: composed.childHeads,
+        warnings: composed.warnings
+    });
+    const warnings = tidyWarnings(composed.warnings);
 
     mount(
         box,
@@ -400,10 +433,21 @@ const renderComposedPreview = async (box, o, objects, { height = '520px', compac
         composed.missing.length
             ? callout('warn', 'Nicht sichtbar:', ` ${composed.missing.join(', ')} (keine Rechte oder nicht gefunden).`)
             : null,
+        warnings.length
+            ? callout(
+                  'warn',
+                  'Wirkt nicht wie erwartet:',
+                  h(
+                      'ul',
+                      { class: 'small' },
+                      warnings.map(w => h('li', {}, w))
+                  )
+              )
+            : null,
         currentPreview.frame,
         pConsole.el
     );
-    currentPreview.show(buildPreviewDocument({ html: composed.html, css: composed.css, js: composed.js }));
+    currentPreview.show(doc);
 };
 
 // --- Reiter "Vorschau" ---
