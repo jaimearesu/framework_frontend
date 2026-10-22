@@ -80,8 +80,10 @@ describe('ssf: Beispiel-Bibliothek', () => {
 });
 
 describe('ssf: Werkzeug-Referenz', () => {
-    test('alle 22 Werkzeuge des Backends sind beschrieben', () => {
+    test('alle 24 Werkzeuge des Backends sind beschrieben', () => {
         assert.deepEqual(TOOLS.map(t => t.name).sort(), [
+            'crypto.randomToken',
+            'crypto.randomUuid',
             'data.delete',
             'data.find',
             'data.get',

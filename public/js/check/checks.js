@@ -64,10 +64,11 @@ const RECORDS = [
 ];
 
 // SSF speichern und ausführen (Hilfsfunktion für mehrere Prüfungen)
-const runSsf = async (ctx, code, body = {}) => {
+// query: z.B. '?as=anonymous' (Plan "Lehren aus dem Restaurant-Test", E2)
+const runSsf = async (ctx, code, body = {}, query = '') => {
     const save = await api.post(`/api/ast/${ctx.funktion}`, { snippets: [{ type: 'ssf', code }] });
     expectStatus(save, 201, 'SSF speichern');
-    return api.post(`/api/functions/${ctx.funktion}/executions`, body);
+    return api.post(`/api/functions/${ctx.funktion}/executions${query}`, body);
 };
 
 // Eine SSF MUSS mit einer bestimmten Meldung scheitern (422)
@@ -1038,6 +1039,42 @@ export const CHECKS = [
                 /reserviert/,
                 '_sys_id schreiben'
             )
+    },
+    // Plan "Lehren aus dem Restaurant-Test", E2: sicherer Zufall und anonym testen
+    {
+        id: 'ssf-crypto',
+        group: 'SSF',
+        title: 'Sicherer Zufall: api.crypto.randomToken und randomUuid',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                'return { a: await api.crypto.randomToken(), b: await api.crypto.randomToken(), id: await api.crypto.randomUuid() };'
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const { a, b, id } = r.data.result;
+            expect(/^[A-Za-z0-9_-]{43}$/.test(a) && a !== b, `Tokens: ${a} / ${b}`, r);
+            expect(/^[0-9a-f-]{36}$/.test(id), `UUID: ${id}`, r);
+            return '43 Zeichen, jedes Mal anders';
+        }
+    },
+    {
+        id: 'ssf-run-anonymous',
+        group: 'SSF',
+        title: 'Als anonymer Besucher ausführen (?as=anonymous)',
+        needs: ['funktion'],
+        run: async ctx => {
+            const code = 'return { user: requestContext.userUuid };';
+            const normal = await runSsf(ctx, code);
+            expectStatus(normal, 200, 'normal');
+            expect(normal.data.result.user !== null, 'normal: kein Besucher', normal);
+            const anonym = await runSsf(ctx, code, {}, '?as=anonymous');
+            expectStatus(anonym, 200, 'anonym');
+            expect(anonym.data.result.user === null, `anonym: ${anonym.data.result.user}`, anonym);
+            const falsch = await runSsf(ctx, code, {}, '?as=jemand');
+            expectStatus(falsch, 400, 'as=jemand');
+            return 'anonym: userUuid null, nur "anonymous" erlaubt';
+        }
     },
     {
         id: 'ssf-no-globals',

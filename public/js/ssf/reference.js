@@ -36,6 +36,11 @@ export const TOOL_GROUPS = [
         id: 'jobs',
         title: 'Hintergrund-Aufträge',
         text: 'Lange Arbeit Stück für Stück: viele kurze Durchläufe einer SSF mit Merkzettel – übersteht Fehler und Neustarts (Reiter „Aufträge“ eines Objekts).'
+    },
+    {
+        id: 'crypto',
+        title: 'Sicherer Zufall',
+        text: 'Geheime Tokens und IDs, die niemand erraten kann – für Geheimes nie Math.random() benutzen.'
     }
 ];
 
@@ -251,6 +256,25 @@ export const TOOLS = [
         returns: 'der Auftrag danach (status cancelled, wenn er noch offen war)',
         text: 'Bricht einen Auftrag ab. Ein wartender startet nie mehr; ein laufender Durchlauf rechnet zu Ende, sein Ergebnis wird verworfen.',
         snippet: 'await api.jobs.cancel(auftrag.id);\n'
+    },
+    {
+        name: 'crypto.randomToken',
+        group: 'crypto',
+        signature: "bytes = 32, encoding = 'base64url' | 'hex'",
+        role: '– (braucht keine Rechte)',
+        returns: 'Text, z.B. 43 Zeichen (32 Byte als base64url)',
+        text: 'Ein geheimer Zufalls-Text aus dem Zufall des Servers – für Tisch-Tokens, Einladungs-Links oder Bestätigungs-Codes. bytes 16 bis 64. base64url enthält nur Buchstaben, Ziffern, - und _ und passt direkt in eine Adresse.',
+        snippet:
+            "const token = await api.crypto.randomToken();\nconst link = 'https://mein-restaurant.at0mic.site/tisch?t=' + token;\n"
+    },
+    {
+        name: 'crypto.randomUuid',
+        group: 'crypto',
+        signature: '(keine Angaben)',
+        role: '– (braucht keine Rechte)',
+        returns: 'UUID (Version 4)',
+        text: 'Eine zufällige UUID, z.B. als eigene ID für einen Datensatz.',
+        snippet: 'const id = await api.crypto.randomUuid();\n'
     }
 ];
 
