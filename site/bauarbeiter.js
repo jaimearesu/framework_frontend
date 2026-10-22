@@ -39,7 +39,7 @@
 // Besuchers – so bremst das Backend pro Besucher (Etappe 2). Rechte gibt
 // der Schlüssel keine: Ohne Ausweis ist nur online, was öffentlich ist.
 // ---------------------------------------------------------------------
-const { siteNameFromHost } = require('./host');
+const { classifyHost } = require('./host');
 const { resolveFile, contentTypeFor, extensionOf } = require('./files');
 const { BauplanCache } = require('./cache');
 const { MESSAGES, neutralPage, markdownPage, markdownTitle } = require('./pages');
@@ -152,6 +152,10 @@ const visitorIpOf = req => String(req.ip || '').replace(/^::ffff:(?=\d+\.\d+\.\d
  * @param {string} [options.loginUrl]   ÖFFENTLICHE Adresse des Backends für die Anmeldung
  *                                      (der Browser des Besuchers geht dorthin), z.B.
  *                                      "https://api.at0mic.ch". Ohne: Anmelden geht nicht.
+ * @param {string[]|null} [options.cockpitHosts]  EIGENE DOMAINS (Plan "SSF-Ausbau", D2):
+ *                                      Namen, unter denen das Cockpit läuft (z.B. at0mic.ch).
+ *                                      Alle anderen fremden Namen sind mögliche eigene Domains
+ *                                      von Kunden. null = aus (fremde Namen -> Cockpit, wie bisher).
  * @returns Express-Middleware: beantwortet Website-Anfragen, alles andere -> next()
  */
 const createBauarbeiter = ({
@@ -165,7 +169,8 @@ const createBauarbeiter = ({
     personalCache = new BauplanCache({ maxEntries: 1000 }),
     renderMarkdown = defaultRenderMarkdown,
     log = console,
-    loginUrl = null
+    loginUrl = null,
+    cockpitHosts = null
 }) => {
     // Laufende Anfragen pro Website: Kommen 10 Besucher gleichzeitig, fragt
     // der Bauarbeiter das Backend trotzdem nur EINMAL. (Nur für Anonyme –
@@ -177,6 +182,45 @@ const createBauarbeiter = ({
     // (der Ausweis selbst liegt so nie als Klartext im Arbeitsspeicher-Index)
     const personalKey = (name, token) => `${name}|${crypto.createHash('sha256').update(token).digest('hex')}`;
     const cookies = login.cookieNames(isProduction);
+
+    // ---------------------------------------------------------------------
+    // EIGENE DOMAINS (Plan "SSF-Ausbau", D2): Zu welcher Website gehört
+    // www.meinladen.ch? Das Backend weiss es (nur AKTIVE Domains). Die Antwort
+    // merken wir uns kurz – gefunden 60 s, nicht gefunden 30 s –, damit nicht
+    // jede Datei einer Seite nochmals fragt.
+    // Rückgabe: Name der Website, null (keine) oder undefined (Backend weg)
+    // ---------------------------------------------------------------------
+    const HOST_FOUND_MS = 60 * 1000;
+    const HOST_MISSING_MS = 30 * 1000;
+    const HOST_CACHE_MAX = 5000;
+    const SITE_NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+    const hostCache = new Map(); // hostname -> { name | null, until }
+    const lookupCustomHost = async hostname => {
+        const hit = hostCache.get(hostname);
+        if (hit && hit.until > Date.now()) return hit.name;
+        let name = null;
+        try {
+            const res = await fetchImpl(`${apiUrl}/api/sites/_host/${encodeURIComponent(hostname)}`, {
+                headers: backendHeaders(null, null),
+                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+            });
+            if (res.ok) {
+                const body = await res.json().catch(() => null);
+                const candidate = body && body.data && body.data.name;
+                name = typeof candidate === 'string' && SITE_NAME.test(candidate) ? candidate : null;
+            } else if (res.status !== 404) {
+                // Backend weg oder Schlüssel falsch: nicht merken, beim nächsten Mal nochmals fragen
+                log.warn(`[BAUARBEITER] Eigene Domain ${hostname}: Backend antwortet ${res.status}`);
+                return undefined;
+            }
+        } catch (error) {
+            log.warn(`[BAUARBEITER] Eigene Domain ${hostname}: Backend nicht erreichbar (${error.message})`);
+            return undefined;
+        }
+        if (hostCache.size >= HOST_CACHE_MAX) hostCache.clear(); // einfach und sicher: ganz leeren
+        hostCache.set(hostname, { name, until: Date.now() + (name ? HOST_FOUND_MS : HOST_MISSING_MS) });
+        return name;
+    };
 
     // Kopfzeilen für jede Anfrage ans Backend: Schlüssel, Besucher-IP und –
     // falls angemeldet – der Ausweis (zählt im Backend nur mit gültigem Schlüssel)
@@ -209,7 +253,15 @@ const createBauarbeiter = ({
         const tokenInvalid = tokenRejected(res);
 
         if (res.ok && body && body.data && typeof body.data.files === 'object') {
-            return { kind: 'site', bauplan: body.data, personal: !!(body.meta && body.meta.personal), tokenInvalid };
+            // customDomain (Plan "SSF-Ausbau", D2): aktive eigene Domain -> Umleitung, siehe unten
+            const customDomain =
+                body.meta && typeof body.meta.customDomain === 'string' ? body.meta.customDomain : null;
+            return {
+                kind: 'site',
+                bauplan: { ...body.data, customDomain },
+                personal: !!(body.meta && body.meta.personal),
+                tokenInvalid
+            };
         }
         if (res.status === 404) return { kind: 'missing', tokenInvalid };
         // Login auf Websites: privat (bitte anmelden) bzw. angemeldet ohne Recht
@@ -345,7 +397,7 @@ const createBauarbeiter = ({
     // ---------------------------------------------------------------------
 
     // GET /_at0mic/login?zurueck=/pfad – Anmeldung starten
-    const startLogin = (req, res, name) => {
+    const startLogin = (req, res, name, customHost = null) => {
         if (!loginUrl || !key) return sendPage(res, 'loginUnavailable');
         const state = login.newState();
         const returnPath = login.safeReturnPath(req.query.zurueck);
@@ -360,6 +412,8 @@ const createBauarbeiter = ({
         const target = new URL('/site-login', loginUrl);
         target.searchParams.set('site', name);
         target.searchParams.set('state', state);
+        // Auf einer eigenen Domain: dorthin zurück (das Backend prüft, ob sie zur Website gehört)
+        if (customHost) target.searchParams.set('host', customHost);
         return res.redirect(302, target.href);
     };
 
@@ -451,7 +505,7 @@ const createBauarbeiter = ({
     };
 
     // Die Anmelde-Adressen: /_at0mic/<aktion> -> true, wenn beantwortet
-    const handleLoginRoute = async (req, res, name, token) => {
+    const handleLoginRoute = async (req, res, name, token, customHost = null) => {
         const action = req.path.slice('/_at0mic/'.length);
         const methods = { login: ['GET'], callback: ['GET'], logout: ['GET', 'POST'], me: ['GET'] };
         if (!Object.prototype.hasOwnProperty.call(methods, action)) return false;
@@ -465,7 +519,7 @@ const createBauarbeiter = ({
             res.status(403).json({ error: 'Nur von dieser Website aus.' });
             return true;
         }
-        if (action === 'login') startLogin(req, res, name);
+        if (action === 'login') startLogin(req, res, name, customHost);
         else if (action === 'callback') await finishLogin(req, res, name);
         else if (action === 'logout') await logout(req, res, name, token);
         else await whoAmI(req, res, name, token);
@@ -620,12 +674,43 @@ const createBauarbeiter = ({
         return reply(503, { error: 'Gerade nicht erreichbar.' });
     };
 
+    // ---------------------------------------------------------------------
+    // UMLEITUNG name.at0mic.site -> eigene Domain (Plan "SSF-Ausbau", D2)
+    // Hat eine Website eine aktive eigene Domain, sagt es der Bauplan
+    // (customDomain). Seiten leiten wir dann dorthin um – mit 302 statt 301:
+    // Entfernt der Kunde die Domain, soll sich kein Browser die Umleitung merken.
+    // Nie umgeleitet: SSF-Aufrufe und Webhooks (POST), der Rücksprung des Logins
+    // und "wer bin ich?" – die gehören zur Adresse, auf der das Cookie liegt.
+    // ---------------------------------------------------------------------
+    const redirectToCustom = (req, res, target) => {
+        res.set('Cache-Control', 'no-store');
+        return res.redirect(302, `https://${target}${req.originalUrl}`);
+    };
+    // Für /_at0mic/login: nur, wenn wir den Bauplan schon im Zwischenspeicher haben
+    // (keine zusätzliche Anfrage ans Backend nur fürs Anmelden)
+    const cachedCustomDomain = name => {
+        const entry = cache.get(name);
+        return cache.isFresh(entry) && entry.kind === 'site' ? entry.bauplan.customDomain || null : null;
+    };
+
     return async (req, res, next) => {
-        const host = siteNameFromHost(req.headers.host, siteDomain);
-        if (!host.isSiteHost) return next(); // keine Website -> Cockpit
+        const kind = classifyHost(req.headers.host, siteDomain, cockpitHosts || []);
+        // Ohne cockpitHosts (aus) gehen fremde Namen wie bisher ans Cockpit
+        if (kind.kind === 'cockpit' || (kind.kind === 'custom' && !cockpitHosts)) return next();
+        // host = { name, custom }: name = Website, custom = eigene Domain (oder null)
+        const host = { name: kind.kind === 'site' ? kind.name : null, custom: null };
 
         try {
             setSecurityHeaders(res, isProduction);
+
+            // Eigene Domain? Dann beim Backend nachfragen, zu welcher Website sie gehört
+            if (kind.kind === 'custom') {
+                const name = await lookupCustomHost(kind.hostname);
+                if (name === undefined) return sendPage(res, 'unavailable');
+                if (!name) return sendPage(res, 'noSite');
+                host.name = name;
+                host.custom = kind.hostname;
+            }
 
             // Angemeldet? (nur unser eigenes Cookie, und nur, wenn es wie ein Ausweis aussieht)
             const cookieToken = login.parseCookies(req.headers.cookie)[cookies.ausweis];
@@ -651,8 +736,19 @@ const createBauarbeiter = ({
                 return await runFunction(req, res, host.name, run[1], token);
             }
 
+            // Anmelden auf name.at0mic.site, obwohl die Website eine eigene Domain hat:
+            // dort anmelden (sonst läge das Cookie auf der falschen Adresse)
+            if (!host.custom && host.name && req.path === '/_at0mic/login' && req.method === 'GET') {
+                const target = cachedCustomDomain(host.name);
+                if (target) return redirectToCustom(req, res, target);
+            }
+
             // Anmelden, Rücksprung, Abmelden, "wer bin ich?"
-            if (host.name && req.path.startsWith('/_at0mic/') && (await handleLoginRoute(req, res, host.name, token))) {
+            if (
+                host.name &&
+                req.path.startsWith('/_at0mic/') &&
+                (await handleLoginRoute(req, res, host.name, token, host.custom))
+            ) {
                 return undefined;
             }
 
@@ -668,6 +764,8 @@ const createBauarbeiter = ({
             if (result.kind === 'error') return sendPage(res, result.page, { ...result, returnPath: req.originalUrl });
 
             const { bauplan } = result;
+            // Seite auf name.at0mic.site, aber die Website hat eine aktive eigene Domain -> dorthin
+            if (!host.custom && bauplan.customDomain) return redirectToCustom(req, res, bauplan.customDomain);
             const personal = !!result.personal;
             const path = resolveFile(req.path, bauplan.files);
             if (path) return await sendFile(res, bauplan, path, 200, host.name, personal);

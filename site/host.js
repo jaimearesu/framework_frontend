@@ -42,4 +42,35 @@ const siteNameFromHost = (hostHeader, siteDomain) => {
     return { isSiteHost: true, name: SITE_NAME.test(label) ? label : null };
 };
 
-module.exports = { siteNameFromHost };
+// ---------------------------------------------------------------------
+// EIGENE DOMAINS (Plan "SSF-Ausbau", D2): Seit Kunden ihre eigene Domain
+// (www.meinladen.ch) verbinden können, schickt Traefik ALLE fremden Namen
+// hierher. Wir unterscheiden vier Fälle:
+//
+//   { kind: 'site', name }       shop.at0mic.site  -> Website "shop"
+//   { kind: 'siteNoName' }       at0mic.site, a.b.at0mic.site -> 404 (wie bisher)
+//   { kind: 'cockpit' }          at0mic.ch, localhost, IP-Adressen -> Cockpit
+//   { kind: 'custom', hostname } alles andere -> vielleicht eine eigene Domain
+//                                (der Bauarbeiter fragt das Backend)
+//
+// cockpitHosts: Namen, unter denen das COCKPIT läuft (z.B. at0mic.ch). Nur die –
+// eine fremde Domain bekommt nie das Cockpit (mit Login) zu sehen.
+// ---------------------------------------------------------------------
+const IPV4 = /^\d{1,3}(?:\.\d{1,3}){3}$/;
+const HOSTNAME = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+const classifyHost = (hostHeader, siteDomain, cockpitHosts = []) => {
+    const site = siteNameFromHost(hostHeader, siteDomain);
+    if (site.isSiteHost) return site.name ? { kind: 'site', name: site.name } : { kind: 'siteNoName' };
+
+    const raw = String(hostHeader || '')
+        .trim()
+        .toLowerCase();
+    if (!raw || raw.startsWith('[')) return { kind: 'cockpit' }; // leer oder IPv6
+    const host = raw.replace(/:\d+$/, '').replace(/\.$/, '');
+    if (IPV4.test(host) || cockpitHosts.includes(host) || !host.includes('.')) return { kind: 'cockpit' };
+    if (!HOSTNAME.test(host)) return { kind: 'siteNoName' }; // kaputter Name: neutrale 404, nie das Cockpit
+    return { kind: 'custom', hostname: host };
+};
+
+module.exports = { siteNameFromHost, classifyHost };

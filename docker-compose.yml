@@ -33,6 +33,18 @@ services:
       - "traefik.http.routers.atomic-sites.tls.certresolver=letsencrypt"
       - "traefik.http.routers.atomic-sites.tls.domains[0].main=at0mic.site"
       - "traefik.http.routers.atomic-sites.tls.domains[0].sans=*.at0mic.site"
+      # Eigene Domains der Kunden (Plan "SSF-Ausbau", D2): z.B. www.meinladen.ch kommt über
+      # Cloudflare for SaaS (kunden.at0mic.site) zu uns. Diese Regel nimmt ALLE übrigen Namen
+      # an – mit der tiefsten Priorität (1), damit die Regeln oben immer zuerst greifen.
+      # Der Bauarbeiter fragt das Backend, ob der Name eine aktive eigene Domain ist (sonst 404).
+      # Zertifikat: Das echte für die Besucher macht Cloudflare. Zwischen Cloudflare und uns
+      # gilt für fremde Namen "SSL Full" (Configuration Rule) – darum reicht hier tls=true
+      # mit dem Standard-Zertifikat von Traefik (kein Let's Encrypt pro Kunde nötig).
+      - "traefik.http.routers.atomic-custom.rule=HostRegexp(`.+`)"
+      - "traefik.http.routers.atomic-custom.priority=1"
+      - "traefik.http.routers.atomic-custom.entrypoints=websecure"
+      - "traefik.http.routers.atomic-custom.service=atomic-frontend"
+      - "traefik.http.routers.atomic-custom.tls=true"
 
 networks:
   proxy:
