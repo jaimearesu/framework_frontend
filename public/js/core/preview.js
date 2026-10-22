@@ -57,7 +57,8 @@ const EMPTY_NOTE =
 
 // Kinder in ihre Plätze (data-slot) setzen oder hinten anhängen (reine Funktion, getestet)
 // parts = [{ identifier, html }]
-export const placeChildren = (parentBody, parts) => {
+// unplaced (freiwillig): hier kommen die identifier der Kinder hinein, die keinen Platz fanden
+export const placeChildren = (parentBody, parts, unplaced = []) => {
     let body = String(parentBody || '');
     const rest = [];
     for (const part of parts) {
@@ -66,7 +67,10 @@ export const placeChildren = (parentBody, parts) => {
             ? new RegExp(`(<[a-z0-9-]+[^>]*\\sdata-slot=["']${id}["'][^>]*>)(\\s*)(</[a-z0-9-]+>)`, 'i')
             : null;
         if (slot && slot.test(body)) body = body.replace(slot, (m, open, _ws, close) => open + part.html + close);
-        else rest.push(`<section data-at0mic="${id}">\n${part.html}\n</section>`);
+        else {
+            rest.push(`<section data-at0mic="${id}">\n${part.html}\n</section>`);
+            unplaced.push(id);
+        }
     }
     return [body, ...rest].filter(Boolean).join('\n');
 };
@@ -87,25 +91,172 @@ export const missingHeadDefaults = head => {
     ].filter(Boolean);
 };
 
+// ---------------------------------------------------------------------
+// NICHTS GEHT STILL VERLOREN (Plan "Lehren aus dem Restaurant-Test", E1)
+// Gefunden beim Restaurant-Test (22.10.): Ein Kind band in seinem <head>
+// Schriften ein (<link … fonts …>). Beim Zusammensetzen zählte aber nur
+// der Kopf der Wurzel – die Schriften fehlten, ohne dass es jemand merkte.
+// Ebenso gingen Angaben an <html> und <body> verloren (z.B. class="dunkel").
+// Jetzt gilt:
+//   - Der Kopf jedes Kindes kommt dazu (nach dem Kopf der Wurzel, in der
+//     Reihenfolge der DNA). Was schon dasteht, kommt nicht doppelt.
+//   - <title> und <base> wirken nur in der Wurzel. Im Kopf eines Kindes
+//     fallen sie weg – mit Warnung. charset/viewport eines Kindes fallen
+//     still weg (die stehen sowieso genau einmal im Kopf).
+//   - Die Angaben an <html> und <body> der WURZEL bleiben. Angaben am
+//     <body> eines Kindes können nicht wirken (es gibt nur einen <body>) –
+//     Warnung.
+// Gleiche Regeln wie beim Ausliefern (Backend: src/services/siteService.js) –
+// bei Änderungen beide anpassen.
+// ---------------------------------------------------------------------
+
+// Die Angaben (Attribute) eines Start-Tags: name, name="…", name='…' oder name=wert
+const START_TAG_ATTRS = `((?:\\s+[^\\s"'<>\\/=]+(?:\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s"'=<>\`]+))?)*)\\s*\\/?>`;
+const ATTRIBUTE = /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+const ATTRIBUTE_NAME = /^[A-Za-z_:][-A-Za-z0-9_:.]*$/;
+
+// Text -> [{ name, value }] (value null = ohne Wert, z.B. "hidden").
+// Ein " im Wert wird zu &quot; – so kann kein Wert aus seinen Anführungszeichen ausbrechen.
+const parseAttributes = text => {
+    const out = [];
+    for (const m of String(text || '').matchAll(ATTRIBUTE)) {
+        if (!ATTRIBUTE_NAME.test(m[1])) continue;
+        const value = m[2] ?? m[3] ?? m[4];
+        out.push({ name: m[1].toLowerCase(), value: value === undefined ? null : value.replace(/"/g, '&quot;') });
+    }
+    return out;
+};
+
+// [{ name, value }] -> ' class="dunkel" hidden'
+const attributesText = list => list.map(a => (a.value === null ? ` ${a.name}` : ` ${a.name}="${a.value}"`)).join('');
+
+// Die Angaben am ersten <html …> bzw. <body …> eines Dokuments (oder [])
+export const tagAttributes = (html, tag) => {
+    const match = new RegExp(`<${tag}${START_TAG_ATTRS}`, 'i').exec(String(html || ''));
+    return match ? parseAttributes(match[1]) : [];
+};
+
+// Die einzelnen Angaben eines Kopfes: <meta>, <link>, <base> (ohne Ende) und
+// <title>, <style>, <script>, <noscript>, <template> (mit Inhalt). Kommentare fallen weg.
+const HEAD_ELEMENT_SOURCE = `<!--[\\s\\S]*?-->|<(meta|link|base)${START_TAG_ATTRS}|<(title|style|script|noscript|template)(?=[\\s>/])[\\s\\S]*?<\\/\\3\\s*>`;
+export const headElements = head => {
+    const text = String(head || '');
+    const elements = [];
+    for (const m of text.matchAll(new RegExp(HEAD_ELEMENT_SOURCE, 'gi'))) {
+        if (m[0].startsWith('<!--')) continue;
+        elements.push({
+            tag: (m[1] || m[3]).toLowerCase(),
+            html: m[0].trim(),
+            attrs: m[1] ? parseAttributes(m[2]) : []
+        });
+    }
+    // Bleibt danach noch etwas übrig, verstehen wir es nicht (z.B. Text oder ein <div>)
+    const leftover = text.replace(new RegExp(HEAD_ELEMENT_SOURCE, 'gi'), '').trim().length > 0;
+    return { elements, leftover };
+};
+
+// Was im Kopf eines KINDES nicht hingehört:
+//   'warn'   -> weglassen und warnen (<title>, <base>)
+//   'silent' -> still weglassen (charset, viewport – stehen sowieso einmal da)
+//   null     -> übernehmen
+const childHeadRule = element => {
+    if (element.tag === 'title' || element.tag === 'base') return 'warn';
+    if (element.tag !== 'meta') return null;
+    const attr = name => element.attrs.find(a => a.name === name);
+    if (attr('charset')) return 'silent';
+    if ((attr('name')?.value || '').toLowerCase() === 'viewport') return 'silent';
+    if ((attr('http-equiv')?.value || '').toLowerCase() === 'content-type') return 'silent';
+    return null;
+};
+
+// Zwei Angaben sind gleich, wenn sie bis auf Leerzeichen gleich sind
+const sameKey = html => html.replace(/\s+/g, ' ').trim();
+
+/**
+ * Köpfe zusammenführen: Der Kopf der Wurzel bleibt, wie er ist; aus den Köpfen
+ * der Kinder kommt dazu, was noch fehlt.
+ * @param {string} rootHead
+ * @param {Array}  childHeads  [{ identifier, head }] in DNA-Reihenfolge
+ * @param {Array}  warnings    hier kommen die Warnungen hinein (Text)
+ * @returns {string} der ganze Kopf
+ */
+export const mergeHeads = (rootHead, childHeads, warnings = []) => {
+    const seen = new Set(headElements(rootHead).elements.map(e => sameKey(e.html)));
+    const added = [];
+    for (const { identifier, head } of childHeads) {
+        if (!String(head || '').trim()) continue;
+        const label = `Kind "${identifier}"`;
+        const { elements, leftover } = headElements(head);
+        for (const element of elements) {
+            const rule = childHeadRule(element);
+            if (rule === 'warn') {
+                warnings.push(`${label}: <${element.tag}> im <head> wirkt nur in der Wurzel – weggelassen.`);
+                continue;
+            }
+            if (rule === 'silent') continue;
+            const key = sameKey(element.html);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            added.push(element.html);
+        }
+        if (leftover) {
+            warnings.push(
+                `${label}: Unbekannter Inhalt im <head> weggelassen (übernommen werden meta, link, style, script, noscript, template).`
+            );
+        }
+    }
+    return [String(rootHead || '').trim(), ...added].filter(Boolean).join('\n');
+};
+
+// Angaben am <body> eines Kindes wirken nicht -> Warnung (oder null)
+export const childBodyWarning = (identifier, html) => {
+    const attrs = tagAttributes(html, 'body');
+    if (attrs.length === 0) return null;
+    const names = attrs.map(a => a.name).join(', ');
+    return `Kind "${identifier}": Angaben am <body> (${names}) wirken nur in der Wurzel – setz sie dort oder auf ein Element des Kindes.`;
+};
+
+// Die Start-Tags <html …> und <body …> der fertigen Seite aus dem HTML der Wurzel.
+// lang nur, wenn es ein gültiger Sprach-Code ist (htmlLang).
+export const rootTags = rootHtml => {
+    const lang = htmlLang(rootHtml);
+    const htmlAttrs = tagAttributes(rootHtml, 'html').filter(a => a.name !== 'lang');
+    return {
+        html: `<html${lang ? ` lang="${lang}"` : ''}${attributesText(htmlAttrs)}>`,
+        body: `<body${attributesText(tagAttributes(rootHtml, 'body'))}>`
+    };
+};
+
+// Höchstens so viele Warnungen (gleiche nur einmal)
+const MAX_WARNINGS = 50;
+export const tidyWarnings = warnings => [...new Set(warnings)].slice(0, MAX_WARNINGS);
+
 // Die fertige Vorschau-Seite (reine Funktion, getestet)
 //   html   – HTML (ganzes Dokument oder Stück)
 //   css    – eine oder mehrere CSS-Texte
 //   js     – ein oder mehrere JS-Texte (jeder in eigenem <script>,
 //            damit ein Fehler in einem die anderen nicht stoppt)
-export const buildPreviewDocument = ({ html = '', css = [], js = [] } = {}) => {
-    const { head, body } = splitHtmlDocument(html);
+//   body   – (freiwillig) der fertig zusammengesetzte Inhalt von <body>;
+//            dann ist html das HTML der WURZEL (für Kopf, <html> und <body>)
+//   childHeads – (freiwillig) [{ identifier, head }] der Kinder (Plan E1)
+//   warnings   – (freiwillig) hier kommen die Warnungen hinein
+export const buildPreviewDocument = ({ html = '', css = [], js = [], body, childHeads = [], warnings = [] } = {}) => {
+    const own = splitHtmlDocument(html);
+    const head = mergeHeads(own.head, childHeads, warnings);
+    const content = body === undefined ? own.body : body;
+    const tags = rootTags(html);
     const styles = [].concat(css).filter(s => s && s.trim());
     const scripts = [].concat(js).filter(s => s && s.trim());
     return [
-        `<!doctype html>${htmlLang(html) ? `<html lang="${htmlLang(html)}">` : '<html>'}<head>`,
+        `<!doctype html>${tags.html}<head>`,
         ...missingHeadDefaults(head),
         // Vorschau immer hell, egal ob das Cockpit dunkel ist
         '<meta name="color-scheme" content="light">',
         ERROR_BRIDGE,
         head,
         styles.map(s => `<style>${s.replace(/<\/style/gi, '<\\/style')}</style>`).join('\n'),
-        '</head><body>',
-        body || EMPTY_NOTE,
+        `</head>${tags.body}`,
+        content || EMPTY_NOTE,
         scripts.map(s => `<script>${safeScript(s)}<\/script>`).join('\n'),
         '</body></html>'
     ].join('\n');
