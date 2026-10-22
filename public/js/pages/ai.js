@@ -128,6 +128,8 @@ export const AUDIT_ACTIONS = {
     'zeitplan.setzen': 'Zeitplan einer SSF gesetzt', // Plan "SSF-Ausbau", Teil C
     'zeitplan.entfernen': 'Zeitplan einer SSF entfernt',
     'auftrag.abbrechen': 'Hintergrund-Auftrag abgebrochen',
+    'domain.verbinden': 'Eigene Domain verbunden', // Plan "SSF-Ausbau", Teil D
+    'domain.trennen': 'Eigene Domain getrennt',
     'anfrage.sonstige': 'Sonstige Anfrage'
 };
 export const auditActionLabel = action => AUDIT_ACTIONS[action] || action || '?';
