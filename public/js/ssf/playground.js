@@ -10,7 +10,8 @@
 //   ├── produkte             10 Beispiel-Produkte
 //   ├── lager                10 Lager-Einträge (gleiche sku)
 //   ├── nachrichten          leer
-//   └── bestellungen         leer
+//   ├── bestellungen         leer
+//   └── helfer               eine Bibliothek (Code-Art library) für api.lib.load
 //   + Relation produkte --"lager"--> lager (für Joins)
 //
 // Warum als Kinder? Ein Kind bekommt dieselben Rollen wie das Eltern-
@@ -27,7 +28,19 @@ import { invalidateObjects, childRefFor, loadCode, saveCode } from '../core/obje
 import { addChildToDna } from '../core/dna.js';
 import { EXAMPLES, fillExample } from './examples.js';
 
-export const CHILDREN = ['funktion', 'produkte', 'lager', 'nachrichten', 'bestellungen'];
+export const CHILDREN = ['funktion', 'produkte', 'lager', 'nachrichten', 'bestellungen', 'helfer'];
+
+// Die Bibliothek im Kind "helfer" (Restaurant-Test, E6) – für das Beispiel "Bibliothek"
+export const HELPER_LIBRARY = [
+    '// Bibliothek der Spielwiese: gemeinsamer Code für mehrere SSFs',
+    "exports.chf = betrag => 'CHF ' + Number(betrag).toFixed(2);",
+    '',
+    'exports.pruefeMenge = menge => Number.isInteger(menge) && menge >= 1 && menge <= 20;',
+    '',
+    '// Funktionen dürfen async sein und api.* benutzen – mit den Rechten der SSF, die lädt',
+    'exports.anzahlProdukte = async shop => (await api.data.find(shop + "/produkte", { limit: 1 })).meta.total_count;',
+    ''
+].join('\n');
 
 export const SEED_PRODUCTS = [
     { sku: 'SCH-01', name: 'Sneaker', kategorie: 'Schuhe', preis: 89.9 },
@@ -112,7 +125,10 @@ export const createPlayground = async ({ step = () => {} } = {}) => {
         await api.post(`/api/relations/${uuids.produkte}`, { targetUuid: uuids.lager, relationType: 'lager' })
     );
 
-    // 6. Erstes Beispiel als SSF-Code speichern
+    // 6. Bibliothek für das Beispiel "Bibliothek"
+    must('Bibliothek „helfer“ speichern', await saveCode(uuids.helfer, [{ type: 'library', code: HELPER_LIBRARY }]));
+
+    // 7. Erstes Beispiel als SSF-Code speichern
     const hello = EXAMPLES[0];
     must(
         'SSF-Code „Hallo Welt“ speichern',

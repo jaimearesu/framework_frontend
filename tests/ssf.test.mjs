@@ -14,9 +14,9 @@ import { CHILDREN, SEED_PRODUCTS, SEED_STOCK } from '../public/js/ssf/playground
 const AsyncFunction = (async () => {}).constructor;
 
 describe('ssf: Beispiel-Bibliothek', () => {
-    test('es gibt 11 Beispiele mit eindeutiger id', () => {
-        assert.equal(EXAMPLES.length, 11);
-        assert.equal(new Set(EXAMPLES.map(e => e.id)).size, 11);
+    test('es gibt 12 Beispiele mit eindeutiger id', () => {
+        assert.equal(EXAMPLES.length, 12);
+        assert.equal(new Set(EXAMPLES.map(e => e.id)).size, 12);
     });
 
     test('„LLM fragen“ wartet lange (timeoutMs) und holt den Schlüssel aus dem Tresor', () => {
@@ -80,7 +80,7 @@ describe('ssf: Beispiel-Bibliothek', () => {
 });
 
 describe('ssf: Werkzeug-Referenz', () => {
-    test('alle 28 Werkzeuge des Backends sind beschrieben', () => {
+    test('alle 29 Werkzeuge des Backends sind beschrieben', () => {
         assert.deepEqual(TOOLS.map(t => t.name).sort(), [
             'crypto.randomToken',
             'crypto.randomUuid',
@@ -97,6 +97,7 @@ describe('ssf: Werkzeug-Referenz', () => {
             'jobs.cancel',
             'jobs.start',
             'jobs.status',
+            'lib.load',
             'objects.clone',
             'objects.create',
             'objects.get',
@@ -160,7 +161,7 @@ describe('ssf: Fehler-Tipps', () => {
 
 describe('ssf: Spielwiese', () => {
     test('Kinder und Beispiel-Daten passen zusammen', () => {
-        assert.deepEqual(CHILDREN, ['funktion', 'produkte', 'lager', 'nachrichten', 'bestellungen']);
+        assert.deepEqual(CHILDREN, ['funktion', 'produkte', 'lager', 'nachrichten', 'bestellungen', 'helfer']);
         const skus = SEED_PRODUCTS.map(p => p.sku).sort();
         assert.deepEqual(SEED_STOCK.map(s => s.sku).sort(), skus); // jedes Produkt hat einen Lager-Eintrag
         assert.equal(new Set(skus).size, skus.length);

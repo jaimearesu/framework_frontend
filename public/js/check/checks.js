@@ -1130,6 +1130,30 @@ export const CHECKS = [
             return '43 Zeichen, jedes Mal anders';
         }
     },
+    // Plan "Lehren aus dem Restaurant-Test", E6: Bibliothek speichern und aus der SSF laden
+    {
+        id: 'ssf-library',
+        group: 'SSF',
+        title: 'Bibliothek: Code-Art library speichern und mit api.lib.load laden',
+        needs: ['funktion', 'daten'],
+        run: async ctx => {
+            // Die Bibliothek kommt ins Kind "daten" (gleiche Domain -> keine Version nötig)
+            const lib = await api.post(`/api/ast/${ctx.daten}`, {
+                snippets: [{ type: 'library', code: 'exports.doppelt = x => x * 2;' }]
+            });
+            expectStatus(lib, 201, 'Bibliothek speichern');
+            const r = await runSsf(
+                ctx,
+                `const h = await api.lib.load('${ctx.domainName}/daten');
+                 let ohne = null;
+                 try { await api.lib.load('${ctx.domainName}/lager'); } catch (e) { ohne = e.code; }
+                 return { wert: h.doppelt(21), ohne };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            expect(r.data.result.wert === 42 && r.data.result.ohne === 'NOT_FOUND', JSON.stringify(r.data.result), r);
+            return '21 × 2 = 42; Objekt ohne Bibliothek: NOT_FOUND';
+        }
+    },
     {
         id: 'ssf-run-anonymous',
         group: 'SSF',

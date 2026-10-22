@@ -58,7 +58,10 @@ const TYPES = [
     { id: 'data', label: 'Daten' },
     // Werkzeug-Beschreibung (MCP Etappe 5c): zusammen mit einer SSF wird das Objekt
     // zu einem Werkzeug, das eine KI mit find_tools / use_tool benutzen kann
-    { id: 'werkzeug', label: 'Werkzeug' }
+    { id: 'werkzeug', label: 'Werkzeug' },
+    // Bibliothek (Plan "Lehren aus dem Restaurant-Test", E6): gemeinsamer Server-Code,
+    // den SSFs mit api.lib.load laden – kommt nie auf eine Website
+    { id: 'library', label: 'Bibliothek' }
 ];
 const JSON_TYPES = ['syntax', 'data', 'werkzeug'];
 const PREVIEW_TYPES = ['html', 'css', 'javascript'];
@@ -78,7 +81,9 @@ const templates = o => ({
         null,
         2
     ),
-    data: JSON.stringify({ titel: 'Mein Objekt', sprache: 'de', einstellungen: { farbe: '#6d5dfc' } }, null, 2)
+    data: JSON.stringify({ titel: 'Mein Objekt', sprache: 'de', einstellungen: { farbe: '#6d5dfc' } }, null, 2),
+    library:
+        "// Bibliothek: gemeinsamer Code für mehrere SSFs. Eine SSF lädt sie mit\n// const helfer = await api.lib.load('' + objectLabel(o) + '');\n// Ganz oben kein await – Funktionen darin dürfen async sein und api.* benutzen.\n\nexports.chf = betrag => 'CHF ' + Number(betrag).toFixed(2);\n\nexports.pruefeName = name => typeof name === 'string' && name.trim().length > 0 && name.length <= 80;\n"
 });
 
 export default {
@@ -317,7 +322,7 @@ export default {
                             'Läuft auf dem Server in einer Sandbox: 64 MB, 1 s Rechenzeit, 5 s total.',
                             'Handelt mit den Rechten DIESES Objekts – nicht mit denen des Besuchers.',
                             'requestContext enthält body, query, target und userUuid.',
-                            'Werkzeuge: api.data, api.objects, api.relations, api.roles, api.http, api.secrets.',
+                            'Werkzeuge: api.data, api.objects, api.relations, api.roles, api.http, api.secrets, api.lib (Bibliotheken).',
                             'Den Code sieht nur, wer red auf dem Objekt hat. Ausführen darf, wer black hat.'
                         ].map(t => h('li', {}, icon('arrowRight', { size: 16 }), h('span', {}, t)))
                     ),
@@ -327,6 +332,24 @@ export default {
                         ' Im ',
                         h('a', { href: href('ssf', uuid) }, 'SSF-Studio'),
                         ' – mit 10 Beispielen und allen Werkzeugen.'
+                    )
+                );
+                return;
+            }
+            if (activeType === 'library') {
+                mount(
+                    side,
+                    h('div', { class: 'side-head' }, h('h3', {}, 'Bibliothek'), badge('Server', 'accent')),
+                    h(
+                        'ul',
+                        { class: 'checklist' },
+                        [
+                            'Gemeinsamer Code für mehrere SSFs: einmal ablegen statt in jede SSF kopieren.',
+                            'Eine SSF lädt sie mit await api.lib.load(pfad) – exports.x = … wird dort zu helfer.x.',
+                            'Läuft IN der SSF, die sie lädt: mit deren Rechten und Grenzen. Ganz oben kein await.',
+                            'Laden braucht black. Aus einer fremden Domain nur mit angehefteter Version: { version: 3 }.',
+                            'Kommt nie auf eine Website. Lesen darf, wer black hat.'
+                        ].map(t => h('li', {}, icon('arrowRight', { size: 16 }), h('span', {}, t)))
                     )
                 );
                 return;
