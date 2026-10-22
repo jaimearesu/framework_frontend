@@ -23,6 +23,8 @@
 //   GET  /_at0mic/callback?code&state   zurück von at0mic: Code gegen Ausweis tauschen
 //   GET|POST /_at0mic/logout            abmelden
 //   GET  /_at0mic/me                    { angemeldet, uuid? } – für das JavaScript der Website
+//   GET  /_at0mic/vorschau?code         Screenshot mit Live-Daten (Plan "Screenshots", S2b):
+//                                       Einmal-Code gegen einen 2-Minuten-Ausweis tauschen
 // Ist jemand angemeldet, schickt der Bauarbeiter seinen Ausweis ans Backend
 // mit – dann sieht er, was ER sehen darf. Solche Antworten landen NIE im
 // gemeinsamen Zwischenspeicher. Einzelheiten zu den Cookies: login.js.
@@ -457,6 +459,42 @@ const createBauarbeiter = ({
         return res.redirect(303, started.returnPath);
     };
 
+    // GET /_at0mic/vorschau?code=… (Plan "Screenshots in der Vorschau", S2b)
+    // Cloudflare öffnet diese Adresse für einen Screenshot MIT Live-Daten. Der Bauarbeiter
+    // tauscht den Einmal-Code (60 s, nur einmal) beim Backend gegen einen Ausweis mit Zweck
+    // "screenshot" (2 Minuten) und setzt das Cookie SELBST – wie beim normalen Anmelden.
+    // Dann weiter zur Startseite, die Cloudflare fotografiert. Das Backend sperrt den Ausweis
+    // gleich nach dem Bild. Kein Zustand (state) nötig: Der Code ist an Website, Mensch/Agent
+    // und Adresse gebunden und gilt nur einmal.
+    const startScreenshot = async (req, res, name, customHost = null) => {
+        res.set('Cache-Control', 'no-store');
+        res.set('Referrer-Policy', 'no-referrer'); // den Code nirgends weitergeben
+        const code = typeof req.query.code === 'string' ? req.query.code : '';
+        if (!code || !key) return sendPage(res, 'loginFailed');
+
+        let answer;
+        let data = null;
+        try {
+            answer = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/vorschau-ausweis`, {
+                method: 'POST',
+                headers: backendHeaders(visitorIpOf(req), null, { 'content-type': 'application/json' }),
+                body: JSON.stringify({ code, host: customHost || '' }),
+                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+            });
+            data = await answer.json().catch(() => null);
+        } catch (error) {
+            log.warn(`[BAUARBEITER] Backend nicht erreichbar (Screenshot ${name}): ${error.message}`);
+            return sendPage(res, 'unavailable');
+        }
+        const token = data && data.data && data.data.token;
+        if (!answer.ok || !login.isTokenShape(token)) return sendPage(res, 'loginFailed');
+
+        // So lange wie der Ausweis gilt (höchstens 2 Minuten)
+        const seconds = Math.min(Number(data.data.seconds) || 0, 120);
+        setTokenCookie(res, token, seconds > 0 ? seconds : 0);
+        return res.redirect(302, '/');
+    };
+
     // GET|POST /_at0mic/logout – im Backend sperren, Cookie löschen
     const logout = async (req, res, name, token) => {
         res.set('Cache-Control', 'no-store');
@@ -507,7 +545,7 @@ const createBauarbeiter = ({
     // Die Anmelde-Adressen: /_at0mic/<aktion> -> true, wenn beantwortet
     const handleLoginRoute = async (req, res, name, token, customHost = null) => {
         const action = req.path.slice('/_at0mic/'.length);
-        const methods = { login: ['GET'], callback: ['GET'], logout: ['GET', 'POST'], me: ['GET'] };
+        const methods = { login: ['GET'], callback: ['GET'], logout: ['GET', 'POST'], me: ['GET'], vorschau: ['GET'] };
         if (!Object.prototype.hasOwnProperty.call(methods, action)) return false;
         if (!methods[action].includes(req.method)) {
             res.set('Allow', methods[action].join(', '));
@@ -522,6 +560,7 @@ const createBauarbeiter = ({
         if (action === 'login') startLogin(req, res, name, customHost);
         else if (action === 'callback') await finishLogin(req, res, name);
         else if (action === 'logout') await logout(req, res, name, token);
+        else if (action === 'vorschau') await startScreenshot(req, res, name, customHost);
         else await whoAmI(req, res, name, token);
         return true;
     };

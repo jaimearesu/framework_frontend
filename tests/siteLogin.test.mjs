@@ -98,6 +98,10 @@ const fakeFetch = async (url, options = {}) => {
     const rest = decodeURIComponent(url.split('/api/sites/')[1]);
     const token = call.headers['x-besucher-ausweis'];
     if (rest.endsWith('/ausweis')) return backend.ausweis || reply(400, { error: 'ungültig', code: 'LOGIN_INVALID' });
+    // Screenshot mit Live-Daten (Plan "Screenshots", S2b)
+    if (rest.endsWith('/vorschau-ausweis')) {
+        return backend.vorschau || reply(400, { error: 'ungültig', code: 'LOGIN_INVALID' });
+    }
     if (rest.endsWith('/abmelden')) return reply(200, { success: true });
     if (rest.endsWith('/besucher')) {
         if (token === TOKEN) return reply(200, { success: true, data: { angemeldet: true, uuid: 'kunde-uuid' } });
@@ -172,6 +176,7 @@ beforeEach(() => {
     backend.calls = [];
     backend.sites = {};
     backend.ausweis = null;
+    backend.vorschau = null;
     cache.clear();
     personalCache.clear();
     now = Date.now();
@@ -523,5 +528,51 @@ describe('Privater Zwischenspeicher für Angemeldete (gefunden 20.10.: 7× bauen
         assert.equal(keys.length, 1);
         assert.equal(keys[0].includes(TOKEN), false);
         assert.match(keys[0], /^shop\|[0-9a-f]{64}$/);
+    });
+});
+
+// Plan "Screenshots in der Vorschau", S2b: Cloudflare öffnet /_at0mic/vorschau?code=…
+describe('Screenshot mit Live-Daten: /_at0mic/vorschau', () => {
+    const CODE = 's'.repeat(43);
+
+    test('Code gültig: Ausweis höchstens 2 Minuten, weiter zur Startseite, Code geht nirgends weiter', async () => {
+        backend.vorschau = reply(200, { success: true, data: { token: TOKEN, expiresAt: 'egal', seconds: 120 } });
+        const r = await request('shop.at0mic.site', `/_at0mic/vorschau?code=${CODE}`);
+        assert.equal(r.status, 302);
+        assert.equal(r.headers.location, '/');
+        assert.equal(r.headers['referrer-policy'], 'no-referrer');
+        assert.equal(r.headers['cache-control'], 'no-store');
+        assert.equal(cookieValue(r, '__Host-at0mic_ausweis'), TOKEN);
+        assert.match(
+            setCookies(r).find(c => c.startsWith('__Host-at0mic_ausweis=')),
+            /Max-Age=120; HttpOnly; SameSite=Lax; Secure/
+        );
+        const call = backend.calls[0];
+        assert.equal(call.url, 'http://backend.intern/api/sites/shop/vorschau-ausweis');
+        assert.equal(call.headers['x-bauarbeiter-key'], KEY);
+        assert.deepEqual(call.body, { code: CODE, host: '' });
+    });
+
+    test('mehr als 2 Minuten vom Backend? Das Cookie gilt trotzdem höchstens 120 s', async () => {
+        backend.vorschau = reply(200, { success: true, data: { token: TOKEN, seconds: 999999 } });
+        const r = await request('shop.at0mic.site', `/_at0mic/vorschau?code=${CODE}`);
+        assert.match(
+            setCookies(r).find(c => c.startsWith('__Host-at0mic_ausweis=')),
+            /Max-Age=120;/
+        );
+    });
+
+    test('Backend lehnt ab oder kein Code: Fehlerseite, kein Ausweis', async () => {
+        const bad = await request('shop.at0mic.site', `/_at0mic/vorschau?code=${CODE}`);
+        assert.equal(bad.status, 400);
+        assert.equal(cookieValue(bad, '__Host-at0mic_ausweis'), undefined);
+        const none = await request('shop.at0mic.site', '/_at0mic/vorschau');
+        assert.equal(none.status, 400);
+        assert.equal(backend.calls.length, 1, 'ohne Code wird das Backend nicht gefragt');
+    });
+
+    test('nur GET', async () => {
+        const r = await request('shop.at0mic.site', `/_at0mic/vorschau?code=${CODE}`, { method: 'POST' });
+        assert.equal(r.status, 405);
     });
 });

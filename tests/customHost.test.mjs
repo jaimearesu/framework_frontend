@@ -55,7 +55,7 @@ const reply = (status, body) => ({
     json: async () => body
 });
 const fakeFetch = async (url, options = {}) => {
-    backend.calls.push({ url, headers: options.headers });
+    backend.calls.push({ url, headers: options.headers, body: options.body ? JSON.parse(options.body) : null });
     if (backend.down) throw new Error('connect ECONNREFUSED');
     const rest = decodeURIComponent(url.split('/api/sites/')[1]);
     if (rest.startsWith('_host/')) {
@@ -63,6 +63,10 @@ const fakeFetch = async (url, options = {}) => {
         return name
             ? reply(200, { success: true, data: { name } })
             : reply(404, { error: 'Keine aktive eigene Domain.' });
+    }
+    // Screenshot mit Live-Daten (Plan "Screenshots", S2b): Code gegen 2-Minuten-Ausweis
+    if (rest.endsWith('/vorschau-ausweis')) {
+        return reply(200, { success: true, data: { token: 'at0s_' + 'V'.repeat(43), seconds: 120 } });
     }
     const site = backend.sites[rest];
     return site ? reply(200, site) : reply(404, { error: 'Keine Website' });
@@ -194,5 +198,18 @@ describe('Umleitung name.at0mic.site -> eigene Domain', () => {
     test('auf der eigenen Domain selbst: keine Umleitung im Kreis', async () => {
         const r = await request('www.meinladen.ch', '/');
         assert.equal(r.status, 200);
+    });
+});
+
+// Plan "Screenshots in der Vorschau", S2b: Screenshot über die eigene Domain
+describe('Screenshot-Link auf der eigenen Domain', () => {
+    test('der Bauarbeiter schickt die eigene Domain als host mit (das Backend vergleicht sie mit dem Code)', async () => {
+        backend.hosts['www.meinladen.ch'] = 'meinladen';
+        const r = await request('www.meinladen.ch', `/_at0mic/vorschau?code=${'s'.repeat(43)}`);
+        assert.equal(r.status, 302);
+        assert.equal(r.headers.location, '/');
+        const call = backend.calls.find(c => c.url.endsWith('/vorschau-ausweis'));
+        assert.equal(call.url, 'http://backend.test/api/sites/meinladen/vorschau-ausweis');
+        assert.deepEqual(call.body, { code: 's'.repeat(43), host: 'www.meinladen.ch' });
     });
 });
