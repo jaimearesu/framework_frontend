@@ -1390,6 +1390,44 @@ return { uuid: kopie.uuid, left: austritt.left };`
     // Plan "Bauarbeiter + Bauplan-Format": GET /api/sites/<domain> liefert den
     // Bauplan – immer so, wie ein anonymer Besucher die Website sieht. Mit Login
     // wird die Check-Domain kurz öffentlich gemacht (nur sie, nicht die Kinder).
+    // Eigene Domains (Plan "SSF-Ausbau", Teil D) – legt NIE etwas bei Cloudflare an:
+    // nur Liste, eine ungültige Eingabe und die geschützte Abfrage des Bauarbeiters
+    {
+        id: 'custom-domains-list',
+        group: 'Website',
+        title: 'Eigene Domains: Liste der Website (mit blue)',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.get(`/api/objects/${ctx.root}/custom-domains`);
+            expectStatus(r, 200, 'Liste der eigenen Domains');
+            const data = r.data?.data;
+            expect(Array.isArray(data?.domains) && typeof data.enabled === 'boolean', 'Antwort unvollständig', r);
+            return `${data.enabled ? 'eingerichtet' : 'nicht eingerichtet'}, Ziel ${data.cnameTarget}`;
+        }
+    },
+    {
+        id: 'custom-domains-apex',
+        group: 'Website',
+        title: 'Eigene Domains: nackte Domain wird abgelehnt (nichts bei Cloudflare)',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.post(`/api/objects/${ctx.root}/custom-domains`, { hostname: 'check-beispiel.ch' });
+            // Gast: 403 (nur Menschen) · nicht eingerichtet: 503 · eingeloggt: 400 (nackte Domain)
+            expect([400, 403, 503].includes(r.status), `unerwarteter Status ${r.status}`, r);
+            if (r.status === 400) expect(/Unterdomain/.test(r.data?.error || ''), 'unerwartete Meldung', r);
+            return `abgelehnt (${r.status})`;
+        }
+    },
+    {
+        id: 'custom-domains-lookup-protected',
+        group: 'Website',
+        title: 'Eigene Domains: die Abfrage des Bauarbeiters braucht seinen Schlüssel',
+        run: async () => {
+            const r = await api.get('/api/sites/_host/www.check-beispiel.ch', { anonymous: true });
+            expectStatus(r, 403, 'Abfrage ohne Bauarbeiter-Schlüssel');
+            return 'ohne Schlüssel: 403';
+        }
+    },
     {
         id: 'site-private',
         group: 'Website',

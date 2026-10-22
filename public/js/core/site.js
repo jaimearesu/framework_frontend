@@ -82,3 +82,40 @@ export const webhookStatusText = status => {
     if (status === 400) return { tone: 'error', text: 'ungültiger Aufruf' };
     return { tone: 'error', text: `Status ${status}` };
 };
+
+// ---------------------------------------------------------------------
+// EIGENE DOMAINS (Plan "SSF-Ausbau", Etappe D3) – Helfer für die Karte
+// "Eigene Domain" im Reiter "Website". Die echte Prüfung macht das Backend;
+// hier nur, was der Mensch beim Eintragen sofort sehen soll.
+// ---------------------------------------------------------------------
+export const customDomainStatusText = status => {
+    if (status === 'active') return { tone: 'ok', text: 'aktiv' };
+    if (status === 'pending') return { tone: 'warn', text: 'wartet auf DNS und Zertifikat' };
+    if (status === 'failed') return { tone: 'error', text: 'gescheitert' };
+    return { tone: 'neutral', text: String(status || '–') };
+};
+
+// Was trägt der Kunde bei seinem Anbieter als "Name" ein? Die meisten Anbieter wollen nur
+// den vorderen Teil (www), manche den ganzen Namen – darum zeigen wir beides.
+export const dnsNameHint = hostname => {
+    const parts = String(hostname || '').split('.');
+    return parts.length > 2 ? parts.slice(0, -2).join('.') : String(hostname || '');
+};
+
+// Schnelle Vor-Prüfung im Browser (gleiche Grundregeln wie das Backend) -> Fehlertext oder null
+export const customDomainInputProblem = value => {
+    const host = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/\/+$/, '');
+    if (!host) return 'Bitte eine Domain eingeben, z.B. www.meinladen.ch.';
+    if (/[^a-z0-9.-]/.test(host)) return 'Nur Buchstaben a–z, Ziffern, „-“ und Punkte.';
+    const parts = host.split('.');
+    if (parts.length < 3) {
+        return `Bitte eine Unterdomain wie www.${host}. Die nackte Domain leitest du bei deinem Anbieter auf www um.`;
+    }
+    if (host.endsWith('.at0mic.site') || host.endsWith('.at0mic.ch'))
+        return 'Adressen von at0mic kann man nicht verbinden.';
+    return null;
+};

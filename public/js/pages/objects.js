@@ -65,7 +65,10 @@ import {
     fileUrl,
     formatBytes,
     RESERVED_SITE_NAMES,
-    webhookStatusText
+    webhookStatusText,
+    customDomainStatusText,
+    dnsNameHint,
+    customDomainInputProblem
 } from '../core/site.js';
 import { addChildToDna, removeChildFromDna } from '../core/dna.js';
 import {
@@ -1671,6 +1674,183 @@ const renderWebhookCard = async (box, o) => {
     await load();
 };
 
+// ---------------------------------------------------------------------
+// KARTE "EIGENE DOMAIN" (Plan "SSF-Ausbau", Etappe D3)
+// Nur bei der Wurzel einer Website. Ein Mensch mit blue verbindet z.B.
+// www.meinladen.ch: at0mic meldet die Domain bei Cloudflare an, hier steht,
+// welchen CNAME der Kunde bei seinem Anbieter setzen muss, und wie weit es ist.
+// Eintragen/Entfernen nur echte Menschen (prüft das Backend: keine Gäste, keine KI).
+// Texte vom Backend immer als Text (h/textContent), nie als HTML.
+// ---------------------------------------------------------------------
+const renderCustomDomainCard = async (box, o) => {
+    const listBox = h('div');
+    const input = h('input', { type: 'text', class: 'mono', placeholder: 'www.meinladen.ch', autocomplete: 'off' });
+
+    const load = async () => {
+        mount(listBox, spinner('Lade eigene Domains …'));
+        const res = await api.get(`/api/objects/${o.uuid}/custom-domains`);
+        if (!res.ok) {
+            return mount(
+                listBox,
+                res.status === 403 || res.status === 404
+                    ? h('p', { class: 'small muted' }, 'Eigene Domains sehen nur Menschen mit blue auf dieser Website.')
+                    : resultLine(res)
+            );
+        }
+        const { enabled, cnameTarget, domains, maxPerSite } = res.data.data;
+        mount(
+            listBox,
+            enabled
+                ? null
+                : callout(
+                      'warn',
+                      'Noch nicht eingerichtet: ',
+                      'Auf diesem Server fehlt der Cloudflare-Schlüssel (CF_SAAS_API_TOKEN). Eintragen geht erst danach.'
+                  ),
+            domains.length === 0
+                ? h('p', { class: 'small muted' }, 'Noch keine eigene Domain verbunden.')
+                : domains.map(d => {
+                      const st = customDomainStatusText(d.status);
+                      const check = async () => {
+                          const r = await api.post(
+                              `/api/objects/${o.uuid}/custom-domains/${encodeURIComponent(d.hostname)}/check`,
+                              {}
+                          );
+                          if (!r.ok) return toast(r.error, 'error');
+                          toast(
+                              r.data.data.status === 'active'
+                                  ? 'Aktiv – die Website läuft unter dieser Domain.'
+                                  : 'Noch nicht bereit.',
+                              r.data.data.status === 'active' ? 'ok' : 'info'
+                          );
+                          await load();
+                      };
+                      const remove = async () => {
+                          if (
+                              !confirm(
+                                  `„${d.hostname}“ wirklich trennen? Die Website ist danach nur noch unter at0mic.site erreichbar.`
+                              )
+                          )
+                              return;
+                          const r = await api.del(
+                              `/api/objects/${o.uuid}/custom-domains/${encodeURIComponent(d.hostname)}`
+                          );
+                          if (!r.ok) return toast(r.error, 'error');
+                          toast('Domain getrennt.', 'ok');
+                          await load();
+                      };
+                      return h(
+                          'div',
+                          // Trennlinie zwischen den Domains, damit man sie auseinanderhält
+                          {
+                              class: 'stack-s',
+                              style: 'border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: 0.75rem;'
+                          },
+                          h(
+                              'div',
+                              { class: 'row gap-s wrap' },
+                              d.status === 'active'
+                                  ? h(
+                                        'a',
+                                        {
+                                            class: 'mono',
+                                            href: `https://${d.hostname}`,
+                                            target: '_blank',
+                                            rel: 'noopener noreferrer'
+                                        },
+                                        d.hostname
+                                    )
+                                  : h('strong', { class: 'mono' }, d.hostname),
+                              badge(st.text, st.tone)
+                          ),
+                          d.status === 'active'
+                              ? null
+                              : h(
+                                    'div',
+                                    { class: 'small' },
+                                    h('p', {}, 'Bei deinem Domain-Anbieter (z.B. Hostpoint) diesen Eintrag anlegen:'),
+                                    infoList([
+                                        ['Typ', 'CNAME'],
+                                        [
+                                            'Name',
+                                            h(
+                                                'span',
+                                                {},
+                                                h('code', { class: 'mono' }, dnsNameHint(d.hostname)),
+                                                ` (manche Anbieter wollen den ganzen Namen: ${d.hostname})`
+                                            )
+                                        ],
+                                        [
+                                            'Ziel',
+                                            h(
+                                                'span',
+                                                { class: 'row gap-s' },
+                                                h('code', { class: 'mono' }, d.dns.target),
+                                                copyButton(() => d.dns.target, 'Ziel kopieren')
+                                            )
+                                        ]
+                                    ]),
+                                    h(
+                                        'p',
+                                        { class: 'muted' },
+                                        'Liegt die Domain auch bei Cloudflare: Proxy-Status „DNS only“ (graue Wolke). Danach dauert es meist 5–30 Minuten; at0mic schaut alle 5 Minuten selbst nach.'
+                                    )
+                                ),
+                          d.lastError ? h('p', { class: 'small muted' }, `Stand: ${d.lastError}`) : null,
+                          h(
+                              'div',
+                              { class: 'row gap-s' },
+                              d.status === 'active'
+                                  ? null
+                                  : busyButton('Jetzt prüfen', check, { className: 'btn small' }),
+                              busyButton('Trennen', remove, { className: 'btn small' })
+                          )
+                      );
+                  }),
+            enabled && domains.length < maxPerSite
+                ? h(
+                      'div',
+                      { class: 'stack-s' },
+                      field(
+                          'Domain verbinden',
+                          input,
+                          `Eine Unterdomain wie www.meinladen.ch. Die nackte Domain (meinladen.ch) leitest du bei deinem Anbieter auf www um. Ziel des CNAME: ${cnameTarget}.`
+                      ),
+                      busyButton(
+                          'Verbinden',
+                          async () => {
+                              const problem = customDomainInputProblem(input.value);
+                              if (problem) return toast(problem, 'error');
+                              const r = await api.post(`/api/objects/${o.uuid}/custom-domains`, {
+                                  hostname: input.value.trim()
+                              });
+                              if (!r.ok) return toast(r.error, 'error');
+                              input.value = '';
+                              toast('Bei Cloudflare angemeldet. Jetzt den CNAME bei deinem Anbieter setzen.', 'ok');
+                              await load();
+                          },
+                          { className: 'btn primary', iconName: 'link' }
+                      )
+                  )
+                : null
+        );
+    };
+
+    mount(
+        box,
+        card(
+            { title: 'Eigene Domain', icon: 'link' },
+            h(
+                'p',
+                { class: 'small muted' },
+                'Die Website unter deiner eigenen Adresse zeigen, z.B. www.meinladen.ch statt name.at0mic.site. Das Zertifikat (https) macht Cloudflare. Sobald die Domain aktiv ist, leitet name.at0mic.site automatisch dorthin um. Verbinden und trennen können nur eingeloggte Menschen.'
+            ),
+            listBox
+        )
+    );
+    await load();
+};
+
 const renderSiteTab = (box, o, objects, { onTab }) => {
     const status = siteStatus(o, objects);
 
@@ -1784,6 +1964,9 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
         );
     };
 
+    // Eigene Domain (Plan "SSF-Ausbau", D3): eigene Karte unter der Website-Karte
+    const domainBox = h('div');
+    renderCustomDomainCard(domainBox, o);
     mount(
         box,
         card(
@@ -1863,7 +2046,8 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
                     'Adressen ohne Endung finden .html und .md (Markdown wird zur Seite), eine eigene 404.html ist möglich.'
                 )
             )
-        )
+        ),
+        domainBox
     );
 };
 

@@ -52,7 +52,15 @@ app.use(
         isProduction,
         // Login auf Websites: Hierhin schickt der Bauarbeiter den BROWSER des Besuchers
         // zum Anmelden – darum die öffentliche Adresse (API_URL), nicht SITE_API_URL
-        loginUrl: process.env.API_URL || 'http://localhost:3000'
+        loginUrl: process.env.API_URL || 'http://localhost:3000',
+        // Eigene Domains (Plan "SSF-Ausbau", D2): Unter diesen Namen läuft das COCKPIT.
+        // Jeder andere fremde Name ist vielleicht die eigene Domain eines Kunden
+        // (www.meinladen.ch) – der Bauarbeiter fragt das Backend. IP-Adressen und
+        // localhost gehen immer ans Cockpit. In der .env änderbar (Komma-getrennt).
+        cockpitHosts: (process.env.COCKPIT_HOSTS || 'at0mic.ch,www.at0mic.ch')
+            .split(',')
+            .map(h => h.trim().toLowerCase())
+            .filter(Boolean)
     })
 );
 

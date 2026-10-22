@@ -632,3 +632,21 @@ describe('Webhook-Status lesbar machen (Cockpit, Etappe B2)', () => {
         assert.match(webhookStatusText(418).text, /Status 418/);
     });
 });
+
+describe('Eigene Domains: Helfer für die Karte (Etappe D3)', () => {
+    test('Status lesbar, DNS-Name, schnelle Vor-Prüfung', async () => {
+        const { customDomainStatusText, dnsNameHint, customDomainInputProblem } =
+            await import('../public/js/core/site.js');
+        assert.deepEqual(customDomainStatusText('active'), { tone: 'ok', text: 'aktiv' });
+        assert.equal(customDomainStatusText('pending').tone, 'warn');
+        assert.equal(customDomainStatusText('failed').tone, 'error');
+        assert.equal(dnsNameHint('www.meinladen.ch'), 'www');
+        assert.equal(dnsNameHint('shop.eu.meinladen.ch'), 'shop.eu');
+        assert.equal(customDomainInputProblem('www.meinladen.ch'), null);
+        assert.equal(customDomainInputProblem(' https://WWW.MeinLaden.ch/ '), null);
+        assert.match(customDomainInputProblem('meinladen.ch'), /Unterdomain wie www\.meinladen\.ch/);
+        assert.match(customDomainInputProblem('shop.at0mic.site'), /Adressen von at0mic/);
+        assert.match(customDomainInputProblem('www.grüne.ch'), /Nur Buchstaben/);
+        assert.match(customDomainInputProblem(''), /Bitte eine Domain/);
+    });
+});
