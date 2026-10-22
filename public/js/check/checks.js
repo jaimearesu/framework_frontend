@@ -1040,6 +1040,56 @@ export const CHECKS = [
                 '_sys_id schreiben'
             )
     },
+    // Plan "Lehren aus dem Restaurant-Test", E4: Schlüssel und "nur wenn" (Migration 020)
+    {
+        id: 'ssf-data-key',
+        group: 'SSF',
+        title: 'Schlüssel: derselbe Schlüssel nur einmal pro Speicher (KEY_TAKEN)',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `const ziel = '${ctx.domainName}/daten';
+                 const key = 'check|' + (await api.crypto.randomToken(16, 'hex'));
+                 const eins = await api.data.insert(ziel, { check: 'schluessel' }, { key });
+                 let zwei = null;
+                 try { await api.data.insert(ziel, { check: 'schluessel' }, { key }); } catch (e) { zwei = e.code; }
+                 const gefunden = await api.data.getByKey(ziel, key);
+                 const weg = await api.data.deleteByKey(ziel, key);
+                 return { eins: eins._sys_key === key, zwei, gefunden: gefunden && gefunden._sys_id === eins._sys_id, weg: weg.deleted };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const x = r.data.result;
+            expect(x.eins && x.zwei === 'KEY_TAKEN' && x.gefunden && x.weg, JSON.stringify(x), r);
+            return 'zweiter Versuch: KEY_TAKEN';
+        }
+    },
+    {
+        id: 'ssf-data-onlyif',
+        group: 'SSF',
+        title: 'Nur wenn noch: onlyIf schaltet einen Status nur einmal weiter',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `const ziel = '${ctx.domainName}/daten';
+                 const neu = await api.data.insert(ziel, { check: 'onlyif', status: 'eingegangen' });
+                 const ok = await api.data.update(ziel, neu._sys_id, { status: 'fertig' }, { onlyIf: { status: 'eingegangen' } });
+                 let nochmals = null;
+                 try { await api.data.update(ziel, neu._sys_id, { status: 'fertig' }, { onlyIf: { status: 'eingegangen' } }); }
+                 catch (e) { nochmals = e.code; }
+                 await api.data.delete(ziel, neu._sys_id);
+                 return { status: ok.status, nochmals };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            expect(
+                r.data.result.status === 'fertig' && r.data.result.nochmals === 'CONDITION_FAILED',
+                JSON.stringify(r.data.result),
+                r
+            );
+            return 'zweites Mal: CONDITION_FAILED';
+        }
+    },
     // Plan "Lehren aus dem Restaurant-Test", E2: sicherer Zufall und anonym testen
     {
         id: 'ssf-crypto',
