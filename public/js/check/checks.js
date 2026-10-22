@@ -360,6 +360,28 @@ export const CHECKS = [
             return r.error;
         }
     },
+    // Plan "Lehren aus dem Restaurant-Test", E5: Bündel – hier nur Probelauf (schreibt nichts)
+    {
+        id: 'bundle-dry-run',
+        group: 'Code',
+        title: 'Bündel: Probelauf zeigt den Plan, Fehler im Code wird mit Teil und Zeile gemeldet',
+        needs: ['root'],
+        run: async ctx => {
+            const probe = await api.post(`/api/objects/${ctx.root}/bundle`, {
+                dry_run: true,
+                children: [{ identifier: 'check-teil', code: { html: '<p>Probe</p>' } }]
+            });
+            expectStatus(probe, 200, 'Probelauf');
+            expect(probe.data?.data?.children?.[0]?.action === 'create', 'Plan fehlt', probe);
+            const bad = await api.post(`/api/objects/${ctx.root}/bundle`, {
+                dry_run: true,
+                children: [{ identifier: 'check-teil', code: { ssf: 'return (;' } }]
+            });
+            expectStatus(bad, 422, 'Fehler im Code');
+            expect(/Kind "check-teil", ssf: Zeile 1/.test(String(bad.data?.details?.[0])), 'Meldung ohne Zeile', bad);
+            return 'Plan: create; Fehler mit Teil und Zeile';
+        }
+    },
 
     // ============================================================== DATEN
     {
