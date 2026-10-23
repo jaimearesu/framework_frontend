@@ -105,7 +105,8 @@ import {
     childBodyWarning,
     tidyWarnings,
     findFileRefs,
-    replaceFileRefs
+    replaceFileRefs,
+    hasContent
 } from '../core/preview.js';
 
 // Passendes Objekt zu einem DNA-Knoten finden (für anklickbare Bäume)
@@ -384,6 +385,9 @@ const composeObject = async (rootObject, objects) => {
         const html = placeChildren(own.body, parts, unplaced);
         if (unplaced.length > 0 && /\sdata-slot=/i.test(own.body)) {
             for (const id of unplaced) {
+                // Teil ohne HTML (z.B. ein Ordner nur für Bilder): kein Platz nötig (wie im Backend, B7)
+                const part = parts.find(p => p.identifier === id);
+                if (!part || !hasContent(part.html)) continue;
                 warnings.push(
                     `Kind "${id}": kein Platz <div data-slot="${id}"> im HTML von "${name}" – es steht darunter angehängt.`
                 );

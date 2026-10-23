@@ -302,3 +302,14 @@ describe('Dateien in der Vorschau', async () => {
         assert.equal(findFileRefs(many).length, MAX_PREVIEW_FILES);
     });
 });
+
+// Plan "Brotzeit-Test", B7: Teil ohne HTML braucht keinen Steckplatz (gleiche Regel wie im Backend)
+describe('hasContent', async () => {
+    const { hasContent } = await import('../public/js/core/preview.js');
+    test('leere Hüllen (auch verschachtelt) zählen nicht, echter Inhalt schon', () => {
+        assert.equal(hasContent(''), false);
+        assert.equal(hasContent('<section data-at0mic="logo">\n\n</section>'), false);
+        assert.equal(hasContent('<section data-at0mic="a">\n<section data-at0mic="b">\n</section>\n</section>'), false);
+        assert.equal(hasContent('<section data-at0mic="a"><p>Hallo</p></section>'), true);
+    });
+});
