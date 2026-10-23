@@ -309,7 +309,7 @@ export const CHECKS = [
     {
         id: 'file-r2',
         group: 'Code',
-        title: 'Datei in R2: hochladen, holen, falsche Art ablehnen, entfernen',
+        title: 'Datei in R2: hochladen, holen (auch über den Pfad der Website), falsche Art ablehnen, entfernen',
         needs: ['daten'],
         run: async ctx => {
             // Ein winziges, gültiges PNG (1×1 Pixel)
@@ -339,13 +339,21 @@ export const CHECKS = [
             const same = new Uint8Array(await back.blob.arrayBuffer());
             expect(same.length === png.length && same.every((b, i) => b === png[i]), 'Bytes aus R2 sind anders', back);
 
+            // D3: über den PFAD der Website – Vorschau (deine Rechte) ja, Fremde nein (daten ist privat)
+            const viaSite = await api.blob(`/api/sites/${ctx.domainName}/vorschau/datei/daten.png`);
+            expect(viaSite.ok, `Vorschau über den Pfad: ${viaSite.error}`, viaSite);
+            const wrongExt = await api.blob(`/api/sites/${ctx.domainName}/vorschau/datei/daten.jpg`);
+            expectStatus(wrongExt, 404, 'falsche Endung (.jpg für ein PNG)');
+            const anon = await api.get(`/api/sites/${ctx.domainName}/datei/daten.png`, { anonymous: true });
+            expectStatus(anon, 404, 'privates Bild für Fremde');
+
             const html = new File(['<html><script>x</script></html>'], 'logo.png', { type: 'image/png' });
             const bad = await api.upload(`/api/objects/${ctx.daten}/file`, html);
             expectStatus(bad, 415, 'HTML als „logo.png“');
 
             const del = await api.del(`/api/objects/${ctx.daten}/file`);
             expectStatus(del, 200, 'Entfernen');
-            return `R2 ok: ${png.length} Bytes hin und zurück, HTML abgelehnt, entfernt`;
+            return `R2 ok: ${png.length} Bytes hin und zurück, auch über /datei/ der Website, HTML abgelehnt, entfernt`;
         }
     },
     // Plan "Geo-Monitor", G3: Beim Speichern sagt at0mic, was GENAU angekommen ist

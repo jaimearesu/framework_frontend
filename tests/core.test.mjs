@@ -281,3 +281,24 @@ describe('session: describeLimits (Kontingente)', () => {
         assert.equal(describeLimits(me(null, { profile: 'pro' })).profileLabel, 'pro');
     });
 });
+
+// Plan "Dateien mit R2", D3: Dateien in der Vorschau des Cockpits
+describe('Dateien in der Vorschau', async () => {
+    const { findFileRefs, replaceFileRefs, MAX_PREVIEW_FILES } = await import('../public/js/core/preview.js');
+    test('findet jeden Pfad einmal – mit und ohne Endung, ?v= gehört nicht dazu', () => {
+        const html =
+            '<img src="/_at0mic/datei/bilder/logo.png"><img src="/_at0mic/datei/bilder/logo.png?v=2">' +
+            '<a href="/_at0mic/datei/menue">PDF</a> url(/_at0mic/datei/schrift.woff2) /_at0mic/run/api';
+        assert.deepEqual(findFileRefs(html), ['bilder/logo.png', 'menue', 'schrift.woff2']);
+    });
+    test('ersetzt bekannte Pfade (samt ?v=), unbekannte bleiben', () => {
+        const out = replaceFileRefs('<img src="/_at0mic/datei/a.png?v=3"> <img src="/_at0mic/datei/b">', {
+            'a.png': 'data:image/png;base64,AAA'
+        });
+        assert.equal(out, '<img src="data:image/png;base64,AAA"> <img src="/_at0mic/datei/b">');
+    });
+    test('höchstens MAX_PREVIEW_FILES verschiedene', () => {
+        const many = Array.from({ length: 40 }, (_, i) => `/_at0mic/datei/b${i}`).join(' ');
+        assert.equal(findFileRefs(many).length, MAX_PREVIEW_FILES);
+    });
+});
