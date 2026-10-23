@@ -1551,7 +1551,9 @@ const renderCopyTab = (box, o, objects, { onDone }) => {
 };
 
 // --- Reiter "Sichtbarkeit" ---
-// PUT /api/objects/:uuid/visibility { visibility, includeChildren }
+// PUT /api/objects/:uuid/visibility { visibility, includeChildren, except }
+// except (Plan "Brotzeit-Test", B1): Teile, die beim "für alle Unter-Objekte" NICHT
+// mitgeändert werden – sie und alles darunter bleiben, wie sie sind.
 // Braucht blue auf das Objekt UND einen echten Login (Gäste dürfen nichts
 // veröffentlichen). Die Sichtbarkeit gilt pro Objekt – eine Website kann
 // einzelne Teile öffentlich, andere nur für Eingeloggte oder privat haben.
@@ -1589,17 +1591,52 @@ const renderVisibilityTab = (box, o, objects, { onDone }) => {
     const withChildren = h('input', { type: 'checkbox', disabled: !loggedIn || kids === 0 });
     const out = h('div');
 
+    // Ausnahmen: die direkten Teile darunter (mit allem, was darunter hängt) zum Abwählen
+    const below = descendantsOf(o, objects);
+    const depth = (o.path || []).length || 1;
+    const direct = below.filter(c => (c.path || []).length === depth + 1);
+    const exceptBoxes = direct.map(c => ({
+        uuid: c.uuid,
+        box: h('input', { type: 'checkbox', disabled: !loggedIn }),
+        label: objectLabel(c),
+        current: visibilityInfo(c.visibility)
+    }));
+    const exceptList = h(
+        'div',
+        { class: 'except-list', hidden: true },
+        h(
+            'div',
+            { class: 'small muted' },
+            'Diese Teile NICHT mitändern (sie und alles darunter bleiben, wie sie sind):'
+        ),
+        exceptBoxes.map(e =>
+            h(
+                'label',
+                { class: 'check small' },
+                e.box,
+                h('span', {}, e.label, h('span', { class: 'muted' }, ` (jetzt: ${e.current.emoji} ${e.current.label})`))
+            )
+        )
+    );
+    withChildren.addEventListener('change', () => {
+        exceptList.hidden = !withChildren.checked || exceptBoxes.length === 0;
+    });
+    const chosenExcept = () => (withChildren.checked ? exceptBoxes.filter(e => e.box.checked) : []);
+
     const save = async () => {
         if (chosen === 'public' || chosen === 'members') {
             const info = visibilityInfo(chosen);
+            const except = chosenExcept();
             const who = withChildren.checked
                 ? `„${objectLabel(o)}“ und ${kids} Unter-Objekt(e)`
                 : `„${objectLabel(o)}“`;
-            if (!confirm(`${who} auf „${info.label}“ stellen?\n\n${info.text}`)) return;
+            const keep = except.length ? `\n\nAUSSER (bleibt, wie es ist): ${except.map(e => e.label).join(', ')}` : '';
+            if (!confirm(`${who} auf „${info.label}“ stellen?${keep}\n\n${info.text}`)) return;
         }
         const res = await api.put(`/api/objects/${o.uuid}/visibility`, {
             visibility: chosen,
-            includeChildren: withChildren.checked
+            includeChildren: withChildren.checked,
+            except: chosenExcept().map(e => e.uuid)
         });
         mount(out, resultLine(res));
         if (res.ok) {
@@ -1636,6 +1673,7 @@ const renderVisibilityTab = (box, o, objects, { onDone }) => {
                         : 'Auch für Unter-Objekte übernehmen (dieses Objekt hat keine)'
                 )
             ),
+            exceptList,
             h(
                 'ul',
                 { class: 'small muted' },

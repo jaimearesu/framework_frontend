@@ -36,6 +36,18 @@ describe('Was passiert beim Freigeben?', () => {
         );
     });
 
+    // Plan "Brotzeit-Test", B1: Ausnahmen beim Veröffentlichen
+    test('mit Ausnahmen: nur die übrigen zählen, AUSSER steht gross dabei', () => {
+        assert.equal(
+            describeRequest({ ...base, includeChildren: true, childCount: 4, except: ['u1'], exceptCount: 2 }),
+            'freigabe und 2 Unter-Objekte werden öffentlich (alle, auch anonym) – AUSSER 2 Teilen, die bleiben, wie sie sind'
+        );
+        assert.equal(
+            describeRequest({ ...base, includeChildren: true, childCount: 1, except: ['u1'], exceptCount: 1 }),
+            'freigabe wird öffentlich (alle, auch anonym) – AUSSER 1 Teil, die bleiben, wie sie sind'
+        );
+    });
+
     test('nur Mitglieder, und ein Unter-Objekt mit Pfad', () => {
         assert.equal(
             describeRequest({ ...base, visibility: 'members', objectPath: ['0', '0,1'] }),
