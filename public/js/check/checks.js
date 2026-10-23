@@ -1131,6 +1131,35 @@ export const CHECKS = [
             return '43 Zeichen, jedes Mal anders';
         }
     },
+    // Plan "Geo-Monitor", G1: api.crypto antwortet sofort (ohne await), und ein vergessenes
+    // await fällt auf (Warnung bei "[object Promise]", Fehler bei einem Promise als Argument)
+    {
+        id: 'ssf-sofort',
+        group: 'SSF',
+        title: 'Sofort-Werkzeuge ohne await + Warnung „await vergessen?“',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `const link = 'x/' + api.crypto.randomToken();
+                 let fehler = null;
+                 try { await api.objects.get({ ziel: api.objects.get('${ctx.domainName}') }); } catch (e) { fehler = e.message; }
+                 try { await api.objects.get('${ctx.domainName}|' + api.objects.get('${ctx.domainName}')); } catch (e) {}
+                 return { link, fehler };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const { link, fehler } = r.data.result;
+            expect(/^x\/[A-Za-z0-9_-]{43}$/.test(link), `Link ohne await: ${link}`, r);
+            expect(/await vergessen/.test(fehler || ''), `Promise als Argument: ${fehler}`, r);
+            const warnings = r.data.warnings || [];
+            expect(
+                warnings.some(w => w.includes('[object Promise]')),
+                `Warnung fehlt: ${JSON.stringify(warnings)}`,
+                r
+            );
+            return 'Token sofort da, Promise abgelehnt, Warnung gemeldet';
+        }
+    },
     // Plan "Lehren aus dem Restaurant-Test", E6: Bibliothek speichern und aus der SSF laden
     {
         id: 'ssf-library',
