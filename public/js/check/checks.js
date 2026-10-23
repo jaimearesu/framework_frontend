@@ -347,6 +347,12 @@ export const CHECKS = [
             const anon = await api.get(`/api/sites/${ctx.domainName}/datei/daten.png`, { anonymous: true });
             expectStatus(anon, 404, 'privates Bild für Fremde');
 
+            // D4: "von einer Adresse holen" – interne Adressen lehnt der Server ab (SSRF-Schutz)
+            const intern = await api.post(`/api/objects/${ctx.daten}/file/from-url`, {
+                url: 'https://127.0.0.1/geheim.png'
+            });
+            expectStatus(intern, 400, 'interne Adresse als Quelle');
+
             const html = new File(['<html><script>x</script></html>'], 'logo.png', { type: 'image/png' });
             const bad = await api.upload(`/api/objects/${ctx.daten}/file`, html);
             expectStatus(bad, 415, 'HTML als „logo.png“');
