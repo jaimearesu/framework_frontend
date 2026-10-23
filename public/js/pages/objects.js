@@ -105,7 +105,8 @@ import {
     childBodyWarning,
     tidyWarnings,
     findFileRefs,
-    replaceFileRefs
+    replaceFileRefs,
+    hasContent
 } from '../core/preview.js';
 
 // Passendes Objekt zu einem DNA-Knoten finden (für anklickbare Bäume)
@@ -384,6 +385,9 @@ const composeObject = async (rootObject, objects) => {
         const html = placeChildren(own.body, parts, unplaced);
         if (unplaced.length > 0 && /\sdata-slot=/i.test(own.body)) {
             for (const id of unplaced) {
+                // Teil ohne HTML (z.B. ein Ordner nur für Bilder): kein Platz nötig (wie im Backend, B7)
+                const part = parts.find(p => p.identifier === id);
+                if (!part || !hasContent(part.html)) continue;
                 warnings.push(
                     `Kind "${id}": kein Platz <div data-slot="${id}"> im HTML von "${name}" – es steht darunter angehängt.`
                 );
@@ -2215,10 +2219,17 @@ const renderCustomDomainCard = async (box, o) => {
 // ------------------------------------------------------------------
 const renderScreenshotCard = (box, name) => {
     const out = h('div');
+    // Plan "Brotzeit-Test", B3/B2: ganze Seite, und so, wie ein fremder Besucher sie sieht
+    const full = h('input', { type: 'checkbox' });
+    const anonymous = h('input', { type: 'checkbox' });
     const take = viewport => async () => {
         mount(out, spinner('Cloudflare macht den Screenshot …'));
         const res = await api.get(`/api/sites/${encodeURIComponent(name)}/vorschau`, {
-            query: { screenshot: viewport }
+            query: {
+                screenshot: viewport,
+                full: full.checked ? 'true' : undefined,
+                as: anonymous.checked ? 'anonymous' : undefined
+            }
         });
         if (!res.ok) return mount(out, resultLine(res));
         const shot = res.data.meta?.screenshot || {};
@@ -2267,7 +2278,9 @@ const renderScreenshotCard = (box, name) => {
                 'div',
                 { class: 'row gap-s wrap' },
                 busyButton('Desktop', take('desktop'), { className: 'btn' }),
-                busyButton('Handy', take('mobile'), { className: 'btn' })
+                busyButton('Handy', take('mobile'), { className: 'btn' }),
+                h('label', { class: 'check small' }, full, h('span', {}, 'Ganze Seite')),
+                h('label', { class: 'check small' }, anonymous, h('span', {}, 'Als fremder Besucher (ohne Login)'))
             ),
             out
         )

@@ -58,6 +58,18 @@ const EMPTY_NOTE =
 // Kinder in ihre Plätze (data-slot) setzen oder hinten anhängen (reine Funktion, getestet)
 // parts = [{ identifier, html }]
 // unplaced (freiwillig): hier kommen die identifier der Kinder hinein, die keinen Platz fanden
+// Hat ein Teil sichtbaren Inhalt? Leere Hüllen (<section data-at0mic="…"></section> für
+// Kinder ohne HTML, auch verschachtelt) zählen nicht (Plan "Brotzeit-Test", B7)
+const EMPTY_SECTION = /<section data-at0mic="[\w-]*">\s*<\/section>/g;
+export const hasContent = html => {
+    let text = String(html || '');
+    for (let before = ''; before !== text;) {
+        before = text;
+        text = text.replace(EMPTY_SECTION, '');
+    }
+    return text.trim().length > 0;
+};
+
 export const placeChildren = (parentBody, parts, unplaced = []) => {
     let body = String(parentBody || '');
     const rest = [];
