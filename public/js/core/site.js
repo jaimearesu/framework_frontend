@@ -66,8 +66,15 @@ export const fileUrl = (base, path) => {
     return `${base}/${p}`;
 };
 
+// Bytes lesbar. Seit "Dateien mit R2" (D2) auch GB – für das Speicher-Kontingent (1 GB)
 export const formatBytes = n =>
-    n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
+    n < 1024
+        ? `${n} B`
+        : n < 1024 * 1024
+          ? `${(n / 1024).toFixed(1)} KB`
+          : n < 1024 * 1024 * 1024
+            ? `${(n / 1024 / 1024).toFixed(1)} MB`
+            : `${(n / 1024 / 1024 / 1024).toFixed(1)} GB`;
 
 // ---------------------------------------------------------------------
 // WEBHOOKS (Plan "SSF-Ausbau", Etappe B2): was heisst der Status eines

@@ -1270,3 +1270,36 @@ details.raw summary {
     gap: 6px;
     padding: 4px 0;
 }
+
+/* --- Reiter "Datei" (Plan "Dateien mit R2", D2) --- */
+.file-drop {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px;
+    margin-bottom: 12px;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius, 10px);
+    color: var(--muted);
+}
+.file-drop.is-over {
+    border-color: var(--accent);
+    background: var(--accent-soft, rgba(99, 102, 241, 0.08));
+    color: inherit;
+}
+.file-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+.file-preview-img {
+    max-width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+    align-self: flex-start;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 10px);
+    /* Karomuster: so sieht man auch durchsichtige Bilder (PNG, SVG) */
+    background: repeating-conic-gradient(#8881 0% 25%, transparent 0% 50%) 50% / 16px 16px;
+}
