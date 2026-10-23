@@ -492,7 +492,9 @@ const createBauarbeiter = ({
         // So lange wie der Ausweis gilt (höchstens 2 Minuten)
         const seconds = Math.min(Number(data.data.seconds) || 0, 120);
         setTokenCookie(res, token, seconds > 0 ? seconds : 0);
-        return res.redirect(302, '/');
+        // ziel (Plan "Geo-Monitor", G4): eine Unterseite wie "/#/detail/3" statt der Startseite.
+        // Nur ein Pfad auf DIESER Website (safeReturnPath) – sonst "/", nie eine fremde Adresse.
+        return res.redirect(302, login.safeReturnPath(req.query.ziel));
     };
 
     // GET|POST /_at0mic/logout – im Backend sperren, Cookie löschen

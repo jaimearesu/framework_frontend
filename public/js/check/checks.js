@@ -1716,6 +1716,24 @@ return { uuid: kopie.uuid, left: austritt.left };`
             return `${shot.width}×${shot.height} ${shot.mimeType}, ${shot.consoleErrors.length} Konsolen-Meldung(en)`;
         }
     },
+    // Plan "Geo-Monitor", G4: Unterseite fotografieren – nur Pfade dieser Website.
+    // Prüft nur die Ablehnungen (kostet keinen Screenshot bei Cloudflare).
+    {
+        id: 'site-screenshot-path',
+        group: 'Website',
+        title: 'Screenshot einer Unterseite (path): fremde Adressen abgelehnt',
+        needs: ['domainName'],
+        run: async ctx => {
+            const ohne = await api.get(`/api/sites/${ctx.domainName}/vorschau`, { query: { path: '#/a' } });
+            expectStatus(ohne, 400, 'path ohne screenshot');
+            const fremd = await api.get(`/api/sites/${ctx.domainName}/vorschau`, {
+                query: { screenshot: 'mobile', path: '//böse.example' }
+            });
+            if (fremd.status === 403) return 'nur mit Login ganz prüfbar – Teil 1 ok';
+            expectStatus(fremd, 400, 'fremde Adresse als path');
+            return 'ohne screenshot: 400 · fremde Adresse: 400';
+        }
+    },
     {
         id: 'site-names',
         group: 'Website',
