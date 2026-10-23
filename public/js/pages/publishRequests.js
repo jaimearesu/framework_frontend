@@ -14,6 +14,7 @@ import { api } from '../core/api.js';
 import { href } from '../core/routes.js';
 import { h, mount, badge, busyButton, toast, callout } from '../core/ui.js';
 import { timeAgo, pathText } from '../core/format.js';
+import { loadObjects, loadObjectNames, objectLabel } from '../core/objects.js';
 
 const VISIBILITY_TEXT = {
     public: 'öffentlich (alle, auch anonym)',
@@ -30,22 +31,26 @@ const TARGET_TEXT = {
 /**
  * Was genau passiert, wenn man freigibt? (reine Funktion, getestet)
  * -> z.B. "freigabe-5d und 3 Unter-Objekte werden öffentlich (alle, auch anonym)"
+ * Mit Ausnahmen (Plan "Brotzeit-Test", B1):
+ * -> "brot und 2 Unter-Objekte werden öffentlich (…) – AUSSER 2 Teilen, die bleiben, wie sie sind"
  */
 export const describeRequest = item => {
     const name =
         item.objectPath && item.objectPath.length > 1
             ? `${item.objectName}/${pathText(item.objectPath.slice(1))}`
             : item.objectName;
-    const children =
-        item.includeChildren && item.childCount > 0
-            ? ` und ${item.childCount} Unter-Objekt${item.childCount === 1 ? '' : 'e'}`
-            : '';
+    const excepted =
+        item.includeChildren && Array.isArray(item.except) && item.except.length ? item.exceptCount || 0 : 0;
+    const count = Math.max(0, (item.childCount || 0) - excepted);
+    const children = item.includeChildren && count > 0 ? ` und ${count} Unter-Objekt${count === 1 ? '' : 'e'}` : '';
     const verb = children ? 'werden' : 'wird';
-    return `${name}${children} ${verb} ${TARGET_TEXT[item.visibility] || item.visibility}`;
+    const except =
+        excepted > 0 ? ` – AUSSER ${excepted} Teil${excepted === 1 ? '' : 'en'}, die bleiben, wie sie sind` : '';
+    return `${name}${children} ${verb} ${TARGET_TEXT[item.visibility] || item.visibility}${except}`;
 };
 
 // Eine Anfrage als Karte
-const requestItem = (item, reload) => {
+const requestItem = (item, reload, names = {}) => {
     const note = h('input', {
         type: 'text',
         class: 'input',
@@ -67,6 +72,15 @@ const requestItem = (item, reload) => {
         'li',
         { class: 'request-item' },
         h('div', { class: 'request-what' }, h('strong', {}, describeRequest(item))),
+        // Ausnahmen mit Namen (Plan "Brotzeit-Test", B1) – du sollst sehen, WAS privat bleibt
+        Array.isArray(item.except) && item.except.length
+            ? h(
+                  'div',
+                  { class: 'small' },
+                  '🔒 Bleibt, wie es ist (mit allem darunter): ',
+                  item.except.map((u, i) => [i ? ', ' : '', h('code', {}, names[u] || u.slice(0, 8))])
+              )
+            : null,
         h(
             'div',
             { class: 'muted small' },
@@ -123,6 +137,14 @@ export const renderPendingRequests = async (box, cardEl, s) => {
     if (!list.length) return mount(box); // nichts mehr offen: alten Inhalt wegräumen
 
     const reload = () => renderPendingRequests(box, cardEl, s);
+    // Namen der ausgenommenen Teile (B1) – nur laden, wenn eine Anfrage Ausnahmen hat
+    const names = {};
+    if (list.some(item => Array.isArray(item.except) && item.except.length)) {
+        const loaded = await loadObjects();
+        const objects = loaded.ok ? loaded.data : [];
+        await loadObjectNames(objects);
+        for (const o of objects) names[o.uuid] = objectLabel(o);
+    }
     mount(
         box,
         s.identity.kind === 'guest'
@@ -131,7 +153,7 @@ export const renderPendingRequests = async (box, cardEl, s) => {
         h(
             'ul',
             { class: 'request-list' },
-            list.map(item => requestItem(item, reload))
+            list.map(item => requestItem(item, reload, names))
         ),
         h(
             'p',
