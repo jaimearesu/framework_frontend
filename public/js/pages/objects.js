@@ -2219,10 +2219,17 @@ const renderCustomDomainCard = async (box, o) => {
 // ------------------------------------------------------------------
 const renderScreenshotCard = (box, name) => {
     const out = h('div');
+    // Plan "Brotzeit-Test", B3/B2: ganze Seite, und so, wie ein fremder Besucher sie sieht
+    const full = h('input', { type: 'checkbox' });
+    const anonymous = h('input', { type: 'checkbox' });
     const take = viewport => async () => {
         mount(out, spinner('Cloudflare macht den Screenshot …'));
         const res = await api.get(`/api/sites/${encodeURIComponent(name)}/vorschau`, {
-            query: { screenshot: viewport }
+            query: {
+                screenshot: viewport,
+                full: full.checked ? 'true' : undefined,
+                as: anonymous.checked ? 'anonymous' : undefined
+            }
         });
         if (!res.ok) return mount(out, resultLine(res));
         const shot = res.data.meta?.screenshot || {};
@@ -2271,7 +2278,9 @@ const renderScreenshotCard = (box, name) => {
                 'div',
                 { class: 'row gap-s wrap' },
                 busyButton('Desktop', take('desktop'), { className: 'btn' }),
-                busyButton('Handy', take('mobile'), { className: 'btn' })
+                busyButton('Handy', take('mobile'), { className: 'btn' }),
+                h('label', { class: 'check small' }, full, h('span', {}, 'Ganze Seite')),
+                h('label', { class: 'check small' }, anonymous, h('span', {}, 'Als fremder Besucher (ohne Login)'))
             ),
             out
         )
