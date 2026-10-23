@@ -14,6 +14,7 @@ import { buildUrl, encodePath, errorMessage } from '../public/js/core/api.js';
 import { pickMode, trimSlash } from '../public/js/core/config.js';
 import { parseHash, href, findRoute, ROUTES, GROUPS } from '../public/js/core/routes.js';
 import { formatNumber, formatMs, shortUuid, formatDate, timeAgo, pathText, isUuid } from '../public/js/core/format.js';
+import { formatBytes } from '../public/js/core/site.js';
 import { describeIdentity, guestHint, describeLimits } from '../public/js/core/session.js';
 import { jsonTokens } from '../public/js/core/ui.js';
 
@@ -135,6 +136,14 @@ describe('format', () => {
         assert.equal(formatNumber(NaN), '–');
         assert.equal(formatNumber('5'), '–');
     });
+    // Plan "Dateien mit R2", D2: formatBytes (aus site.js) kann jetzt auch GB
+    test('formatBytes bis GB', () => {
+        assert.equal(formatBytes(900), '900 B');
+        assert.equal(formatBytes(1536), '1.5 KB');
+        assert.equal(formatBytes(10 * 1024 * 1024), '10.0 MB');
+        assert.equal(formatBytes(1024 * 1024 * 1024), '1.0 GB');
+    });
+
     test('formatMs', () => {
         assert.equal(formatMs(42.4), '42 ms');
         assert.equal(formatMs(1000), '1 s');

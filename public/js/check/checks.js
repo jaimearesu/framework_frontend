@@ -303,6 +303,51 @@ export const CHECKS = [
             return 'Kommentar noch da';
         }
     },
+    // Plan "Dateien mit R2", D2: ein echter Rundgang durch Cloudflare R2 – hochladen, Beschreibung,
+    // Bytes zurück (bitgenau), HTML als "Bild" abgelehnt, entfernen. Auf dem Server prüft das,
+    // ob die R2-Schlüssel in der .env stimmen.
+    {
+        id: 'file-r2',
+        group: 'Code',
+        title: 'Datei in R2: hochladen, holen, falsche Art ablehnen, entfernen',
+        needs: ['daten'],
+        run: async ctx => {
+            // Ein winziges, gültiges PNG (1×1 Pixel)
+            const png = Uint8Array.from(
+                atob(
+                    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+                ),
+                c => c.charCodeAt(0)
+            );
+            const file = new File([png], 'systemcheck.png', { type: 'image/png' });
+            const up = await api.upload(`/api/objects/${ctx.daten}/file`, file);
+            if (up.status === 503 && up.data?.code === 'FILES_DISABLED') {
+                return 'R2 ist auf diesem Server nicht eingerichtet – übersprungen';
+            }
+            if (up.status === 403 && up.data?.code === 'QUOTA_EXCEEDED') {
+                return 'Gäste haben keinen Datei-Speicher – nur mit Login prüfbar, übersprungen';
+            }
+            expectStatus(up, 201, 'Hochladen');
+            expect(up.data.data.kind === 'png' && up.data.data.bytes === png.length, 'Art/Grösse stimmen nicht', up);
+
+            const info = await api.get(`/api/objects/${ctx.daten}/file`);
+            expectStatus(info, 200, 'Beschreibung');
+            expect(info.data.data.current?.version === up.data.data.version, 'Version fehlt in der Beschreibung', info);
+
+            const back = await api.blob(`/api/objects/${ctx.daten}/file/content`);
+            expect(back.ok, `Bytes holen: ${back.error}`, back);
+            const same = new Uint8Array(await back.blob.arrayBuffer());
+            expect(same.length === png.length && same.every((b, i) => b === png[i]), 'Bytes aus R2 sind anders', back);
+
+            const html = new File(['<html><script>x</script></html>'], 'logo.png', { type: 'image/png' });
+            const bad = await api.upload(`/api/objects/${ctx.daten}/file`, html);
+            expectStatus(bad, 415, 'HTML als „logo.png“');
+
+            const del = await api.del(`/api/objects/${ctx.daten}/file`);
+            expectStatus(del, 200, 'Entfernen');
+            return `R2 ok: ${png.length} Bytes hin und zurück, HTML abgelehnt, entfernt`;
+        }
+    },
     // Plan "Geo-Monitor", G3: Beim Speichern sagt at0mic, was GENAU angekommen ist
     // (Zeichen, Bytes, Zeilen, Prüfwert) – damit eine KI verlorene Backslashes bemerkt
     {

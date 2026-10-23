@@ -211,10 +211,105 @@ const requestOnce = async (
     return result;
 };
 
+// ---------------------------------------------------------------------
+// DATEIEN (Plan "Dateien mit R2", D2) – hier geht kein JSON über die Leitung:
+//   uploadFile: die rohen Bytes einer Datei hochladen (application/octet-stream),
+//               den Namen im Header X-File-Name (URI-kodiert, damit Umlaute heil ankommen)
+//   fetchBlob:  Bytes holen (z.B. ein Bild für die Vorschau) -> { ok, status, blob, error }
+// Beide landen wie alle Anfragen im Anfragen-Protokoll – ohne den Inhalt.
+// ---------------------------------------------------------------------
+export const uploadFile = async (path, file, { bearer = null } = {}) => {
+    const url = buildUrl(apiBase(), path);
+    const started = performance.now();
+    const entry = {
+        id: ++counter,
+        at: new Date(),
+        mode: getMode(),
+        method: 'PUT',
+        path,
+        url,
+        anonymous: Boolean(bearer),
+        asAi: Boolean(bearer),
+        requestBody: { datei: file?.name || '(ohne Namen)', bytes: file?.size ?? 0 }
+    };
+    let result;
+    try {
+        const headers = { 'Content-Type': 'application/octet-stream' };
+        if (file?.name) headers['X-File-Name'] = encodeURIComponent(file.name);
+        if (bearer) headers.Authorization = `Bearer ${bearer}`;
+        const res = await fetch(url, { method: 'PUT', credentials: bearer ? 'omit' : 'include', headers, body: file });
+        const text = await res.text();
+        let data = null;
+        try {
+            data = text ? JSON.parse(text) : null;
+        } catch {
+            data = text;
+        }
+        result = {
+            ok: res.ok,
+            status: res.status,
+            data,
+            error: res.ok ? null : errorMessage(data, res.status),
+            ms: Math.round(performance.now() - started)
+        };
+    } catch {
+        result = {
+            ok: false,
+            status: 0,
+            data: null,
+            error: STATUS_TEXT[0],
+            ms: Math.round(performance.now() - started)
+        };
+    }
+    emit('request', { ...entry, ...result });
+    return result;
+};
+
+export const fetchBlob = async (path, { query, bearer = null } = {}) => {
+    const url = buildUrl(apiBase(), path, query);
+    const started = performance.now();
+    let result;
+    try {
+        const headers = bearer ? { Authorization: `Bearer ${bearer}` } : {};
+        const res = await fetch(url, { credentials: bearer ? 'omit' : 'include', headers });
+        if (res.ok) {
+            result = { ok: true, status: res.status, blob: await res.blob(), error: null };
+        } else {
+            const text = await res.text();
+            let data = null;
+            try {
+                data = text ? JSON.parse(text) : null;
+            } catch {
+                data = text;
+            }
+            result = { ok: false, status: res.status, blob: null, error: errorMessage(data, res.status), data };
+        }
+    } catch {
+        result = { ok: false, status: 0, blob: null, error: STATUS_TEXT[0] };
+    }
+    result.ms = Math.round(performance.now() - started);
+    emit('request', {
+        id: ++counter,
+        at: new Date(),
+        mode: getMode(),
+        method: 'GET',
+        path: path + (url.includes('?') ? url.slice(url.indexOf('?')) : ''),
+        url,
+        anonymous: Boolean(bearer),
+        asAi: Boolean(bearer),
+        ...result,
+        blob: undefined,
+        data: result.ok ? `(${result.blob.type}, ${result.blob.size} Bytes)` : result.data
+    });
+    return result;
+};
+
 // Kurzformen: api.get('/api/objects'), api.post('/api/objects', { domain: 'shop' }) …
 export const api = {
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),
     put: (path, body, options) => request('PUT', path, { ...options, body }),
-    del: (path, options) => request('DELETE', path, options)
+    del: (path, options) => request('DELETE', path, options),
+    upload: uploadFile,
+    blob: fetchBlob
 };

@@ -3,9 +3,10 @@
 // OBJEKTE
 //
 //   links:  alle Objekte, die du sehen darfst – als Baum (Wurzel > Kinder)
-//   rechts: das gewählte Objekt mit neun Reitern
-//             Übersicht (mit Herkunft bei Kopien) · Vorschau · Baum (DNA aufgelöst)
-//             · Rollen · Kind anhängen · Klonen & Zügeln · Sichtbarkeit · Website · Löschen
+//   rechts: das gewählte Objekt mit Reitern
+//             Übersicht (mit Herkunft bei Kopien) · Vorschau · Datei (Bild/PDF/Schrift in R2)
+//             · Baum (DNA aufgelöst) · Rollen · Zugriff · Kind anhängen · Klonen & Zügeln
+//             · Sichtbarkeit · Website · Aufträge · Löschen
 //   unten:  "Pfad auflösen" – so wie ein Besucher eine Adresse aufruft
 //
 // Adresse: /#/objekte            -> nur Liste
@@ -453,6 +454,244 @@ const renderComposedPreview = async (box, o, objects, { height = '520px', compac
 
 // --- Reiter "Vorschau" ---
 const renderPreviewTab = (box, o, objects) => renderComposedPreview(box, o, objects, { height: '560px' });
+
+// --- Reiter "Datei" (Plan "Dateien mit R2", D2) ---
+// Ein Objekt kann EINE Datei haben (Bild, PDF, Schrift, mp3) – jedes Hochladen ist eine neue
+// Version, die neuesten 3 bleiben. Die Bytes liegen in Cloudflare R2. Die Art erkennt das
+// Backend am Inhalt (nicht am Namen). Die Vorschau holt die Bytes mit deinen Rechten und
+// zeigt sie als "blob:"-Adresse – nie als HTML, darum kann auch ein SVG hier nichts ausführen.
+const FILE_ACCEPT = '.png,.jpg,.jpeg,.gif,.webp,.avif,.svg,.pdf,.woff2,.woff,.ttf,.otf,.mp3';
+const FILE_MAX_BYTES = 10 * 1024 * 1024; // wie SYSTEM.files.maxFileBytes im Backend
+const IMAGE_KINDS = ['png', 'jpg', 'gif', 'webp', 'avif', 'svg'];
+let fileObjectUrls = []; // blob:-Adressen der letzten Vorschau – beim Neuzeichnen freigeben
+
+const renderFileTab = async (box, o) => {
+    fileObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    fileObjectUrls = [];
+    mount(box, spinner('Lade Datei …'));
+    const [res, me] = await Promise.all([api.get(`/api/objects/${o.uuid}/file`), api.get('/api/me')]);
+    if (!res.ok) {
+        return mount(
+            box,
+            card(
+                { title: 'Datei', icon: 'image' },
+                resultLine(res),
+                res.status === 403
+                    ? h('p', { class: 'small muted' }, 'Die Datei sieht nur, wer black auf diesem Objekt hat.')
+                    : null
+            )
+        );
+    }
+    const { enabled, current, versions } = res.data.data;
+    const storage = me.data?.limits?.usage?.storageBytes;
+
+    // --- Vorschau einer Version ---
+    const previewBox = h('div', { class: 'file-preview' });
+    const showVersion = async version => {
+        mount(previewBox, spinner('Lade Vorschau …'));
+        const info = versions.find(v => v.version === version);
+        const blob = await api.blob(`/api/objects/${o.uuid}/file/content`, { query: { version } });
+        if (!blob.ok) return mount(previewBox, resultLine(blob));
+        const url = URL.createObjectURL(blob.blob);
+        fileObjectUrls.push(url);
+        const kind = info?.kind;
+        mount(
+            previewBox,
+            IMAGE_KINDS.includes(kind)
+                ? h('img', { src: url, alt: info.originalName || 'Bild', class: 'file-preview-img' })
+                : kind === 'mp3'
+                  ? h('audio', { src: url, controls: true })
+                  : kind === 'pdf'
+                    ? h(
+                          'a',
+                          { class: 'btn', href: url, target: '_blank', rel: 'noopener' },
+                          icon('external', { size: 16 }),
+                          'PDF öffnen'
+                      )
+                    : h('p', { class: 'small muted' }, `Schrift (${kind}) – keine Vorschau, aber gespeichert.`),
+            h('p', { class: 'small muted' }, `Version ${version}${version === current?.version ? ' (aktuell)' : ''}`)
+        );
+    };
+
+    // --- Hochladen ---
+    const input = h('input', { type: 'file', accept: FILE_ACCEPT, class: 'input' });
+    const drop = h(
+        'div',
+        { class: 'file-drop' },
+        icon('upload', { size: 22 }),
+        h(
+            'div',
+            {},
+            h('strong', {}, 'Datei hierher ziehen'),
+            h('div', { class: 'small muted' }, 'oder unten auswählen – max. 10 MB')
+        )
+    );
+    const send = async file => {
+        if (!file) return toast('Bitte zuerst eine Datei auswählen.', 'error');
+        if (file.size > FILE_MAX_BYTES)
+            return toast(`„${file.name}“ ist ${formatBytes(file.size)} – max. 10 MB.`, 'error');
+        const up = await api.upload(`/api/objects/${o.uuid}/file`, file);
+        if (!up.ok) return toast(up.error, 'error', 6000);
+        toast(
+            `Version ${up.data.data.version} gespeichert (${up.data.data.kind}, ${formatBytes(up.data.data.bytes)}).`,
+            'ok'
+        );
+        return renderFileTab(box, o);
+    };
+    drop.addEventListener('dragover', e => {
+        e.preventDefault();
+        drop.classList.add('is-over');
+    });
+    drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
+    drop.addEventListener('drop', e => {
+        e.preventDefault();
+        drop.classList.remove('is-over');
+        send(e.dataTransfer?.files?.[0]);
+    });
+
+    const remove = async () => {
+        if (
+            !confirm(
+                `Die Datei von „${objectLabel(o)}“ mit allen ${versions.length} Version(en) entfernen? Das geht nicht rückgängig.`
+            )
+        )
+            return;
+        const del = await api.del(`/api/objects/${o.uuid}/file`);
+        if (!del.ok) return toast(del.error, 'error');
+        toast('Datei entfernt.', 'ok');
+        return renderFileTab(box, o);
+    };
+
+    mount(
+        box,
+        !enabled
+            ? callout(
+                  'warn',
+                  'Datei-Speicher noch nicht eingerichtet: ',
+                  'Auf diesem Server fehlen die R2-Schlüssel in der .env (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET). Hochladen geht erst danach.'
+              )
+            : null,
+        card(
+            {
+                title: 'Datei',
+                icon: 'image',
+                subtitle:
+                    'Ein Bild, PDF, eine Schrift oder ein mp3 für dieses Objekt. Jedes Hochladen ist eine neue Version – die neuesten 3 bleiben. Erkannt wird die Art am Inhalt, nicht am Namen.'
+            },
+            current
+                ? h(
+                      'div',
+                      { class: 'grid-2' },
+                      previewBox,
+                      infoList([
+                          [
+                              'Art',
+                              h(
+                                  'span',
+                                  {},
+                                  badge(current.kind, 'accent'),
+                                  ' ',
+                                  h('code', { class: 'small' }, current.mime)
+                              )
+                          ],
+                          ['Grösse', formatBytes(current.bytes)],
+                          ['Version', String(current.version)],
+                          ['Hochgeladen', `${formatDate(current.createdAt)} (${timeAgo(current.createdAt)})`],
+                          ['Name beim Hochladen', current.originalName || '–'],
+                          [
+                              'Prüfwert (SHA-256)',
+                              h('code', { class: 'small', title: current.sha256 }, current.sha256.slice(0, 16) + '…')
+                          ]
+                      ])
+                  )
+                : emptyState({ icon: 'image', title: 'Noch keine Datei', text: 'Lade unten eine hoch.' }),
+            storage
+                ? h(
+                      'p',
+                      { class: 'small muted' },
+                      storage.limit > 0
+                          ? `Speicher deines Kontos: ${formatBytes(storage.used)} von ${formatBytes(storage.limit)} belegt.`
+                          : 'Als Gast hast du keinen Datei-Speicher – melde dich an, um Dateien hochzuladen.'
+                  )
+                : null
+        ),
+        card(
+            { title: current ? 'Neue Version hochladen' : 'Hochladen', icon: 'upload' },
+            drop,
+            h(
+                'div',
+                { class: 'form-row' },
+                field(
+                    'Datei',
+                    input,
+                    'png, jpg, gif, webp, avif, svg, pdf, woff2, woff, ttf, otf, mp3 – keine Videos.'
+                ),
+                busyButton('Hochladen', () => send(input.files?.[0]), { className: 'btn primary', iconName: 'upload' })
+            )
+        ),
+        versions.length
+            ? card(
+                  { title: 'Versionen', icon: 'history' },
+                  h(
+                      'div',
+                      { class: 'table-wrap' },
+                      h(
+                          'table',
+                          { class: 'data-table' },
+                          h(
+                              'thead',
+                              {},
+                              h(
+                                  'tr',
+                                  {},
+                                  h('th', {}, 'Version'),
+                                  h('th', {}, 'Art'),
+                                  h('th', {}, 'Grösse'),
+                                  h('th', {}, 'Hochgeladen'),
+                                  h('th', {}, 'Name'),
+                                  h('th', {}, '')
+                              )
+                          ),
+                          h(
+                              'tbody',
+                              {},
+                              versions.map(v =>
+                                  h(
+                                      'tr',
+                                      {},
+                                      h('td', {}, String(v.version)),
+                                      h('td', {}, v.kind),
+                                      h('td', {}, formatBytes(v.bytes)),
+                                      h('td', {}, timeAgo(v.createdAt)),
+                                      h('td', {}, v.originalName || '–'),
+                                      h(
+                                          'td',
+                                          {},
+                                          h(
+                                              'button',
+                                              {
+                                                  class: 'btn small',
+                                                  type: 'button',
+                                                  onclick: () => showVersion(v.version)
+                                              },
+                                              'Ansehen'
+                                          )
+                                      )
+                                  )
+                              )
+                          )
+                      )
+                  ),
+                  h(
+                      'div',
+                      { class: 'row gap-s' },
+                      busyButton('Datei entfernen', remove, { className: 'btn danger', iconName: 'trash' })
+                  )
+              )
+            : null
+    );
+    if (current) showVersion(current.version);
+};
 
 // --- Reiter "Baum" ---
 const renderTreeTab = async (box, o, objects) => {
@@ -2304,6 +2543,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
     const TABS = [
         { id: 'info', label: 'Übersicht' },
         { id: 'vorschau', label: 'Vorschau' },
+        { id: 'datei', label: 'Datei' },
         { id: 'baum', label: 'Baum' },
         { id: 'rollen', label: 'Rollen' },
         { id: 'zugriff', label: 'Zugriff' },
@@ -2321,6 +2561,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         currentPreview = null;
         if (id === 'info') renderInfoTab(body, o, objects);
         else if (id === 'vorschau') renderPreviewTab(body, o, objects);
+        else if (id === 'datei') renderFileTab(body, o);
         else if (id === 'baum') renderTreeTab(body, o, objects);
         else if (id === 'rollen') renderRolesTab(body, o);
         else if (id === 'zugriff') renderAccessTab(body, o, objects);
