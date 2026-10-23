@@ -303,6 +303,29 @@ export const CHECKS = [
             return 'Kommentar noch da';
         }
     },
+    // Plan "Geo-Monitor", G3: Beim Speichern sagt at0mic, was GENAU angekommen ist
+    // (Zeichen, Bytes, Zeilen, Prüfwert) – damit eine KI verlorene Backslashes bemerkt
+    {
+        id: 'code-received',
+        group: 'Code',
+        title: 'Empfangsbestätigung beim Speichern (received: Zeichen, Prüfwert)',
+        needs: ['root'],
+        run: async ctx => {
+            const code = 'const re = /\\d+\\\\/; // grüezi 🚀\r\nconst z = 3;';
+            const s = await api.post(`/api/ast/${ctx.root}`, { snippets: [{ type: 'javascript', code }] });
+            expectStatus(s, 201, 'Code speichern');
+            const received = s.data.formatted?.[0]?.received;
+            expect(received, 'received fehlt in der Antwort', s);
+            const bytes = new TextEncoder().encode(code);
+            const hash = await crypto.subtle.digest('SHA-256', bytes);
+            const hex = [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+            expect(received.chars === [...code].length, `chars: ${received.chars}`, s);
+            expect(received.bytes === bytes.length, `bytes: ${received.bytes}`, s);
+            expect(received.lines === 2, `lines: ${received.lines}`, s);
+            expect(received.sha256 === hex, `sha256 passt nicht: ${received.sha256}`, s);
+            return `${received.chars} Zeichen, Prüfwert stimmt`;
+        }
+    },
     {
         id: 'code-syntax-error',
         group: 'Code',
