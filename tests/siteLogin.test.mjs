@@ -575,4 +575,35 @@ describe('Screenshot mit Live-Daten: /_at0mic/vorschau', () => {
         const r = await request('shop.at0mic.site', `/_at0mic/vorschau?code=${CODE}`, { method: 'POST' });
         assert.equal(r.status, 405);
     });
+
+    // Plan "Geo-Monitor", G4: Unterseite fotografieren (preview_site mit path)
+    test('ziel: weiter zur Unterseite – mit "?" und "#"', async () => {
+        backend.vorschau = reply(200, { success: true, data: { token: TOKEN, seconds: 120 } });
+        const r = await request(
+            'shop.at0mic.site',
+            `/_at0mic/vorschau?code=${CODE}&ziel=${encodeURIComponent('/?tab=karte#/detail/3')}`
+        );
+        assert.equal(r.status, 302);
+        assert.equal(r.headers.location, '/?tab=karte#/detail/3');
+        // Der Code geht nur ans Backend – das Ziel nicht
+        assert.deepEqual(backend.calls[0].body, { code: CODE, host: '' });
+    });
+
+    test('SICHERHEIT: ziel auf eine fremde Adresse -> Startseite (keine offene Weiterleitung)', async () => {
+        for (const ziel of [
+            'https://böse.example/',
+            '//böse.example',
+            '/\\böse.example',
+            '/_at0mic/logout',
+            'kein-pfad'
+        ]) {
+            backend.vorschau = reply(200, { success: true, data: { token: TOKEN, seconds: 120 } });
+            const r = await request(
+                'shop.at0mic.site',
+                `/_at0mic/vorschau?code=${CODE}&ziel=${encodeURIComponent(ziel)}`
+            );
+            assert.equal(r.status, 302, ziel);
+            assert.equal(r.headers.location, '/', ziel);
+        }
+    });
 });

@@ -303,6 +303,29 @@ export const CHECKS = [
             return 'Kommentar noch da';
         }
     },
+    // Plan "Geo-Monitor", G3: Beim Speichern sagt at0mic, was GENAU angekommen ist
+    // (Zeichen, Bytes, Zeilen, Prüfwert) – damit eine KI verlorene Backslashes bemerkt
+    {
+        id: 'code-received',
+        group: 'Code',
+        title: 'Empfangsbestätigung beim Speichern (received: Zeichen, Prüfwert)',
+        needs: ['root'],
+        run: async ctx => {
+            const code = 'const re = /\\d+\\\\/; // grüezi 🚀\r\nconst z = 3;';
+            const s = await api.post(`/api/ast/${ctx.root}`, { snippets: [{ type: 'javascript', code }] });
+            expectStatus(s, 201, 'Code speichern');
+            const received = s.data.formatted?.[0]?.received;
+            expect(received, 'received fehlt in der Antwort', s);
+            const bytes = new TextEncoder().encode(code);
+            const hash = await crypto.subtle.digest('SHA-256', bytes);
+            const hex = [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+            expect(received.chars === [...code].length, `chars: ${received.chars}`, s);
+            expect(received.bytes === bytes.length, `bytes: ${received.bytes}`, s);
+            expect(received.lines === 2, `lines: ${received.lines}`, s);
+            expect(received.sha256 === hex, `sha256 passt nicht: ${received.sha256}`, s);
+            return `${received.chars} Zeichen, Prüfwert stimmt`;
+        }
+    },
     {
         id: 'code-syntax-error',
         group: 'Code',
@@ -1131,6 +1154,62 @@ export const CHECKS = [
             return '43 Zeichen, jedes Mal anders';
         }
     },
+    // Plan "Geo-Monitor", G1: api.crypto antwortet sofort (ohne await), und ein vergessenes
+    // await fällt auf (Warnung bei "[object Promise]", Fehler bei einem Promise als Argument)
+    {
+        id: 'ssf-sofort',
+        group: 'SSF',
+        title: 'Sofort-Werkzeuge ohne await + Warnung „await vergessen?“',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `const link = 'x/' + api.crypto.randomToken();
+                 let fehler = null;
+                 try { await api.objects.get({ ziel: api.objects.get('${ctx.domainName}') }); } catch (e) { fehler = e.message; }
+                 try { await api.objects.get('${ctx.domainName}|' + api.objects.get('${ctx.domainName}')); } catch (e) {}
+                 return { link, fehler };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const { link, fehler } = r.data.result;
+            expect(/^x\/[A-Za-z0-9_-]{43}$/.test(link), `Link ohne await: ${link}`, r);
+            expect(/await vergessen/.test(fehler || ''), `Promise als Argument: ${fehler}`, r);
+            const warnings = r.data.warnings || [];
+            expect(
+                warnings.some(w => w.includes('[object Promise]')),
+                `Warnung fehlt: ${JSON.stringify(warnings)}`,
+                r
+            );
+            return 'Token sofort da, Promise abgelehnt, Warnung gemeldet';
+        }
+    },
+    // Plan "Geo-Monitor", G2: Adressen zerlegen und zusammensetzen (es gibt kein URL in der Sandbox)
+    {
+        id: 'ssf-url',
+        group: 'SSF',
+        title: 'Adressen: api.url.parse, join und params',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `return {
+                    host: api.url.parse('https://shop.ch:8080/a?q=1').hostname,
+                    links: api.url.join('https://shop.ch/a/b.html', ['../c', '/d#oben', 'http://[kaputt'], { stripHash: true }),
+                    params: api.url.params({ q: 'grüner tee', seite: 2 })
+                 };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const { host, links, params } = r.data.result;
+            expect(host === 'shop.ch', `hostname: ${host}`, r);
+            expect(
+                JSON.stringify(links) === JSON.stringify(['https://shop.ch/c', 'https://shop.ch/d', null]),
+                `join: ${JSON.stringify(links)}`,
+                r
+            );
+            expect(params === 'q=gr%C3%BCner+tee&seite=2', `params: ${params}`, r);
+            return 'zerlegt, zusammengesetzt, kodiert';
+        }
+    },
     // Plan "Lehren aus dem Restaurant-Test", E6: Bibliothek speichern und aus der SSF laden
     {
         id: 'ssf-library',
@@ -1635,6 +1714,24 @@ return { uuid: kopie.uuid, left: austritt.left };`
             expect(screenshotSource(shot) !== null, 'Kein gültiges Bild', r);
             expect(Array.isArray(shot.consoleErrors), 'consoleErrors fehlt', r);
             return `${shot.width}×${shot.height} ${shot.mimeType}, ${shot.consoleErrors.length} Konsolen-Meldung(en)`;
+        }
+    },
+    // Plan "Geo-Monitor", G4: Unterseite fotografieren – nur Pfade dieser Website.
+    // Prüft nur die Ablehnungen (kostet keinen Screenshot bei Cloudflare).
+    {
+        id: 'site-screenshot-path',
+        group: 'Website',
+        title: 'Screenshot einer Unterseite (path): fremde Adressen abgelehnt',
+        needs: ['domainName'],
+        run: async ctx => {
+            const ohne = await api.get(`/api/sites/${ctx.domainName}/vorschau`, { query: { path: '#/a' } });
+            expectStatus(ohne, 400, 'path ohne screenshot');
+            const fremd = await api.get(`/api/sites/${ctx.domainName}/vorschau`, {
+                query: { screenshot: 'mobile', path: '//böse.example' }
+            });
+            if (fremd.status === 403) return 'nur mit Login ganz prüfbar – Teil 1 ok';
+            expectStatus(fremd, 400, 'fremde Adresse als path');
+            return 'ohne screenshot: 400 · fremde Adresse: 400';
         }
     },
     {
