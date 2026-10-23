@@ -201,6 +201,13 @@ describe('Anmelden: /_at0mic/login und /_at0mic/callback', () => {
         assert.equal(backend.calls.length, 0, 'fragt das Backend dabei nicht');
     });
 
+    // Plan "Brotzeit-Test", C5: steht so in der Anleitung (topic "login") – das # als %23
+    test('Rücksprung mit Hash-Router: zurueck=/%23rezepte -> nach dem Login auf /#rezepte', async () => {
+        const r = await request('shop.at0mic.site', '/_at0mic/login?zurueck=/%23rezepte');
+        const started = login.decodeLogin(cookieValue(r, '__Host-at0mic_login'));
+        assert.equal(started.returnPath, '/#rezepte');
+    });
+
     test('Start mit fremdem Rücksprung: zurück nur auf die Startseite', async () => {
         const r = await request('shop.at0mic.site', '/_at0mic/login?zurueck=https%3A%2F%2Fevil.example');
         assert.equal(login.decodeLogin(cookieValue(r, '__Host-at0mic_login')).returnPath, '/');
