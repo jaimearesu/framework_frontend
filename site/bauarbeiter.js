@@ -23,6 +23,9 @@
 //   GET  /_at0mic/callback?code&state   zurück von at0mic: Code gegen Ausweis tauschen
 //   GET|POST /_at0mic/logout            abmelden
 //   GET  /_at0mic/me                    { angemeldet, uuid? } – für das JavaScript der Website
+//   GET  /_at0mic/datei/<pfad>[.endung] eine Datei der Website (Bild, PDF, Schrift …) aus
+//                                       Cloudflare R2 (Plan "Dateien mit R2", D3), z.B.
+//                                       <img src="/_at0mic/datei/bilder/logo.png">
 //   GET  /_at0mic/vorschau?code         Screenshot mit Live-Daten (Plan "Screenshots", S2b):
 //                                       Einmal-Code gegen einen 2-Minuten-Ausweis tauschen
 // Ist jemand angemeldet, schickt der Bauarbeiter seinen Ausweis ans Backend
@@ -63,6 +66,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // SSF der Website: /_at0mic/run/<pfad> – Pfad wie die identifier in der DNA
 const RUN_ROUTE = /^\/_at0mic\/run\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
 const MAX_RUN_BODY_BYTES = 64 * 1024; // Eingabe für die SSF: höchstens 64 KB
+
+// Datei der Website: /_at0mic/datei/<pfad>[.endung] (Plan "Dateien mit R2", D3) –
+// Pfad wie bei run, dazu freiwillig eine Endung (das Backend prüft, ob sie zur Datei passt)
+const FILE_ROUTE = /^\/_at0mic\/datei\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*(?:\.[A-Za-z0-9]{2,5})?)$/;
+const FILE_TIMEOUT_MS = 20000; // bis 10 MB aus R2 über das Backend
+// Diese Header des Backends gehen an den Browser (sonst nichts)
+const FILE_HEADERS = ['content-type', 'content-length', 'cache-control', 'etag', 'content-security-policy'];
 
 // Webhook: /_at0mic/hook/<pfad> (gleiche Pfad-Regeln wie bei run)
 const HOOK_ROUTE = /^\/_at0mic\/hook\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
@@ -645,6 +655,58 @@ const createBauarbeiter = ({
     };
 
     // ---------------------------------------------------------------------
+    // DATEI DER WEBSITE:  GET /_at0mic/datei/<pfad>   (Plan "Dateien mit R2", D3)
+    // Holt die Datei beim Backend (GET /api/sites/<name>/datei/<pfad>) – mit der IP des
+    // Besuchers und, wenn er angemeldet ist, seinem Ausweis (dann gelten SEINE Rechte).
+    // Ein Bild auf einer FREMDEN Seite bekommt das Cookie nicht (SameSite=Lax) – dort
+    // gilt also nur, was öffentlich ist.
+    //
+    // ZWISCHENSPEICHER: Das Backend sagt, ob die Datei öffentlich zwischengespeichert
+    // werden darf (Cache-Control). Cloudflare hält sich daran – öffentliche Bilder kommen
+    // dann aus Cloudflare, ohne unseren Server. Fehler nie zwischenspeichern.
+    // ETag/If-None-Match: Hat der Browser die Datei schon, antwortet das Backend 304.
+    // ---------------------------------------------------------------------
+    const serveFile = async (req, res, name, filePath, token) => {
+        const fail = (status, text) => {
+            res.set('Cache-Control', 'no-store');
+            return res.status(status).type('text/plain; charset=utf-8').send(text);
+        };
+        const query = typeof req.query.v === 'string' && /^\d{1,9}$/.test(req.query.v) ? `?v=${req.query.v}` : '';
+        const headers = backendHeaders(visitorIpOf(req), token);
+        const etag = req.get('if-none-match');
+        if (etag && etag.length < 200) headers['if-none-match'] = etag;
+
+        let answer;
+        try {
+            answer = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/datei/${filePath}${query}`, {
+                headers,
+                signal: AbortSignal.timeout(FILE_TIMEOUT_MS)
+            });
+        } catch (error) {
+            log.warn(`[BAUARBEITER] Backend nicht erreichbar (Datei ${name}/${filePath}): ${error.message}`);
+            return fail(503, 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.');
+        }
+        if (tokenRejected(answer)) clearTokenCookie(res); // Ausweis gilt nicht mehr -> Cookie weg
+
+        if (answer.status === 200 || answer.status === 304) {
+            for (const header of FILE_HEADERS) {
+                const value = answer.headers.get(header);
+                if (value) res.set(header, value);
+            }
+            res.set('X-Content-Type-Options', 'nosniff');
+            if (answer.status === 304) return res.status(304).end();
+            const body = Buffer.from(await answer.arrayBuffer());
+            return res.status(200).end(req.method === 'HEAD' ? undefined : body);
+        }
+        await answer.arrayBuffer().catch(() => null);
+        if (answer.status === 404) return fail(404, 'Diese Datei gibt es nicht.');
+        if (answer.status === 429) return fail(429, 'Zu viele Anfragen – bitte kurz warten.');
+        if (answer.status === 401)
+            log.error('[BAUARBEITER] Der Bauarbeiter-Schlüssel ist falsch (BAUARBEITER_KEY prüfen).');
+        return fail(503, 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.');
+    };
+
+    // ---------------------------------------------------------------------
     // WEBHOOK:  POST|PUT /_at0mic/hook/<pfad>   (Plan "SSF-Ausbau", Teil B)
     // Ein fremder Server ruft eine SSF der Website auf. Anders als bei run:
     //   - keine Herkunfts-Prüfung (Server schicken kein Origin) – dafür prüft die
@@ -765,6 +827,16 @@ const createBauarbeiter = ({
                     return res.status(405).json({ error: 'Nur POST oder PUT.' });
                 }
                 return await runWebhook(req, res, host.name, hook[1]);
+            }
+
+            // Datei der Website (nur GET/HEAD, nur unter /_at0mic/datei/) – Plan "Dateien mit R2", D3
+            const file = FILE_ROUTE.exec(req.path);
+            if (file && host.name) {
+                if (req.method !== 'GET' && req.method !== 'HEAD') {
+                    res.set('Allow', 'GET, HEAD');
+                    return res.status(405).json({ error: 'Nur GET.' });
+                }
+                return await serveFile(req, res, host.name, file[1], token);
             }
 
             // SSF der Website (nur POST, nur unter /_at0mic/run/)

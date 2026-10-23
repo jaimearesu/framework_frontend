@@ -262,6 +262,30 @@ export const buildPreviewDocument = ({ html = '', css = [], js = [], body, child
     ].join('\n');
 };
 
+// ---------------------------------------------------------------------
+// DATEIEN IN DER VORSCHAU (Plan "Dateien mit R2", D3)
+// Auf der Website steht z.B. <img src="/_at0mic/datei/bilder/logo.png">. Die Vorschau
+// läuft aber in einem abgeschotteten Rahmen ohne eigene Adresse und ohne Cookies –
+// dort zeigt /_at0mic/… ins Leere. Darum holt das Cockpit die Dateien selbst (mit
+// deinen Rechten, auch Private) und setzt sie als data:-Adresse ein.
+// ---------------------------------------------------------------------
+const FILE_REF = /\/_at0mic\/datei\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*(?:\.[A-Za-z0-9]{2,5})?)(?:\?v=\d{1,9})?/g;
+export const MAX_PREVIEW_FILES = 30;
+
+// Alle verschiedenen Datei-Pfade in einem Text (reine Funktion, getestet)
+export const findFileRefs = text => {
+    const seen = new Set();
+    for (const m of String(text || '').matchAll(FILE_REF)) seen.add(m[1]);
+    return [...seen].slice(0, MAX_PREVIEW_FILES);
+};
+
+// Pfade durch Adressen ersetzen: { "bilder/logo.png": "data:image/png;base64,…" }.
+// Unbekannte bleiben stehen (reine Funktion, getestet)
+export const replaceFileRefs = (text, urls) =>
+    String(text || '').replace(FILE_REF, (whole, path) =>
+        Object.prototype.hasOwnProperty.call(urls, path) ? urls[path] : whole
+    );
+
 // Den abgeschotteten Rahmen bauen + Meldungen (Fehler/Logs) empfangen.
 // onMessage({ kind: 'error' | 'log' | 'ready', message })
 export const createPreviewFrame = ({ onMessage, height = '420px' } = {}) => {

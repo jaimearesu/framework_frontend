@@ -103,7 +103,9 @@ import {
     splitHtmlDocument,
     placeChildren,
     childBodyWarning,
-    tidyWarnings
+    tidyWarnings,
+    findFileRefs,
+    replaceFileRefs
 } from '../core/preview.js';
 
 // Passendes Objekt zu einem DNA-Knoten finden (für anklickbare Bäume)
@@ -410,6 +412,9 @@ const renderComposedPreview = async (box, o, objects, { height = '520px', compac
         warnings: composed.warnings
     });
     const warnings = tidyWarnings(composed.warnings);
+    // Dateien (Plan "Dateien mit R2", D3): /_at0mic/datei/… mit deinen Rechten holen und
+    // eingebettet einsetzen – der abgeschottete Rahmen könnte sie selbst nicht laden
+    const files = await inlinePreviewFiles(doc, objectFamily(o));
 
     mount(
         box,
@@ -435,6 +440,13 @@ const renderComposedPreview = async (box, o, objects, { height = '520px', compac
         composed.missing.length
             ? callout('warn', 'Nicht sichtbar:', ` ${composed.missing.join(', ')} (keine Rechte oder nicht gefunden).`)
             : null,
+        files.missing.length
+            ? callout(
+                  'warn',
+                  'Datei nicht gefunden:',
+                  ` ${files.missing.map(p => `/_at0mic/datei/${p}`).join(', ')} – gibt es das Objekt mit einer Datei (Reiter „Datei“)? Passt die Endung zur Art?`
+              )
+            : null,
         warnings.length
             ? callout(
                   'warn',
@@ -449,7 +461,29 @@ const renderComposedPreview = async (box, o, objects, { height = '520px', compac
         currentPreview.frame,
         pConsole.el
     );
-    currentPreview.show(doc);
+    currentPreview.show(files.doc);
+};
+
+// Dateien für die Vorschau holen -> { doc (mit data:-Adressen), missing: [pfade] }
+const inlinePreviewFiles = async (doc, domain) => {
+    const refs = findFileRefs(doc);
+    if (!refs.length) return { doc, missing: [] };
+    const urls = {};
+    const missing = [];
+    await Promise.all(
+        refs.map(async path => {
+            const res = await api.blob(`/api/sites/${encodeURIComponent(domain)}/vorschau/datei/${path}`);
+            if (!res.ok) return missing.push(path);
+            urls[path] = await new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(res.blob);
+            });
+            if (!urls[path]) delete urls[path];
+        })
+    );
+    return { doc: replaceFileRefs(doc, urls), missing: missing.sort() };
 };
 
 // --- Reiter "Vorschau" ---
