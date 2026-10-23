@@ -1160,6 +1160,33 @@ export const CHECKS = [
             return 'Token sofort da, Promise abgelehnt, Warnung gemeldet';
         }
     },
+    // Plan "Geo-Monitor", G2: Adressen zerlegen und zusammensetzen (es gibt kein URL in der Sandbox)
+    {
+        id: 'ssf-url',
+        group: 'SSF',
+        title: 'Adressen: api.url.parse, join und params',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `return {
+                    host: api.url.parse('https://shop.ch:8080/a?q=1').hostname,
+                    links: api.url.join('https://shop.ch/a/b.html', ['../c', '/d#oben', 'http://[kaputt'], { stripHash: true }),
+                    params: api.url.params({ q: 'grüner tee', seite: 2 })
+                 };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const { host, links, params } = r.data.result;
+            expect(host === 'shop.ch', `hostname: ${host}`, r);
+            expect(
+                JSON.stringify(links) === JSON.stringify(['https://shop.ch/c', 'https://shop.ch/d', null]),
+                `join: ${JSON.stringify(links)}`,
+                r
+            );
+            expect(params === 'q=gr%C3%BCner+tee&seite=2', `params: ${params}`, r);
+            return 'zerlegt, zusammengesetzt, kodiert';
+        }
+    },
     // Plan "Lehren aus dem Restaurant-Test", E6: Bibliothek speichern und aus der SSF laden
     {
         id: 'ssf-library',
