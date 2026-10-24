@@ -1293,6 +1293,23 @@ details.raw summary {
     gap: 8px;
     min-width: 0;
 }
+/* Text-Dateien (csv, ics, json, txt – Plan "R1"): als reiner Text, mit Rollbalken */
+.file-preview-text {
+    max-height: 320px;
+    overflow: auto;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 10px);
+    font:
+        12px/1.5 ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        Consolas,
+        monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
 .file-preview-img {
     max-width: 100%;
     max-height: 320px;

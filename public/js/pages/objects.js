@@ -496,11 +496,14 @@ const renderPreviewTab = (box, o, objects) => renderComposedPreview(box, o, obje
 // --- Reiter "Datei" (Plan "Dateien mit R2", D2) ---
 // Ein Objekt kann EINE Datei haben (Bild, PDF, Schrift, mp3) – jedes Hochladen ist eine neue
 // Version, die neuesten 3 bleiben. Die Bytes liegen in Cloudflare R2. Die Art erkennt das
-// Backend am Inhalt (nicht am Namen). Die Vorschau holt die Bytes mit deinen Rechten und
+// Backend am Inhalt (nicht am Namen) – nur Text-Arten (csv, ics, json, txt, Plan "R1") an der Endung. Die Vorschau holt die Bytes mit deinen Rechten und
 // zeigt sie als "blob:"-Adresse – nie als HTML, darum kann auch ein SVG hier nichts ausführen.
-const FILE_ACCEPT = '.png,.jpg,.jpeg,.gif,.webp,.avif,.svg,.pdf,.woff2,.woff,.ttf,.otf,.mp3';
+const FILE_ACCEPT = '.png,.jpg,.jpeg,.gif,.webp,.avif,.svg,.pdf,.woff2,.woff,.ttf,.otf,.mp3,.csv,.ics,.json,.txt';
 const FILE_MAX_BYTES = 10 * 1024 * 1024; // wie SYSTEM.files.maxFileBytes im Backend
 const IMAGE_KINDS = ['png', 'jpg', 'gif', 'webp', 'avif', 'svg'];
+// Text-Arten (Plan "R1"): Vorschau als reiner Text (textContent, nie HTML), höchstens so viele Zeichen
+const TEXT_KINDS = ['csv', 'ics', 'json', 'txt'];
+const TEXT_PREVIEW_CHARS = 5000;
 let fileObjectUrls = []; // blob:-Adressen der letzten Vorschau – beim Neuzeichnen freigeben
 
 const renderFileTab = async (box, o) => {
@@ -533,20 +536,30 @@ const renderFileTab = async (box, o) => {
         const url = URL.createObjectURL(blob.blob);
         fileObjectUrls.push(url);
         const kind = info?.kind;
+        // Text: Inhalt holen und als reinen Text zeigen (h() setzt Texte mit textContent)
+        const text = TEXT_KINDS.includes(kind) ? await blob.blob.text() : null;
         mount(
             previewBox,
-            IMAGE_KINDS.includes(kind)
-                ? h('img', { src: url, alt: info.originalName || 'Bild', class: 'file-preview-img' })
-                : kind === 'mp3'
-                  ? h('audio', { src: url, controls: true })
-                  : kind === 'pdf'
-                    ? h(
-                          'a',
-                          { class: 'btn', href: url, target: '_blank', rel: 'noopener' },
-                          icon('external', { size: 16 }),
-                          'PDF öffnen'
-                      )
-                    : h('p', { class: 'small muted' }, `Schrift (${kind}) – keine Vorschau, aber gespeichert.`),
+            text !== null
+                ? h(
+                      'pre',
+                      { class: 'file-preview-text' },
+                      text.length > TEXT_PREVIEW_CHARS
+                          ? `${text.slice(0, TEXT_PREVIEW_CHARS)}\n… (${text.length - TEXT_PREVIEW_CHARS} Zeichen mehr)`
+                          : text
+                  )
+                : IMAGE_KINDS.includes(kind)
+                  ? h('img', { src: url, alt: info.originalName || 'Bild', class: 'file-preview-img' })
+                  : kind === 'mp3'
+                    ? h('audio', { src: url, controls: true })
+                    : kind === 'pdf'
+                      ? h(
+                            'a',
+                            { class: 'btn', href: url, target: '_blank', rel: 'noopener' },
+                            icon('external', { size: 16 }),
+                            'PDF öffnen'
+                        )
+                      : h('p', { class: 'small muted' }, `Schrift (${kind}) – keine Vorschau, aber gespeichert.`),
             h('p', { class: 'small muted' }, `Version ${version}${version === current?.version ? ' (aktuell)' : ''}`)
         );
     };
@@ -662,7 +675,7 @@ const renderFileTab = async (box, o) => {
                 field(
                     'Datei',
                     input,
-                    'png, jpg, gif, webp, avif, svg, pdf, woff2, woff, ttf, otf, mp3 – keine Videos.'
+                    'png, jpg, gif, webp, avif, svg, pdf, woff2, woff, ttf, otf, mp3 – dazu Text: csv, ics, json, txt (Endung zählt). Keine Videos.'
                 ),
                 busyButton('Hochladen', () => send(input.files?.[0]), { className: 'btn primary', iconName: 'upload' })
             )

@@ -357,9 +357,17 @@ export const CHECKS = [
             const bad = await api.upload(`/api/objects/${ctx.daten}/file`, html);
             expectStatus(bad, 415, 'HTML als „logo.png“');
 
+            // Plan "R1": Text-Arten – eine CSV per Endung ja (mit charset), HTML als "notiz.txt" nie
+            const csv = new File(['Name;Betrag\nAnna;20\n'], 'systemcheck.csv', { type: 'text/csv' });
+            const upCsv = await api.upload(`/api/objects/${ctx.daten}/file`, csv);
+            expectStatus(upCsv, 201, 'CSV hochladen');
+            expect(upCsv.data.data.kind === 'csv', `Art ${upCsv.data.data.kind} statt csv`, upCsv);
+            const htmlTxt = new File(['<html><body>x</body></html>'], 'notiz.txt', { type: 'text/plain' });
+            expectStatus(await api.upload(`/api/objects/${ctx.daten}/file`, htmlTxt), 415, 'HTML als „notiz.txt“');
+
             const del = await api.del(`/api/objects/${ctx.daten}/file`);
             expectStatus(del, 200, 'Entfernen');
-            return `R2 ok: ${png.length} Bytes hin und zurück, auch über /datei/ der Website, HTML abgelehnt, entfernt`;
+            return `R2 ok: ${png.length} Bytes hin und zurück, auch über /datei/ der Website, CSV ok, HTML abgelehnt, entfernt`;
         }
     },
     // Plan "Geo-Monitor", G3: Beim Speichern sagt at0mic, was GENAU angekommen ist
@@ -943,6 +951,41 @@ export const CHECKS = [
             expectStatus(r, 200, 'Ausführen');
             expect(typeof r.data.result === 'string', 'Keine ID zurück', r);
             return 'Datensatz angelegt';
+        }
+    },
+    {
+        // Plan "R1 – Eine SSF schreibt und liest Dateien" (R1c): echter Rundgang durch R2 aus der
+        // Sandbox – CSV schreiben, lesen, info, HTML als txt abgelehnt, entfernen (räumt selbst auf)
+        id: 'ssf-files',
+        group: 'SSF',
+        title: 'SSF schreibt und liest eine Datei (api.files)',
+        needs: ['funktion', 'daten'],
+        run: async ctx => {
+            const ziel = `${ctx.domainName}/daten`;
+            const r = await runSsf(
+                ctx,
+                `try {
+    const w = await api.files.write('${ziel}', 'sku;name\\nS1;Probe Ä\\n', { type: 'csv', name: 'check.csv' });
+    const back = await api.files.read('${ziel}');
+    const info = await api.files.info('${ziel}');
+    let html = 'KEIN FEHLER';
+    try { await api.files.write('${ziel}', '<html><script>x</script></html>', { type: 'txt' }); } catch (e) { html = e.code; }
+    const weg = await api.files.remove('${ziel}');
+    return { kind: w.kind, text: back.text, versionen: info.versions.length, html, weg: weg.removed };
+} catch (e) { return { uebersprungen: e.code || e.message }; }`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const res = r.data.result || {};
+            if (res.uebersprungen === 'FILES_DISABLED')
+                return 'R2 ist auf diesem Server nicht eingerichtet – übersprungen';
+            if (res.uebersprungen === 'QUOTA_EXCEEDED')
+                return 'Gäste haben keinen Datei-Speicher – nur mit Login prüfbar, übersprungen';
+            expect(!res.uebersprungen, `Fehler: ${res.uebersprungen}`, r);
+            expect(res.kind === 'csv', `Art ${res.kind} statt csv`, r);
+            expect(res.text === 'sku;name\nS1;Probe Ä\n', 'Gelesener Text ist anders (Umlaut?)', r);
+            expect(res.html === 'FILE_TYPE_NOT_ALLOWED', `HTML als txt: ${res.html}`, r);
+            expect(res.weg >= 1, 'Entfernen hat nichts entfernt', r);
+            return `CSV geschrieben und gelesen (${res.versionen} Version), HTML abgelehnt, entfernt`;
         }
     },
     {

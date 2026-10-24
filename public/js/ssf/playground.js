@@ -11,7 +11,8 @@
 //   ├── lager                10 Lager-Einträge (gleiche sku)
 //   ├── nachrichten          leer
 //   ├── bestellungen         leer
-//   └── helfer               eine Bibliothek (Code-Art library) für api.lib.load
+//   ├── helfer               eine Bibliothek (Code-Art library) für api.lib.load
+//   └── export               leer – für das Beispiel "Datei schreiben" (api.files, Plan "R1")
 //   + Relation produkte --"lager"--> lager (für Joins)
 //
 // Warum als Kinder? Ein Kind bekommt dieselben Rollen wie das Eltern-
@@ -28,7 +29,7 @@ import { invalidateObjects, childRefFor, loadCode, saveCode } from '../core/obje
 import { addChildToDna } from '../core/dna.js';
 import { EXAMPLES, fillExample } from './examples.js';
 
-export const CHILDREN = ['funktion', 'produkte', 'lager', 'nachrichten', 'bestellungen', 'helfer'];
+export const CHILDREN = ['funktion', 'produkte', 'lager', 'nachrichten', 'bestellungen', 'helfer', 'export'];
 
 // Die Bibliothek im Kind "helfer" (Restaurant-Test, E6) – für das Beispiel "Bibliothek"
 export const HELPER_LIBRARY = [

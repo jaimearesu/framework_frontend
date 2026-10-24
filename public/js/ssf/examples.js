@@ -16,7 +16,8 @@
 //   │                        + Relation produkte --"lager"--> lager (für Joins)
 //   ├── nachrichten          leer (Kontaktformular schreibt hierhin)
 //   ├── bestellungen         leer (Bestell-Beispiel schreibt hierhin)
-//   └── helfer               eine Bibliothek (Code-Art library) – Beispiel 12
+//   ├── helfer               eine Bibliothek (Code-Art library) – Beispiel 12
+//   └── export               leer – Beispiel 13 legt hier eine CSV-Datei ab (api.files)
 //
 // Aufbau eines Beispiels:
 //   id, title, level (Einstieg | Fortgeschritten | Profi), summary,
@@ -641,6 +642,64 @@ return {
     ok: true,
     total: helfer.chf(menge * preis),
     produkteImShop: await helfer.anzahlProdukte('{{SHOP}}')
+};
+`
+});
+
+// ------------------------------------------------------------------
+// 13) DATEI SCHREIBEN UND LESEN (Plan "R1 – Eine SSF schreibt und liest Dateien", R1c)
+EXAMPLES.push({
+    id: 'datei',
+    title: 'Datei schreiben (CSV-Export)',
+    level: 'Fortgeschritten',
+    summary: 'Aus den Produkten eine CSV-Datei machen, ablegen und wieder lesen.',
+    learn: [
+        'api.files.write legt eine Datei als neue Version ab – hier im Kind „export“ (braucht red)',
+        'Text-Dateien brauchen type (csv, ics, json, txt) – Bilder/PDFs gehen als base64',
+        'api.files.read liest sie wieder, api.files.info zeigt die Versionen (ohne Inhalt)',
+        'Platz zählt aufs Konto – Gäste haben keinen Datei-Speicher (e.code QUOTA_EXCEEDED)'
+    ],
+    tools: ['data.find', 'files.write', 'files.read', 'files.info'],
+    body: { trennzeichen: ';' },
+    presets: {
+        'Strichpunkt (Excel CH)': { trennzeichen: ';' },
+        Komma: { trennzeichen: ',' }
+    },
+    code: `// 13) DATEI SCHREIBEN UND LESEN (CSV-Export)
+// Die SSF macht aus den Produkten eine CSV-Datei im Kind "export" – mit IHREN Rechten (red).
+// Ansehen: Seite "Objekte" -> Kind "export" -> Reiter "Datei" (jedes Ausführen = neue Version).
+const { trennzeichen = ';' } = requestContext.body || {};
+const produkte = await api.data.find('{{SHOP}}/produkte', { sort: { field: 'name', order: 'ASC' }, limit: 100 });
+
+// CSV-Regel: Ein Feld mit Trennzeichen, Anführungszeichen oder Zeilenumbruch kommt in "…"
+const feld = wert => {
+    const text = String(wert ?? '');
+    return /["\\n]/.test(text) || text.includes(trennzeichen) ? '"' + text.replace(/"/g, '""') + '"' : text;
+};
+const zeilen = [['sku', 'name', 'kategorie', 'preis'].join(trennzeichen)];
+for (const p of produkte.data) zeilen.push([p.sku, p.name, p.kategorie, p.preis].map(feld).join(trennzeichen));
+
+let datei;
+try {
+    // type 'csv' sagt at0mic, was es ist (Text erkennt man nicht an den ersten Bytes)
+    datei = await api.files.write('{{SHOP}}/export', zeilen.join('\\n') + '\\n', { type: 'csv', name: 'produkte.csv' });
+} catch (e) {
+    if (e.code === 'QUOTA_EXCEEDED') return { fehler: 'Dateien gibt es nur mit Login – Gäste haben keinen Speicher.' };
+    if (e.code === 'FILES_DISABLED') return { fehler: 'Der Datei-Speicher ist auf diesem Server nicht eingerichtet.' };
+    if (/Kein Zugriff oder nicht gefunden/.test(e.message)) {
+        return { fehler: 'Deine Spielwiese ist älter als das Kind "export" – bitte eine neue anlegen.' };
+    }
+    throw e;
+}
+
+// Wieder lesen (Text kommt als Text) und alle Versionen ansehen (ohne Inhalt)
+const zurueck = await api.files.read('{{SHOP}}/export');
+const info = await api.files.info('{{SHOP}}/export');
+return {
+    ok: true,
+    datei,                                   // version, kind, bytes, sha256 …
+    versionen: info.versions.length,         // die neuesten 3 bleiben
+    vorschau: zurueck.text.split('\\n').slice(0, 4)
 };
 `
 });
