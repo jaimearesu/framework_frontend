@@ -55,6 +55,20 @@ describe('preview: placeChildren', () => {
         // "a.*b" wird zu "ab" bereinigt -> landet im Platz "ab", nicht irgendwo sonst
         assert.equal(html, '<div data-slot="ab">X</div>');
     });
+    // Runde 3 (24.10.), E2: gleiche Regel wie im Backend
+    test('Kind ohne Inhalt und ohne Platz: keine leere Hülle', () => {
+        const unplaced = [];
+        const html = placeChildren(
+            '<h1>Shop</h1>',
+            [
+                { identifier: 'dateien', html: '' },
+                { identifier: 'ordner', html: '<section data-at0mic="bild">\n\n</section>' }
+            ],
+            unplaced
+        );
+        assert.equal(html, '<h1>Shop</h1>');
+        assert.deepEqual(unplaced, []);
+    });
 });
 
 describe('preview: buildPreviewDocument', () => {
