@@ -40,6 +40,13 @@ import {
     invalidateObjects,
     buildObjectForest,
     countDescendants,
+    sortForest,
+    filterForest,
+    matchesFilter,
+    nodeKey,
+    pathToSelected,
+    SORTS,
+    FILTERS,
     objectLabel,
     objectFamily,
     isRoot,
@@ -96,6 +103,7 @@ import {
     checkInviteForm
 } from '../core/access.js';
 import { renderDnaTree } from '../core/tree.js';
+import { load, save } from '../core/storage.js'; // aufgeklappte Domains, Sortierung, Filter
 import { renderSnapshotsTab } from './objectSnapshots.js'; // Zeitmaschine (Plan "R4")
 import {
     buildPreviewDocument,
@@ -157,12 +165,46 @@ const createDomainCard = ({ onCreated }) => {
 // ==================================================================
 // LINKS: OBJEKT-BAUM
 // ==================================================================
-const renderForest = (box, objects, selectedUuid, filterText) => {
+// Aufgeklappte Domains/Teile merkt sich der Browser (nur eine Bequemlichkeit, nichts Wichtiges)
+const OPEN_KEY = 'objekte.offen';
+const loadOpen = () => new Set(load(OPEN_KEY, []) || []);
+const saveOpen = open => save(OPEN_KEY, [...open].slice(-500));
+
+// options = { sort, filter } (Wunsch 25.10.2026: einklappen, sortieren, filtern)
+const renderForest = (box, objects, selectedUuid, filterText, { sort = 'neu', filter = 'alle' } = {}) => {
     const q = filterText.trim().toLowerCase();
+    // Standard: alles eingeklappt – nur der Weg zum gewählten Objekt und was du geöffnet hast
+    const open = loadOpen();
+    for (const key of pathToSelected(objects, selectedUuid)) open.add(key);
 
     const item = (node, depth) => {
         const o = node.object;
         const kids = countDescendants(node);
+        const key = nodeKey(o);
+        const hasChildren = node.children.length > 0 && !q;
+        const isOpen = hasChildren && open.has(key);
+        // Pfeil zum Auf-/Zuklappen – ein eigener Knopf, damit der Klick nicht zum Objekt springt
+        const toggle = hasChildren
+            ? h(
+                  'button',
+                  {
+                      type: 'button',
+                      class: `obj-toggle ${isOpen ? 'open' : ''}`,
+                      'aria-label': isOpen ? 'Zuklappen' : 'Aufklappen',
+                      'aria-expanded': String(isOpen),
+                      onclick: event => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          const now = loadOpen();
+                          if (isOpen) now.delete(key);
+                          else now.add(key);
+                          saveOpen(now);
+                          renderForest(box, objects, selectedUuid, filterText, { sort, filter });
+                      }
+                  },
+                  '▸'
+              )
+            : h('span', { class: 'obj-toggle-space' });
         return h(
             'li',
             {},
@@ -171,8 +213,9 @@ const renderForest = (box, objects, selectedUuid, filterText) => {
                 {
                     class: `obj-item ${o.uuid === selectedUuid ? 'active' : ''}`,
                     href: href('objekte', o.uuid),
-                    style: { paddingLeft: `${10 + depth * 16}px` }
+                    style: { paddingLeft: `${4 + depth * 16}px` }
                 },
+                toggle,
                 h('span', { class: 'obj-icon' }, icon(isRoot(o) ? 'box' : 'link', { size: 15 })),
                 h('span', { class: 'obj-item-label' }, objectLabel(o)),
                 o.visibility && o.visibility !== 'private'
@@ -184,7 +227,7 @@ const renderForest = (box, objects, selectedUuid, filterText) => {
                     : null,
                 kids ? h('span', { class: 'obj-kids', title: `${kids} Nachfahren` }, String(kids)) : null
             ),
-            node.children.length && !q
+            isOpen
                 ? h(
                       'ul',
                       {},
@@ -195,12 +238,13 @@ const renderForest = (box, objects, selectedUuid, filterText) => {
     };
 
     if (q) {
-        // Beim Suchen: flache Trefferliste
+        // Beim Suchen: flache Trefferliste (der Filter gilt auch hier)
         const hits = objects.filter(
             o =>
-                objectLabel(o).toLowerCase().includes(q) ||
-                o.uuid.includes(q) ||
-                objectFamily(o).toLowerCase().includes(q)
+                matchesFilter(o, filter) &&
+                (objectLabel(o).toLowerCase().includes(q) ||
+                    o.uuid.includes(q) ||
+                    objectFamily(o).toLowerCase().includes(q))
         );
         if (!hits.length) return mount(box, h('p', { class: 'muted small pad' }, 'Keine Treffer.'));
         return mount(
@@ -212,7 +256,8 @@ const renderForest = (box, objects, selectedUuid, filterText) => {
             )
         );
     }
-    const forest = buildObjectForest(objects);
+    const forest = sortForest(filterForest(buildObjectForest(objects), filter), sort);
+    if (!forest.length) return mount(box, h('p', { class: 'muted small pad' }, 'Nichts passt zu diesem Filter.'));
     mount(
         box,
         h(
@@ -2791,6 +2836,16 @@ const renderPage = async (root, { params, query }) => {
         placeholder: 'Suchen …',
         'aria-label': 'Objekte filtern'
     });
+    // Sortieren + Filtern (25.10.2026) – die Wahl merkt sich der Browser
+    let view = { sort: load('objekte.sort', 'neu') || 'neu', filter: load('objekte.filter', 'alle') || 'alle' };
+    const select = (options, value, label) =>
+        h(
+            'select',
+            { class: 'input small', 'aria-label': label },
+            options.map(opt => h('option', { value: opt.id, selected: opt.id === value }, opt.label))
+        );
+    const sortSelect = select(SORTS, view.sort, 'Sortieren');
+    const filterSelect = select(FILTERS, view.filter, 'Filter');
 
     root.append(
         pageHeader({
@@ -2813,7 +2868,17 @@ const renderPage = async (root, { params, query }) => {
         h(
             'div',
             { class: 'split' },
-            h('section', { class: 'card list-panel' }, h('div', { class: 'list-panel-head' }, filterInput), listBox),
+            h(
+                'section',
+                { class: 'card list-panel' },
+                h(
+                    'div',
+                    { class: 'list-panel-head' },
+                    filterInput,
+                    h('div', { class: 'list-panel-tools' }, sortSelect, filterSelect)
+                ),
+                listBox
+            ),
             detailBox
         ),
         bottom
@@ -2831,10 +2896,21 @@ const renderPage = async (root, { params, query }) => {
     mount(createBox, createDomainCard({ onCreated: uuid => reload(uuid) }));
     if (objects.length) createBox.classList.add('hidden-box');
 
-    renderForest(listBox, objects, selectedUuid, filter);
+    const redraw = () => renderForest(listBox, objects, selectedUuid, filter, view);
+    redraw();
     filterInput.addEventListener('input', () => {
         filter = filterInput.value;
-        renderForest(listBox, objects, selectedUuid, filter);
+        redraw();
+    });
+    sortSelect.addEventListener('change', () => {
+        view = { ...view, sort: sortSelect.value };
+        save('objekte.sort', view.sort);
+        redraw();
+    });
+    filterSelect.addEventListener('change', () => {
+        view = { ...view, filter: filterSelect.value };
+        save('objekte.filter', view.filter);
+        redraw();
     });
     mount(bottom, pathResolverCard(objects));
 
