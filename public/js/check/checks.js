@@ -954,6 +954,28 @@ export const CHECKS = [
         }
     },
     {
+        // Plan "R2 – Besucher laden hoch" (R2c): Die Upload-Tür ist nur für den Bauarbeiter
+        // offen; accept gibt es nur bei einem echten Upload; die Liste "Neue Uploads" antwortet
+        id: 'ssf-upload-door',
+        group: 'SSF',
+        title: 'Upload-Tür: nur über den Bauarbeiter, accept nur bei einem Upload, Liste „Neue Uploads“',
+        needs: ['funktion'],
+        run: async ctx => {
+            // Ohne Bauarbeiter-Schlüssel lehnt das Backend ab, bevor es die Datei überhaupt liest
+            const direct = await api.post(`/api/sites/${ctx.domainName}/upload/funktion`, {});
+            expectStatus(direct, 403, 'Upload direkt ans Backend (ohne Bauarbeiter-Schlüssel)');
+            const r = await runSsf(
+                ctx,
+                `try { await api.files.accept('${ctx.domainName}/daten'); return 'angenommen'; } catch (e) { return e.code; }`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            expect(r.data.result === 'NO_UPLOAD', `accept ohne Upload: ${r.data.result}`, r);
+            const list = await api.get('/api/uploads/pending');
+            expectStatus(list, 200, 'Liste „Neue Uploads“');
+            return `Tür zu für Fremde, accept nur bei Uploads, ${list.data.data.length} offene Upload(s)`;
+        }
+    },
+    {
         // Plan "R1 – Eine SSF schreibt und liest Dateien" (R1c): echter Rundgang durch R2 aus der
         // Sandbox – CSV schreiben, lesen, info, HTML als txt abgelehnt, entfernen (räumt selbst auf)
         id: 'ssf-files',

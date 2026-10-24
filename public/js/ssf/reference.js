@@ -356,6 +356,28 @@ export const TOOLS = [
         snippet: "await api.files.remove('shop/export');\n"
     },
     {
+        // Plan "R2": nur wenn ein Besucher über /_at0mic/upload/<pfad> eine Datei schickt
+        name: 'files.accept',
+        group: 'files',
+        signature: 'ziel, { types, maxBytes, anonym, name, neu }',
+        role: 'red',
+        budget: 'files (wie ein Schreiben); mit neu: zusätzlich objects',
+        returns: '{ version, kind, bytes, sha256, … } – mit neu dazu { uuid, adresse }',
+        text: 'Legt die Datei eines Website-Besuchers ab (requestContext.upload zeigt nur die Beschreibung). Ohne accept wird nichts gespeichert. Standard: nur angemeldete Besucher (anonym: true für alle), nur Fotos + PDF, max. 10 MB, einmal pro Upload. neu: true = in eine Sammlung, als neues privates Kind – sichtbar erst nach deiner Freigabe im Cockpit.',
+        snippet:
+            "const foto = await api.files.accept('shop/fotos', { neu: true, anonym: true });\nreturn foto.adresse;\n"
+    },
+    {
+        name: 'files.readUpload',
+        group: 'files',
+        signature: '{ as }',
+        role: '– (nur der Upload dieses Aufrufs)',
+        budget: 'max. 4 MB',
+        returns: '{ name, kind, bytes, sha256, text | base64 }',
+        text: "Liest die Datei eines Website-Besuchers, OHNE sie abzulegen – z.B. eine CSV-Liste direkt einlesen. Ohne Upload: e.code 'NO_UPLOAD'.",
+        snippet: "const liste = await api.files.readUpload();\nreturn liste.text.split('\\n').length;\n"
+    },
+    {
         name: 'crypto.randomToken',
         group: 'crypto',
         signature: "bytes = 32, encoding = 'base64url' | 'hex'",
