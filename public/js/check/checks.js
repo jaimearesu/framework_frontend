@@ -465,6 +465,37 @@ export const CHECKS = [
             return 'Plan: create; Fehler mit Teil und Zeile';
         }
     },
+    // Plan "A1 – Code von einer Adresse holen": Probelauf mit einer echten Bibliothek von jsDelivr
+    // (der Server holt sie wirklich, speichert aber nichts) + interne Adresse wird abgelehnt
+    {
+        id: 'code-from-url',
+        group: 'Code',
+        title: 'Code von einer Adresse: echte Bibliothek holen (Probelauf), interne Adresse ablehnen',
+        needs: ['root'],
+        run: async ctx => {
+            const url = 'https://cdn.jsdelivr.net/npm/ms@2.1.3/index.js';
+            const probe = await api.post(`/api/objects/${ctx.root}/bundle`, {
+                dry_run: true,
+                children: [{ identifier: 'check-karte', code: { javascript: { url } } }]
+            });
+            expectStatus(probe, 200, 'Probelauf mit Adresse');
+            const got = probe.data?.data?.fetched?.[0];
+            expect(got?.host === 'cdn.jsdelivr.net' && got?.bytes > 0, 'fetched fehlt oder ist falsch', probe);
+            expect(/^[0-9a-f]{64}$/.test(String(got?.sha256)), 'Prüfsumme fehlt', probe);
+
+            const wrongHash = await api.post(`/api/objects/${ctx.root}/bundle`, {
+                dry_run: true,
+                children: [{ identifier: 'check-karte', code: { javascript: { url, sha256: '0'.repeat(64) } } }]
+            });
+            expectStatus(wrongHash, 422, 'falsche Prüfsumme');
+
+            const intern = await api.post(`/api/ast/${ctx.root}`, {
+                snippets: [{ type: 'javascript', url: 'https://127.0.0.1/geheim.js' }]
+            });
+            expectStatus(intern, 422, 'interne Adresse als Quelle');
+            return `${got.bytes} Bytes von ${got.host}, falsche Prüfsumme und interne Adresse abgelehnt`;
+        }
+    },
 
     // ============================================================== DATEN
     {
