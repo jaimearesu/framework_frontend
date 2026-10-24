@@ -38,7 +38,7 @@
 //   - einen Ausweis bei SSF-Aufrufen von einer fremden Seite mitschicken (Herkunft)
 //   - Fehlermeldungen aus dem Code einer Website an Besucher zeigen (nur ins Log)
 //   - etwas anderes als GET/HEAD annehmen – ausser POST auf /_at0mic/run/… und /logout
-//     sowie POST/PUT auf /_at0mic/hook/…
+//     sowie POST/PUT auf /_at0mic/hook/… und POST auf /_at0mic/upload/… (Plan "R2")
 //
 // Das Backend fragt er mit dem Bauarbeiter-Schlüssel und der IP des
 // Besuchers – so bremst das Backend pro Besucher (Etappe 2). Rechte gibt
@@ -66,10 +66,18 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // SSF der Website: /_at0mic/run/<pfad> – Pfad wie die identifier in der DNA
 const RUN_ROUTE = /^\/_at0mic\/run\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
 const MAX_RUN_BODY_BYTES = 64 * 1024; // Eingabe für die SSF: höchstens 64 KB
+// Upload eines Besuchers (Plan "R2"): /_at0mic/upload/<pfad> – rohe Bytes, Pfad wie bei /run.
+// Höchstens 10 MB (wie UPLOAD_MAX_BYTES im Backend; das Backend prüft nochmals genau).
+const UPLOAD_ROUTE = /^\/_at0mic\/upload\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_UPLOAD_QUERY = 2048; // ?gericht=12… – mehr geht nicht an die SSF
+const MAX_FILE_NAME_HEADER = 600; // X-File-Name (URI-kodiert) – Namen werden im Backend gekürzt
 
 // Datei der Website: /_at0mic/datei/<pfad>[.endung] (Plan "Dateien mit R2", D3) –
 // Pfad wie bei run, dazu freiwillig eine Endung (das Backend prüft, ob sie zur Datei passt)
-const FILE_ROUTE = /^\/_at0mic\/datei\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*(?:\.[A-Za-z0-9]{2,5})?)$/;
+// Plan "R2", R2b: auch ~<uuid> für Dateien in Sammlungen (Uploads von Besuchern, nicht in der DNA)
+const FILE_ROUTE =
+    /^\/_at0mic\/datei\/((?:~[0-9a-fA-F-]{36}|[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)(?:\.[A-Za-z0-9]{2,5})?)$/;
 const FILE_TIMEOUT_MS = 20000; // bis 10 MB aus R2 über das Backend
 // Diese Header des Backends gehen an den Browser (sonst nichts)
 const FILE_HEADERS = ['content-type', 'content-length', 'cache-control', 'etag', 'content-security-policy'];
@@ -632,26 +640,96 @@ const createBauarbeiter = ({
             return reply(503, { error: 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.' });
         }
         if (tokenRejected(res2)) clearTokenCookie(res); // Ausweis gilt nicht mehr -> Cookie weg
+        return translateAnswer(reply, res2, data, `${name}/${runPath}`);
+    };
 
+    // Antwort des Backends für den Besucher übersetzen (für /run und /upload gleich):
+    // Fehlerdetails aus dem SSF-Code gehen nur ins Log, nie an den Besucher.
+    const translateAnswer = (reply, res2, data, label) => {
         if (res2.ok) return reply(200, { result: data?.result ?? null });
         if (res2.status === 404) return reply(404, { error: 'Diese Funktion gibt es nicht.' });
         if (res2.status === 400) return reply(400, { error: data?.error || 'Ungültige Eingabe.' });
+        if (res2.status === 413) return reply(413, { error: data?.error || 'Zu gross.' });
         if (res2.status === 429) {
             const retryAfter = data?.retryAfter || res2.headers.get('retry-after') || 30;
             return reply(
                 429,
-                { error: 'Zu viele Anfragen – bitte kurz warten.', retryAfter: Number(retryAfter) },
+                { error: data?.error || 'Zu viele Anfragen – bitte kurz warten.', retryAfter: Number(retryAfter) },
                 { retryAfter }
             );
         }
         if (res2.status === 422) {
             // Fehler im Code der SSF: nur ins Log, nie an den Besucher
-            log.warn(`[BAUARBEITER] SSF "${name}/${runPath}" mit Fehler: ${data?.details || data?.error}`);
+            log.warn(`[BAUARBEITER] SSF "${label}" mit Fehler: ${data?.details || data?.error}`);
             return reply(502, { error: 'Die Funktion hatte einen Fehler.' });
         }
         if (res2.status === 401)
             log.error('[BAUARBEITER] Der Bauarbeiter-Schlüssel ist falsch (BAUARBEITER_KEY prüfen).');
         return reply(503, { error: 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.' });
+    };
+
+    // ---------------------------------------------------------------------
+    // UPLOAD EINES BESUCHERS:  POST /_at0mic/upload/<pfad>   (Plan "R2", Etappe R2a)
+    // Das JavaScript der Website schickt EINE Datei als rohe Bytes:
+    //   fetch('/_at0mic/upload/api?gericht=12', { method: 'POST', body: datei,
+    //         headers: { 'X-File-Name': encodeURIComponent(datei.name) } })
+    // Der Bauarbeiter reicht sie an POST /api/sites/<name>/upload/<pfad> weiter – mit
+    // Schlüssel, Besucher-IP und (nur von dieser Website aus) dem Ausweis, ohne Cookies.
+    // Ob die Datei gespeichert wird, entscheidet die SSF (api.files.accept).
+    // ---------------------------------------------------------------------
+    const uploadFile = async (req, res, name, uploadPath, token) => {
+        const reply = (status, body, extra = {}) => {
+            res.set('Cache-Control', 'no-store');
+            if (extra.retryAfter) res.set('Retry-After', String(extra.retryAfter));
+            return res.status(status).json(body);
+        };
+        // Von einer FREMDEN Seite (auch einer Nachbar-Website): nie
+        if (req.get('origin') && !sameOriginRequest(req)) {
+            return reply(403, { error: 'Nur von dieser Website aus.' });
+        }
+        const forwardToken = token && sameOriginRequest(req) ? token : null;
+        // Sagt der Browser schon vorher, dass es zu gross ist? Dann gar nicht erst lesen
+        const announced = Number(req.get('content-length'));
+        if (Number.isFinite(announced) && announced > MAX_UPLOAD_BYTES) {
+            return reply(413, { error: `Die Datei ist zu gross (max. ${MAX_UPLOAD_BYTES / 1024 / 1024} MB).` });
+        }
+        let body;
+        try {
+            body = await readRawBody(req, MAX_UPLOAD_BYTES);
+        } catch (error) {
+            const status = error.status || 400;
+            return reply(status, {
+                error:
+                    status === 413
+                        ? `Die Datei ist zu gross (max. ${MAX_UPLOAD_BYTES / 1024 / 1024} MB).`
+                        : error.message
+            });
+        }
+        if (body.length === 0) return reply(400, { error: 'Es kam keine Datei an.' });
+
+        const extra = { 'content-type': 'application/octet-stream' };
+        const fileName = req.get('x-file-name');
+        if (typeof fileName === 'string' && fileName.length <= MAX_FILE_NAME_HEADER) extra['x-file-name'] = fileName;
+        const at = req.originalUrl.indexOf('?');
+        const query = at === -1 ? '' : req.originalUrl.slice(at);
+        if (query.length > MAX_UPLOAD_QUERY) return reply(400, { error: 'Die Angaben in der Adresse sind zu lang.' });
+
+        let res2;
+        let data = null;
+        try {
+            res2 = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/upload/${uploadPath}${query}`, {
+                method: 'POST',
+                headers: backendHeaders(visitorIpOf(req), forwardToken, extra),
+                body,
+                signal: AbortSignal.timeout(RUN_TIMEOUT_MS)
+            });
+            data = await res2.json().catch(() => null);
+        } catch (error) {
+            log.warn(`[BAUARBEITER] Backend nicht erreichbar (Upload ${name}/${uploadPath}): ${error.message}`);
+            return reply(503, { error: 'Gerade nicht erreichbar. Bitte gleich nochmal versuchen.' });
+        }
+        if (tokenRejected(res2)) clearTokenCookie(res); // Ausweis gilt nicht mehr -> Cookie weg
+        return translateAnswer(reply, res2, data, `${name}/${uploadPath} (Upload)`);
     };
 
     // ---------------------------------------------------------------------
@@ -837,6 +915,16 @@ const createBauarbeiter = ({
                     return res.status(405).json({ error: 'Nur GET.' });
                 }
                 return await serveFile(req, res, host.name, file[1], token);
+            }
+
+            // Upload eines Besuchers (nur POST, nur unter /_at0mic/upload/) – Plan "R2"
+            const up = UPLOAD_ROUTE.exec(req.path);
+            if (up && host.name) {
+                if (req.method !== 'POST') {
+                    res.set('Allow', 'POST');
+                    return res.status(405).json({ error: 'Nur POST.' });
+                }
+                return await uploadFile(req, res, host.name, up[1], token);
             }
 
             // SSF der Website (nur POST, nur unter /_at0mic/run/)
