@@ -5,6 +5,7 @@
 //   1. Status: Backend, Datenbank, SSF-Sandbox, wer du bist
 //   1b. Wartet auf dich: Freigabe-Anfragen einer KI (nur sichtbar, wenn es welche gibt)
 //   1c. Wartet auf dich: neue Uploads von Website-Besuchern (Plan "R2", nur wenn es welche gibt)
+//   1d. Papierkorb: gelöschte Websites mit Sicherung – 30 Tage wiederherstellbar (Plan "R4")
 //   2. Deine Objekte (die neusten)
 //   3. So funktioniert at0mic – die Grundbegriffe in einfachen Worten
 //   4. Schnellstart – in welcher Reihenfolge man alles ausprobiert
@@ -20,6 +21,7 @@ import { pageHeader } from '../core/page.js';
 import { formatMs, formatNumber, shortUuid, timeAgo, pathText } from '../core/format.js';
 import { renderPendingRequests } from './publishRequests.js';
 import { renderPendingUploads } from './visitorUploads.js';
+import { renderDeletedSites } from './objectSnapshots.js';
 
 // ------------------------------------------------------------------
 // 1. STATUS-KACHELN
@@ -352,12 +354,24 @@ export default {
             uploadsBox
         );
         uploadsCard.hidden = true; // erst zeigen, wenn es Uploads gibt
+        // Plan "R4", R4c: Papierkorb – gelöschte Websites, deren Sicherungen noch 30 Tage bleiben
+        const deletedBox = h('div');
+        const deletedCard = card(
+            {
+                title: 'Papierkorb – gelöschte Websites',
+                icon: 'history',
+                subtitle: 'Von diesen Websites gibt es noch eine Sicherung. Du kannst sie als neue Website zurückholen.'
+            },
+            deletedBox
+        );
+        deletedCard.hidden = true;
 
         const fill = s => {
             renderStatus(statusBox, s);
             renderObjects(objectsBox, s);
             renderPendingRequests(requestsBox, requestsCard, s);
             renderPendingUploads(uploadsBox, uploadsCard, s);
+            renderDeletedSites(deletedBox, deletedCard, s);
         };
 
         root.append(
@@ -371,6 +385,7 @@ export default {
             statusBox,
             requestsCard,
             uploadsCard,
+            deletedCard,
             h(
                 'div',
                 { class: 'grid-2' },

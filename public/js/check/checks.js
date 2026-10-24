@@ -473,6 +473,37 @@ export const CHECKS = [
             return 'Plan: create; Fehler mit Teil und Zeile';
         }
     },
+    // Plan "R4 – Zeitmaschine": die Check-Website wirklich sichern (R2), in der Liste sehen;
+    // Wiederherstellen ohne Namen wird abgelehnt (es entsteht nichts). Die Sicherung verschwindet
+    // mit dem Löschen der Check-Website nach 30 Tagen von selbst (Papierkorb).
+    {
+        id: 'snapshot',
+        group: 'Code',
+        title: 'Zeitmaschine: Website sichern, Liste, Wiederherstellen ohne Namen abgelehnt',
+        needs: ['root'],
+        run: async ctx => {
+            const made = await api.post(`/api/objects/${ctx.root}/snapshots`, { label: 'Systemcheck' });
+            if (made.status === 503 && made.data?.code === 'FILES_DISABLED') {
+                return 'R2 ist auf diesem Server nicht eingerichtet – übersprungen';
+            }
+            if (made.status === 403 && made.data?.code === 'QUOTA_EXCEEDED') {
+                return 'Gäste haben keinen Speicher – nur mit Login prüfbar, übersprungen';
+            }
+            expectStatus(made, 201, 'Sichern');
+            const snap = made.data.data;
+            expect(snap.objects >= 1 && /^[0-9a-f]{64}$/.test(snap.sha256), 'Sicherung unvollständig', made);
+            const list = await api.get(`/api/objects/${ctx.root}/snapshots`);
+            expectStatus(list, 200, 'Liste');
+            expect(
+                list.data.data.some(x => x.uuid === snap.uuid),
+                'Sicherung fehlt in der Liste',
+                list
+            );
+            const restore = await api.post(`/api/snapshots/${snap.uuid}/restore`, { domain: '' });
+            expect([400, 404].includes(restore.status), `Wiederherstellen ohne Namen: ${restore.status}`, restore);
+            return `${snap.objects} Teile gesichert (${snap.bytes} Bytes), in der Liste, ohne Namen abgelehnt`;
+        }
+    },
     // Plan "A1 – Code von einer Adresse holen": Probelauf mit einer echten Bibliothek von jsDelivr
     // (der Server holt sie wirklich, speichert aber nichts) + interne Adresse wird abgelehnt
     {

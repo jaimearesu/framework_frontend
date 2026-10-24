@@ -1,18 +1,20 @@
 // js/pages/objectSnapshots.js
 // ---------------------------------------------------------------------
-// REITER "ZEITMASCHINE" (Plan "R4", Etappe R4a) – nur bei der Wurzel einer Website
-//
-// Eine Sicherung packt die ganze Website (alle Teile, neuester Code, Datensätze, Dateien)
-// in eine Datei. Hier siehst du die Liste und kannst "Jetzt sichern". Wiederherstellen
-// (als neue Website) kommt in R4c, nachts automatisch in R4b.
-// Code-Versionen speichert at0mic ohnehin immer – die Sicherung schützt vor allem Daten,
-// gelöschte Teile und Dateien.
-// Alle Texte vom Backend (Beschriftung, Hinweis) nur über h()/textContent.
+// ZEITMASCHINE IM COCKPIT (Plan "R4")
+//   - Reiter "Zeitmaschine" bei der Wurzel einer Website (R4a): Liste + "Jetzt sichern"
+//   - "Wiederherstellen" bei jeder Sicherung (R4c): immer als NEUE Website – nie wird etwas
+//     Bestehendes überschrieben. Nur echte Menschen mit blue (das Backend prüft es).
+//   - Karte "Papierkorb" in der Übersicht (R4c): Sicherungen GELÖSCHTER Websites, 30 Tage lang
+// Nachts sichert at0mic geänderte Websites selbst (R4b). Code-Versionen speichert at0mic ohnehin
+// immer – die Sicherung schützt vor allem Daten, gelöschte Teile und Dateien.
+// Alle Texte vom Backend (Beschriftung, Hinweis, Namen) nur über h()/textContent.
 // ---------------------------------------------------------------------
 import { api } from '../core/api.js';
+import { href } from '../core/routes.js';
 import { h, mount, card, spinner, busyButton, toast, badge, emptyState, resultLine, field } from '../core/ui.js';
 import { formatDate, timeAgo, formatNumber } from '../core/format.js';
 import { formatBytes } from '../core/site.js';
+import { invalidateObjects } from '../core/objects.js';
 
 const KIND_TEXT = { manual: 'von Hand', nightly: 'nachts' };
 
@@ -28,7 +30,37 @@ export const describeSnapshot = s => {
     return parts.join(' · ');
 };
 
-const snapshotRow = s =>
+/**
+ * Vorschlag für den Namen der neuen Website (reine Funktion, getestet):
+ * "brot" + Sicherung vom 24.10.2026 -> "brot-20261024" (max. 100 Zeichen, wie Domain-Namen)
+ */
+export const suggestRestoreName = s => {
+    const d = new Date(s.createdAt);
+    const pad = n => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+    return `${String(s.domain).slice(0, 100 - stamp.length - 1)}-${stamp}`;
+};
+
+// "Wiederherstellen": nach dem Namen fragen, dann als neue Website aufbauen und hinspringen
+const restoreButton = s =>
+    busyButton(
+        'Als neue Website wiederherstellen',
+        async () => {
+            const name = prompt(
+                `Die Sicherung vom ${formatDate(s.createdAt)} wird als NEUE Website aufgebaut (privat, nur du hast Rechte). Nichts Bestehendes wird überschrieben.\n\nName der neuen Website:`,
+                suggestRestoreName(s)
+            );
+            if (!name) return;
+            const r = await api.post(`/api/snapshots/${s.uuid}/restore`, { domain: name.trim() });
+            if (!r.ok) return toast(r.error || 'Wiederherstellen hat nicht geklappt.', 'error');
+            toast(`Wiederhergestellt als „${r.data.data.domain}“.`, 'ok');
+            invalidateObjects();
+            location.hash = href('objekte', r.data.data.uuid);
+        },
+        { className: 'btn', iconName: 'history' }
+    );
+
+const snapshotRow = (s, { withRestore = true } = {}) =>
     h(
         'li',
         { class: 'request-item' },
@@ -45,7 +77,8 @@ const snapshotRow = s =>
             { class: 'muted small' },
             `${describeSnapshot(s)} · gepackt ${formatBytes(s.bytes)} · ${timeAgo(s.createdAt)}`
         ),
-        s.note ? h('div', { class: 'small' }, '⚠️ ', s.note) : null
+        s.note ? h('div', { class: 'small' }, '⚠️ ', s.note) : null,
+        withRestore ? h('div', { class: 'request-actions' }, restoreButton(s)) : null
     );
 
 export const renderSnapshotsTab = async (box, o) => {
@@ -83,7 +116,7 @@ export const renderSnapshotsTab = async (box, o) => {
                 title: 'Zeitmaschine',
                 icon: 'history',
                 subtitle:
-                    'Eine Sicherung enthält die ganze Website: alle Teile, den neuesten Code, die Datensätze und die Dateien – nie Tresor-Schlüssel oder Rechte. Code-Versionen speichert at0mic ohnehin immer.'
+                    'Eine Sicherung enthält die ganze Website: alle Teile, den neuesten Code, die Datensätze und die Dateien – nie Tresor-Schlüssel oder Rechte. Nachts sichert at0mic geänderte Websites selbst (7 Nächte + 4 Sonntage bleiben, dazu 10 von Hand).'
             },
             h(
                 'div',
@@ -92,7 +125,11 @@ export const renderSnapshotsTab = async (box, o) => {
                 busyButton('Jetzt sichern', create, { className: 'btn primary', iconName: 'history' })
             ),
             list.length
-                ? h('ul', { class: 'request-list' }, list.map(snapshotRow))
+                ? h(
+                      'ul',
+                      { class: 'request-list' },
+                      list.map(s => snapshotRow(s))
+                  )
                 : emptyState({
                       icon: 'history',
                       title: 'Noch keine Sicherung',
@@ -101,8 +138,66 @@ export const renderSnapshotsTab = async (box, o) => {
             h(
                 'p',
                 { class: 'muted small' },
-                'Wiederherstellen (als neue Website) und nächtliche Sicherungen folgen bald.'
+                'Wiederherstellen baut immer eine NEUE Website auf (privat, nur du hast Rechte) – Tresor-Schlüssel trägst du dort neu ein.'
             )
+        )
+    );
+};
+
+/**
+ * Karte "Papierkorb" in der Übersicht: Sicherungen gelöschter Websites (30 Tage).
+ * Gibt es keine (oder ist niemand eingeloggt), bleibt die Karte versteckt.
+ */
+export const renderDeletedSites = async (box, cardEl, s) => {
+    if (!s.online || s.identity.kind !== 'user') {
+        cardEl.hidden = true;
+        return;
+    }
+    const res = await api.get('/api/snapshots/deleted');
+    if (!res.ok) {
+        cardEl.hidden = true; // älteres Backend ohne diese Route: nichts zeigen
+        return;
+    }
+    const list = res.data?.data || [];
+    cardEl.hidden = list.length === 0;
+    if (!list.length) return mount(box);
+    // Pro gelöschter Website nur die neueste Sicherung zeigen (die anderen sind älter)
+    const newest = [];
+    const seen = new Set();
+    for (const snap of list) {
+        if (seen.has(snap.domain)) continue;
+        seen.add(snap.domain);
+        newest.push(snap);
+    }
+    return mount(
+        box,
+        h(
+            'ul',
+            { class: 'request-list' },
+            newest.map(snap =>
+                h(
+                    'li',
+                    { class: 'request-item' },
+                    h(
+                        'div',
+                        { class: 'request-what' },
+                        h('strong', {}, snap.domain),
+                        ' – gelöscht ',
+                        timeAgo(snap.domainDeletedAt)
+                    ),
+                    h(
+                        'div',
+                        { class: 'muted small' },
+                        `Letzte Sicherung ${formatDate(snap.createdAt)} · ${describeSnapshot(snap)}`
+                    ),
+                    h('div', { class: 'request-actions' }, restoreButton(snap))
+                )
+            )
+        ),
+        h(
+            'p',
+            { class: 'muted small' },
+            'Sicherungen gelöschter Websites bleiben 30 Tage, danach sind sie endgültig weg.'
         )
     );
 };
