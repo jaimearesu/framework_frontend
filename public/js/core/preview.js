@@ -79,7 +79,11 @@ export const placeChildren = (parentBody, parts, unplaced = []) => {
             ? new RegExp(`(<[a-z0-9-]+[^>]*\\sdata-slot=["']${id}["'][^>]*>)(\\s*)(</[a-z0-9-]+>)`, 'i')
             : null;
         if (slot && slot.test(body)) body = body.replace(slot, (m, open, _ws, close) => open + part.html + close);
-        else {
+        else if (!hasContent(part.html)) {
+            // Kein Platz und nichts zu zeigen (z.B. ein Ordner nur für Bilder): gar keine
+            // Hülle anhängen – gleiche Regel wie im Backend (Runde 3, E2)
+            continue;
+        } else {
             rest.push(`<section data-at0mic="${id}">\n${part.html}\n</section>`);
             unplaced.push(id);
         }
