@@ -98,6 +98,19 @@ describe('/_at0mic/datei/<pfad>', () => {
         assert.equal(calls[0].headers['x-besucher-ausweis'], undefined, 'ohne Cookie: anonym');
     });
 
+    // Plan "R2", R2b: Dateien in Sammlungen (Uploads von Besuchern) über ~<uuid>
+    test('~<uuid>[.endung] geht ans Backend; kaputte UUID-Formen nie', async () => {
+        const uuid = '3f5c3cde-6697-4efb-8461-cd03469027ca';
+        const r = await request('shop.at0mic.site', `/_at0mic/datei/~${uuid}.png`);
+        assert.equal(r.status, 200);
+        assert.equal(calls[0].url, `http://backend.intern/api/sites/shop/datei/~${uuid}.png`);
+        const before = calls.length;
+        await request('shop.at0mic.site', '/_at0mic/datei/~abc');
+        await request('shop.at0mic.site', `/_at0mic/datei/bilder/~${uuid}`);
+        const fileCalls = calls.slice(before).filter(c => c.url.includes('/datei/'));
+        assert.equal(fileCalls.length, 0, 'ungültige Formen erreichen die Datei-Route des Backends nie');
+    });
+
     test('angemeldet: der Ausweis geht mit (dann gelten die Rechte des Besuchers)', async () => {
         await request('shop.at0mic.site', '/_at0mic/datei/logo', { cookie: `__Host-at0mic_ausweis=${TOKEN}` });
         assert.equal(calls[0].headers['x-besucher-ausweis'], TOKEN);

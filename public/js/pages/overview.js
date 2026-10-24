@@ -4,6 +4,7 @@
 //
 //   1. Status: Backend, Datenbank, SSF-Sandbox, wer du bist
 //   1b. Wartet auf dich: Freigabe-Anfragen einer KI (nur sichtbar, wenn es welche gibt)
+//   1c. Wartet auf dich: neue Uploads von Website-Besuchern (Plan "R2", nur wenn es welche gibt)
 //   2. Deine Objekte (die neusten)
 //   3. So funktioniert at0mic – die Grundbegriffe in einfachen Worten
 //   4. Schnellstart – in welcher Reihenfolge man alles ausprobiert
@@ -18,6 +19,7 @@ import { icon } from '../core/icons.js';
 import { pageHeader } from '../core/page.js';
 import { formatMs, formatNumber, shortUuid, timeAgo, pathText } from '../core/format.js';
 import { renderPendingRequests } from './publishRequests.js';
+import { renderPendingUploads } from './visitorUploads.js';
 
 // ------------------------------------------------------------------
 // 1. STATUS-KACHELN
@@ -339,11 +341,23 @@ export default {
             requestsBox
         );
         requestsCard.hidden = true; // erst zeigen, wenn es Anfragen gibt
+        // Plan "R2", R2b: neue Uploads von Website-Besuchern freischalten
+        const uploadsBox = h('div');
+        const uploadsCard = card(
+            {
+                title: 'Wartet auf dich – neue Uploads',
+                icon: 'upload',
+                subtitle: 'Besucher deiner Websites haben Dateien hochgeladen. Sie sind privat, bis du sie freigibst.'
+            },
+            uploadsBox
+        );
+        uploadsCard.hidden = true; // erst zeigen, wenn es Uploads gibt
 
         const fill = s => {
             renderStatus(statusBox, s);
             renderObjects(objectsBox, s);
             renderPendingRequests(requestsBox, requestsCard, s);
+            renderPendingUploads(uploadsBox, uploadsCard, s);
         };
 
         root.append(
@@ -356,6 +370,7 @@ export default {
             }),
             statusBox,
             requestsCard,
+            uploadsCard,
             h(
                 'div',
                 { class: 'grid-2' },

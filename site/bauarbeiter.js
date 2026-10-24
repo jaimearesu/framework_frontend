@@ -75,7 +75,9 @@ const MAX_FILE_NAME_HEADER = 600; // X-File-Name (URI-kodiert) – Namen werden 
 
 // Datei der Website: /_at0mic/datei/<pfad>[.endung] (Plan "Dateien mit R2", D3) –
 // Pfad wie bei run, dazu freiwillig eine Endung (das Backend prüft, ob sie zur Datei passt)
-const FILE_ROUTE = /^\/_at0mic\/datei\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*(?:\.[A-Za-z0-9]{2,5})?)$/;
+// Plan "R2", R2b: auch ~<uuid> für Dateien in Sammlungen (Uploads von Besuchern, nicht in der DNA)
+const FILE_ROUTE =
+    /^\/_at0mic\/datei\/((?:~[0-9a-fA-F-]{36}|[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)(?:\.[A-Za-z0-9]{2,5})?)$/;
 const FILE_TIMEOUT_MS = 20000; // bis 10 MB aus R2 über das Backend
 // Diese Header des Backends gehen an den Browser (sonst nichts)
 const FILE_HEADERS = ['content-type', 'content-length', 'cache-control', 'etag', 'content-security-policy'];
