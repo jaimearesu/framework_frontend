@@ -43,6 +43,11 @@ export const TOOL_GROUPS = [
         text: 'Gemeinsamer Code mehrerer SSFs: einmal als Objekt mit der Code-Art „Bibliothek“ ablegen, in jeder SSF laden.'
     },
     {
+        id: 'files',
+        title: 'Dateien',
+        text: 'Dateien ablegen und lesen (Plan „R1“): Kalender, CSV-Exporte, Grafiken, Importe – mit den Rechten der SSF, der Platz zählt aufs Konto.'
+    },
+    {
         id: 'crypto',
         title: 'Sicherer Zufall',
         text: 'Geheime Tokens und IDs, die niemand erraten kann – für Geheimes nie Math.random() benutzen.'
@@ -312,6 +317,45 @@ export const TOOLS = [
         snippet: "const helfer = await api.lib.load('shop/helfer');\nreturn helfer.chf(12.5);\n"
     },
     {
+        name: 'files.write',
+        group: 'files',
+        signature: 'ziel, inhalt, { type, name, encoding }',
+        role: 'red',
+        budget: 'files (max. 5 pro Ausführung, zusammen 10 MB, je 2 MB)',
+        returns: '{ version, kind, mime, bytes, sha256, name, createdAt }',
+        text: "Legt eine Datei als neue Version ab (die neuesten 3 bleiben). Text: type 'csv' | 'ics' | 'json' | 'txt' oder name mit Endung; SVG erkennt at0mic selbst; Bilder/PDFs als base64 mit encoding: 'base64'. Nie HTML. Das Objekt muss es schon geben. Gäste haben keinen Speicher (e.code 'QUOTA_EXCEEDED').",
+        snippet: "await api.files.write('shop/export', 'sku;preis\\nA-1;9.90\\n', { type: 'csv' });\n"
+    },
+    {
+        name: 'files.read',
+        group: 'files',
+        signature: 'ziel, { version, as }',
+        role: 'black',
+        budget: 'max. 4 MB pro Datei, 16 MB pro Ausführung',
+        returns: '{ …wie files.write, text } bzw. { …, base64 }',
+        text: "Liest eine Datei. as: 'text' (Standard für Text und SVG) oder 'base64' (Standard für Bilder, PDFs …). Ohne version die neueste. Keine Datei: e.code 'NO_FILE'.",
+        snippet: "const liste = await api.files.read('shop/import');\nreturn liste.text.split('\\n').length;\n"
+    },
+    {
+        name: 'files.info',
+        group: 'files',
+        signature: 'ziel',
+        role: 'black',
+        returns: '{ current, versions: [{ version, kind, bytes, sha256, name, createdAt }] }',
+        text: 'Zeigt Art, Grösse und alle Versionen einer Datei – ohne den Inhalt. current ist null, wenn keine Datei da ist.',
+        snippet: "const { current } = await api.files.info('shop/export');\nreturn current;\n"
+    },
+    {
+        name: 'files.remove',
+        group: 'files',
+        signature: 'ziel',
+        role: 'red',
+        budget: 'files (zählt wie ein Schreiben)',
+        returns: '{ removed: Anzahl Versionen }',
+        text: 'Entfernt alle Versionen der Datei (das Objekt bleibt). Die Bytes im Speicher löscht der Aufräumer.',
+        snippet: "await api.files.remove('shop/export');\n"
+    },
+    {
         name: 'crypto.randomToken',
         group: 'crypto',
         signature: "bytes = 32, encoding = 'base64url' | 'hex'",
@@ -343,5 +387,6 @@ export const LIMITS = [
     ['Neue Objekte', '5'],
     ['Anfragen nach aussen', '10 (und 60 pro Minute je SSF)'],
     ['Antwort', 'bis 5 MB'],
+    ['Dateien (api.files)', '5 pro Ausführung, je 2 MB schreiben, 4 MB lesen'],
     ['Gleichzeitige SSFs (Server)', '12, weitere warten kurz, sonst 503']
 ];

@@ -954,6 +954,41 @@ export const CHECKS = [
         }
     },
     {
+        // Plan "R1 – Eine SSF schreibt und liest Dateien" (R1c): echter Rundgang durch R2 aus der
+        // Sandbox – CSV schreiben, lesen, info, HTML als txt abgelehnt, entfernen (räumt selbst auf)
+        id: 'ssf-files',
+        group: 'SSF',
+        title: 'SSF schreibt und liest eine Datei (api.files)',
+        needs: ['funktion', 'daten'],
+        run: async ctx => {
+            const ziel = `${ctx.domainName}/daten`;
+            const r = await runSsf(
+                ctx,
+                `try {
+    const w = await api.files.write('${ziel}', 'sku;name\\nS1;Probe Ä\\n', { type: 'csv', name: 'check.csv' });
+    const back = await api.files.read('${ziel}');
+    const info = await api.files.info('${ziel}');
+    let html = 'KEIN FEHLER';
+    try { await api.files.write('${ziel}', '<html><script>x</script></html>', { type: 'txt' }); } catch (e) { html = e.code; }
+    const weg = await api.files.remove('${ziel}');
+    return { kind: w.kind, text: back.text, versionen: info.versions.length, html, weg: weg.removed };
+} catch (e) { return { uebersprungen: e.code || e.message }; }`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const res = r.data.result || {};
+            if (res.uebersprungen === 'FILES_DISABLED')
+                return 'R2 ist auf diesem Server nicht eingerichtet – übersprungen';
+            if (res.uebersprungen === 'QUOTA_EXCEEDED')
+                return 'Gäste haben keinen Datei-Speicher – nur mit Login prüfbar, übersprungen';
+            expect(!res.uebersprungen, `Fehler: ${res.uebersprungen}`, r);
+            expect(res.kind === 'csv', `Art ${res.kind} statt csv`, r);
+            expect(res.text === 'sku;name\nS1;Probe Ä\n', 'Gelesener Text ist anders (Umlaut?)', r);
+            expect(res.html === 'FILE_TYPE_NOT_ALLOWED', `HTML als txt: ${res.html}`, r);
+            expect(res.weg >= 1, 'Entfernen hat nichts entfernt', r);
+            return `CSV geschrieben und gelesen (${res.versionen} Version), HTML abgelehnt, entfernt`;
+        }
+    },
+    {
         // Plan "MCP Etappe 5b": Der Speicher einer App ist ein Kind der App, NICHT in
         // der DNA. Die SSF (ein Geschwister) schreibt ohne zusätzliche Rechte hinein –
         // aber nur per UUID (Pfade laufen über die DNA). Danach wird er gleich gelöscht.
