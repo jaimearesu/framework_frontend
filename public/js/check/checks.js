@@ -357,9 +357,17 @@ export const CHECKS = [
             const bad = await api.upload(`/api/objects/${ctx.daten}/file`, html);
             expectStatus(bad, 415, 'HTML als „logo.png“');
 
+            // Plan "R1": Text-Arten – eine CSV per Endung ja (mit charset), HTML als "notiz.txt" nie
+            const csv = new File(['Name;Betrag\nAnna;20\n'], 'systemcheck.csv', { type: 'text/csv' });
+            const upCsv = await api.upload(`/api/objects/${ctx.daten}/file`, csv);
+            expectStatus(upCsv, 201, 'CSV hochladen');
+            expect(upCsv.data.data.kind === 'csv', `Art ${upCsv.data.data.kind} statt csv`, upCsv);
+            const htmlTxt = new File(['<html><body>x</body></html>'], 'notiz.txt', { type: 'text/plain' });
+            expectStatus(await api.upload(`/api/objects/${ctx.daten}/file`, htmlTxt), 415, 'HTML als „notiz.txt“');
+
             const del = await api.del(`/api/objects/${ctx.daten}/file`);
             expectStatus(del, 200, 'Entfernen');
-            return `R2 ok: ${png.length} Bytes hin und zurück, auch über /datei/ der Website, HTML abgelehnt, entfernt`;
+            return `R2 ok: ${png.length} Bytes hin und zurück, auch über /datei/ der Website, CSV ok, HTML abgelehnt, entfernt`;
         }
     },
     // Plan "Geo-Monitor", G3: Beim Speichern sagt at0mic, was GENAU angekommen ist
