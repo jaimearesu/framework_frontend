@@ -253,6 +253,7 @@ const backend = {
     sites: {}, // name -> { status, body, headers }
     runs: {}, // "name/pfad" -> { status, body, headers }  (POST …/run/…)
     hooks: {}, // "name/pfad" -> { status, body, headers }  (POST …/hook/…)
+    uploads: {}, // "name/pfad" -> { status, body, headers }  (POST …/upload/…, Plan "R2")
     calls: [], // { url, method, headers, body }
     down: false
 };
@@ -260,12 +261,14 @@ const backend = {
 const fakeFetch = async (url, options) => {
     backend.calls.push({ url, method: options.method || 'GET', headers: options.headers, body: options.body });
     if (backend.down) throw new Error('connect ECONNREFUSED');
-    const rest = decodeURIComponent(url.split('/api/sites/')[1]);
-    const answer = rest.includes('/run/')
-        ? backend.runs[rest.replace('/run/', '/')] || { status: 404, body: { error: 'nicht gefunden' } }
-        : rest.includes('/hook/')
-          ? backend.hooks[rest.replace('/hook/', '/')] || { status: 404, body: { error: 'nicht gefunden' } }
-          : backend.sites[rest] || { status: 404, body: { error: 'Keine Website' } };
+    const rest = decodeURIComponent(url.split('/api/sites/')[1].split('?')[0]);
+    const answer = rest.includes('/upload/')
+        ? backend.uploads[rest.replace('/upload/', '/')] || { status: 404, body: { error: 'nicht gefunden' } }
+        : rest.includes('/run/')
+          ? backend.runs[rest.replace('/run/', '/')] || { status: 404, body: { error: 'nicht gefunden' } }
+          : rest.includes('/hook/')
+            ? backend.hooks[rest.replace('/hook/', '/')] || { status: 404, body: { error: 'nicht gefunden' } }
+            : backend.sites[rest] || { status: 404, body: { error: 'Keine Website' } };
     return {
         ok: answer.status >= 200 && answer.status < 300,
         status: answer.status,
@@ -334,6 +337,7 @@ beforeEach(() => {
     backend.sites = {};
     backend.runs = {};
     backend.hooks = {};
+    backend.uploads = {};
     backend.calls = [];
     backend.down = false;
     cache.clear();
@@ -543,6 +547,76 @@ describe('Bauarbeiter: SSF der Website aufrufen (POST /_at0mic/run/…)', () => 
     test('ohne Website-Namen (at0mic.site selbst) gibt es keine SSF', async () => {
         assert.equal((await runSsf('at0mic.site', 'api', {})).status, 405);
         assert.equal(backend.calls.length, 0);
+    });
+});
+
+describe('Bauarbeiter: Upload eines Besuchers (POST /_at0mic/upload/…, Plan "R2")', () => {
+    const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('FOTO')]);
+    const send = (path, body = PNG, extra = {}) =>
+        request('app.at0mic.site', `/_at0mic/upload/${path}`, {
+            method: 'POST',
+            contentType: 'image/png',
+            body,
+            headers: { 'x-file-name': encodeURIComponent('Menü.png'), cookie: 'fremd=1' },
+            ...extra
+        });
+
+    test('reicht weiter: rohe Bytes, Name, Angaben aus der Adresse, Schlüssel, IP – ohne Cookies', async () => {
+        backend.uploads['app/api'] = { status: 200, body: { success: true, result: { gespeichert: true } } };
+        const r = await send('api?gericht=12', PNG, { ip: '203.0.113.9' });
+        assert.equal(r.status, 200);
+        assert.deepEqual(JSON.parse(r.body), { result: { gespeichert: true } });
+        assert.equal(r.headers['cache-control'], 'no-store');
+
+        const call = backend.calls[0];
+        assert.equal(call.url, 'http://backend.test/api/sites/app/upload/api?gericht=12');
+        assert.equal(call.method, 'POST');
+        assert.equal(call.headers['content-type'], 'application/octet-stream');
+        assert.equal(call.headers['x-file-name'], encodeURIComponent('Menü.png'));
+        assert.equal(call.headers['x-bauarbeiter-key'], KEY);
+        assert.equal(call.headers['x-besucher-ip'], '203.0.113.9');
+        assert.equal(call.headers.cookie, undefined);
+        assert.ok(Buffer.from(call.body).equals(PNG), 'Bytes unverändert');
+    });
+
+    test('SICHERHEIT: von einer fremden Seite nie (403) – das Backend sieht nichts', async () => {
+        const r = await send('api', PNG, { headers: { origin: 'https://boese.at0mic.site' } });
+        assert.equal(r.status, 403);
+        assert.equal(backend.calls.length, 0);
+    });
+
+    test('nur POST; leer 400; über 10 MB 413 – ohne das Backend zu fragen', async () => {
+        const get = await request('app.at0mic.site', '/_at0mic/upload/api');
+        assert.equal(get.status, 405);
+        assert.equal(get.headers.allow, 'POST');
+        assert.equal((await send('api', Buffer.alloc(0))).status, 400);
+        const big = await send('api', Buffer.alloc(10 * 1024 * 1024 + 1, 1));
+        assert.equal(big.status, 413);
+        assert.match(JSON.parse(big.body).error, /zu gross \(max\. 10 MB\)/);
+        assert.equal((await send('../api')).status, 405, 'kein gültiger Pfad');
+        assert.equal(backend.calls.length, 0);
+    });
+
+    test('Antworten übersetzt: zu gross/Bremse mit Meldung, Fehler im SSF-Code 502 ohne Details', async () => {
+        backend.uploads['app/api'] = {
+            status: 429,
+            body: { error: 'Zu viele Uploads – bitte in 60 Minuten nochmals.', retryAfter: 3600 }
+        };
+        const limited = await send('api');
+        assert.equal(limited.status, 429);
+        assert.equal(limited.headers['retry-after'], '3600');
+        assert.match(JSON.parse(limited.body).error, /Zu viele Uploads/);
+
+        backend.uploads['app/api'] = { status: 413, body: { error: 'Die Datei ist zu gross (max. 10 MB).' } };
+        assert.equal((await send('api')).status, 413);
+
+        backend.uploads['app/api'] = {
+            status: 422,
+            body: { error: 'Fehler', details: 'Error: geheimes Upload-Detail' }
+        };
+        const broken = await send('api');
+        assert.equal(broken.status, 502);
+        assert.doesNotMatch(broken.body, /geheimes Upload-Detail/);
     });
 });
 
