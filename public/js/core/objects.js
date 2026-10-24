@@ -104,6 +104,80 @@ export const buildObjectForest = objects => {
     return top;
 };
 
+// ---------------------------------------------------------------------
+// OBJEKT-LISTE SORTIEREN UND FILTERN (Wunsch von Jaime, 25.10.2026: "250 Objekte und nichts
+// lässt sich einklappen"). Reine Funktionen – die Seite pages/objects.js benutzt sie.
+// ---------------------------------------------------------------------
+
+// Wie die Domains (oberste Ebene) sortiert werden – Kinder bleiben in ihrer Pfad-Reihenfolge
+export const SORTS = [
+    { id: 'neu', label: 'Neueste zuerst' },
+    { id: 'alt', label: 'Älteste zuerst' },
+    { id: 'name', label: 'A–Z' },
+    { id: 'geaendert', label: 'Zuletzt geändert' }
+];
+
+// Welche Objekte gezeigt werden
+export const FILTERS = [
+    { id: 'alle', label: 'Alle' },
+    { id: 'public', label: 'Öffentlich' },
+    { id: 'members', label: 'Nur Mitglieder' },
+    { id: 'private', label: 'Privat' },
+    { id: 'online', label: 'Online (öffentliche Websites)' }
+];
+
+const time = value => (value ? new Date(value).getTime() || 0 : 0);
+// Zuletzt geändert: das Neueste in der ganzen Familie zählt (ein geändertes Kind zählt für die Domain)
+const latestInTree = node => Math.max(time(node.object.updated_at), ...node.children.map(latestInTree));
+
+/** Die oberste Ebene des Baums sortieren (neue Liste, der Baum selbst bleibt unverändert) */
+export const sortForest = (forest, mode) => {
+    const list = [...forest];
+    const byName = (a, b) => objectLabel(a.object).localeCompare(objectLabel(b.object), 'de');
+    if (mode === 'neu') list.sort((a, b) => time(b.object.created_at) - time(a.object.created_at) || byName(a, b));
+    else if (mode === 'alt') list.sort((a, b) => time(a.object.created_at) - time(b.object.created_at) || byName(a, b));
+    else if (mode === 'geaendert') list.sort((a, b) => latestInTree(b) - latestInTree(a) || byName(a, b));
+    else list.sort(byName);
+    return list;
+};
+
+/** Passt ein Objekt zum Filter? */
+export const matchesFilter = (o, filter) => {
+    if (!filter || filter === 'alle') return true;
+    if (filter === 'online') return isRoot(o) && o.visibility === 'public';
+    return (o.visibility || 'private') === filter;
+};
+
+/**
+ * Baum auf einen Filter kürzen: Ein Knoten bleibt, wenn er selbst passt ODER ein Nachfahre
+ * passt (dann als Weg dorthin). "Online" gilt nur für Domains – ihre Kinder kommen ganz mit.
+ */
+export const filterForest = (forest, filter) => {
+    if (!filter || filter === 'alle') return forest;
+    const prune = node => {
+        const own = matchesFilter(node.object, filter);
+        if (filter === 'online') return own ? node : null;
+        const children = node.children.map(prune).filter(Boolean);
+        return own || children.length ? { ...node, children } : null;
+    };
+    return forest.map(prune).filter(Boolean);
+};
+
+/** Schlüssel eines Knotens für "aufgeklappt?" (Familie + Pfad, bleibt über Neuladen gleich) */
+export const nodeKey = o => pathKey(objectFamily(o), o.path);
+
+/** Welche Knoten müssen offen sein, damit das gewählte Objekt sichtbar ist? -> Set von nodeKeys */
+export const pathToSelected = (objects, selectedUuid) => {
+    const open = new Set();
+    let current = (objects || []).find(o => o.uuid === selectedUuid);
+    while (current) {
+        const parent = findParent(objects, current);
+        if (parent) open.add(nodeKey(parent));
+        current = parent;
+    }
+    return open;
+};
+
 // Alle Knoten eines Baums zählen (für "3 Kinder")
 export const countDescendants = node => node.children.reduce((sum, c) => sum + 1 + countDescendants(c), 0);
 

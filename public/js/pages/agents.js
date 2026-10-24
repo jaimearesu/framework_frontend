@@ -553,7 +553,7 @@ export default {
             const p = previewAgent(chosenBoxes());
             mount(
                 previewBox,
-                callout(p.count ? 'info' : 'warn', 'Vorschau: ', p.text),
+                callout('info', 'Vorschau: ', p.text),
                 p.notReady.length
                     ? h(
                           'p',
@@ -572,7 +572,7 @@ export default {
                     emptyState({
                         icon: 'box',
                         title: 'Noch keine Werkzeugkästen',
-                        text: 'Ein Werkzeugkasten ist eine Domain mit Werkzeug-Kindern. Claude kann dir einen bauen (guide topic „werkzeuge“).'
+                        text: 'Kein Problem – der Agent geht auch ohne. Ein Werkzeugkasten ist eine Domain mit Werkzeug-Kindern; Claude kann dir später einen bauen (guide topic „werkzeuge“).'
                     })
                 );
             }
@@ -609,10 +609,10 @@ export default {
             {
                 title: 'Agent anlegen',
                 icon: 'key',
-                subtitle: 'In einem Schritt: eigenes Objekt + Werkzeugkästen + Schlüssel.'
+                subtitle: 'In einem Schritt: eigenes Objekt + Schlüssel – Werkzeugkästen sind freiwillig.'
             },
             field('Name des Agenten', agentName, 'Kleinbuchstaben, Ziffern, Bindestriche – z.B. „agent-buchhaltung“.'),
-            field('Welche Werkzeugkästen darf er benutzen?', boxesBox),
+            field('Welche Werkzeugkästen darf er benutzen? (freiwillig)', boxesBox),
             previewBox,
             field('Laufzeit des Schlüssels', agentPreset, 'Danach ist er automatisch ungültig.'),
             h(
@@ -623,8 +623,8 @@ export default {
                     async () => {
                         const checked = checkAgentName(agentName.value);
                         if (checked.error) return toast(checked.error, 'error');
+                        // Werkzeugkästen sind freiwillig (24.10.2026) – ohne Kasten baut der Agent eigene Websites
                         const chosen = chosenBoxes();
-                        if (!chosen.length) return toast('Bitte mindestens einen Werkzeugkasten wählen.', 'error');
                         const preset = LIFETIME_PRESETS.find(p => p.id === agentPreset.value);
                         const p = previewAgent(chosen);
                         if (

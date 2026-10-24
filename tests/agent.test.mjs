@@ -80,6 +80,7 @@ describe('Werkzeugkästen und Vorschau', () => {
         assert.match(p.text, /genau 4 Werkzeuge: entwurf, spende_erfassen, stand_abfragen, rechnung\. Sonst nichts\./);
         assert.match(previewAgent([buch]).text, /genau 1 Werkzeug:/);
         assert.equal(previewAgent([]).count, 0);
+        assert.match(previewAgent([]).text, /Ohne Werkzeugkasten/);
     });
     test('Laufzeit-Vorschlag ist 30 Tage (Entscheidung C)', () => {
         assert.equal(LIFETIME_PRESETS.find(p => p.id === DEFAULT_PRESET).hours, 30 * 24);
@@ -202,9 +203,19 @@ describe('Ablauf: Agent anlegen', () => {
         assert.equal(r.agentUuid, 'agent-uuid');
     });
 
-    test('ohne Kasten oder mit unerreichbarem Kasten: gar nichts passiert', async () => {
+    // 24.10.2026: Werkzeugkästen sind freiwillig – neue Leute wissen oft noch nicht, wie man einen baut
+    test('ohne Kasten: Agent + Schlüssel, keine Rechte-Schritte', async () => {
         const api = fakeApi();
-        assert.equal((await createAgent({ api, name: 'agent-x', boxes: [], hours: 1 })).step, 'pruefen');
+        const r = await createAgent({ api, name: 'agent-x', boxes: [], hours: 1 });
+        assert.equal(r.ok, true);
+        assert.deepEqual(
+            api.calls.map(c => `${c.method} ${c.path}`),
+            ['POST /api/objects', 'POST /api/tokens/object/agent-uuid']
+        );
+    });
+
+    test('mit unerreichbarem Kasten: gar nichts passiert', async () => {
+        const api = fakeApi();
         const r = await createAgent({
             api,
             name: 'agent-x',

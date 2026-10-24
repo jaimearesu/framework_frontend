@@ -203,3 +203,52 @@ describe('visibilityInfo (Sichtbarkeit)', () => {
         assert.equal(visibilityInfo('__proto__').value, 'private');
     });
 });
+
+// ---------------------------------------------------------------------
+// Objekt-Liste einklappen, sortieren, filtern (Wunsch 25.10.2026)
+// ---------------------------------------------------------------------
+import {
+    sortForest,
+    filterForest,
+    matchesFilter,
+    pathToSelected,
+    nodeKey,
+    buildObjectForest as forestOf
+} from '../public/js/core/objects.js';
+
+describe('Objekt-Liste: sortieren, filtern, Weg zum gewählten Objekt', () => {
+    const LIST = [
+        { uuid: 'a', domain: 'alpha', path: ['0'], visibility: 'public', created_at: '2026-10-01', updated_at: '2026-10-02' },
+        { uuid: 'a1', domain_ref: 'alpha', path: ['0', '0,1'], visibility: 'private', updated_at: '2026-10-20' },
+        { uuid: 'a2', domain_ref: 'alpha', path: ['0', '0,1', '0,1'], visibility: 'members', updated_at: '2026-10-03' },
+        { uuid: 'b', domain: 'beta', path: ['0'], visibility: 'private', created_at: '2026-10-10', updated_at: '2026-10-11' },
+        { uuid: 'c', domain: 'charlie', path: ['0'], visibility: 'members', created_at: '2026-09-01', updated_at: '2026-10-15' }
+    ];
+    const names = forest => forest.map(n => n.object.domain || n.object.uuid);
+
+    test('sortieren: neueste, älteste, A–Z, zuletzt geändert (ein geändertes Kind zählt für die Domain)', () => {
+        const forest = forestOf(LIST);
+        assert.deepEqual(names(sortForest(forest, 'neu')), ['beta', 'alpha', 'charlie']);
+        assert.deepEqual(names(sortForest(forest, 'alt')), ['charlie', 'alpha', 'beta']);
+        assert.deepEqual(names(sortForest(forest, 'name')), ['alpha', 'beta', 'charlie']);
+        assert.deepEqual(names(sortForest(forest, 'geaendert')), ['alpha', 'charlie', 'beta'], 'alpha: Kind am 20.10.');
+    });
+
+    test('filtern: Objekt passt oder ist der Weg zu einem passenden; "online" nur öffentliche Domains', () => {
+        const forest = forestOf(LIST);
+        const members = filterForest(forest, 'members');
+        assert.deepEqual(names(members), ['alpha', 'charlie']);
+        const alpha = members.find(n => n.object.uuid === 'a');
+        assert.equal(alpha.children[0].children[0].object.uuid, 'a2', 'der Weg zu a2 bleibt');
+        assert.deepEqual(names(filterForest(forest, 'online')), ['alpha']);
+        assert.equal(filterForest(forest, 'online')[0].children.length, 1, 'Kinder einer Online-Website kommen mit');
+        assert.equal(filterForest(forest, 'alle'), forest);
+        assert.equal(matchesFilter({ visibility: undefined }, 'private'), true, 'ohne Angabe = privat');
+    });
+
+    test('Weg zum gewählten Objekt: alle Eltern sind offen', () => {
+        const open = pathToSelected(LIST, 'a2');
+        assert.deepEqual([...open].sort(), [nodeKey(LIST[0]), nodeKey(LIST[1])].sort());
+        assert.equal(pathToSelected(LIST, 'b').size, 0);
+    });
+});

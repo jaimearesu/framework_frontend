@@ -271,6 +271,42 @@ details.raw summary {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+/* Auf-/Zuklappen in der Objekt-Liste (25.10.2026) */
+.obj-toggle,
+.obj-toggle-space {
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+}
+.obj-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    padding: 0;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: transform 0.12s ease;
+}
+.obj-toggle:hover {
+    background: var(--surface-2);
+    color: var(--text);
+}
+.obj-toggle.open {
+    transform: rotate(90deg);
+}
+.list-panel-tools {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+.list-panel-tools select {
+    flex: 1;
+    min-width: 0;
+}
 .obj-kids {
     font-size: 11px;
     color: var(--muted);

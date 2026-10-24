@@ -91,7 +91,11 @@ export const previewAgent = selectedBoxes => {
     const names = tools.map(t => t.name);
     const notReady = tools.filter(t => !t.bereit).map(t => t.name);
     let text;
-    if (!tools.length) text = 'Wähle mindestens einen Werkzeugkasten.';
+    // Ohne Kasten geht auch (24.10.2026): Der Agent baut dann eigene Websites, benutzt aber
+    // keine fremden Werkzeuge. Einen Kasten kann man später mit "Kasten dazu" geben.
+    if (!tools.length)
+        text =
+            'Ohne Werkzeugkasten: Dieser Agent kann eigene Websites und Apps bauen, aber keine Werkzeuge benutzen. Einen Kasten kannst du später dazugeben.';
     else {
         text = `Dieser Agent sieht genau ${tools.length} ${tools.length === 1 ? 'Werkzeug' : 'Werkzeuge'}: ${names.join(', ')}. Sonst nichts.`;
     }
@@ -134,7 +138,7 @@ export const connectText = ({ agentName, mcpUrl, token }) => {
  * DER ABLAUF: Agent anlegen, black auf die Kästen, Schlüssel erzeugen.
  *   api     = der API-Client (core/api.js) – in Tests eine Attrappe
  *   name    = geprüfter Name (checkAgentName)
- *   boxes   = gewählte Kästen aus groupToolboxes (mit rootUuid)
+ *   boxes   = gewählte Kästen aus groupToolboxes (mit rootUuid) – darf leer sein (Agent ohne Kasten)
  *   hours   = Laufzeit des Schlüssels
  *   onStep  = optional, meldet den Fortschritt als Text
  * Rückgabe:
@@ -142,8 +146,7 @@ export const connectText = ({ agentName, mcpUrl, token }) => {
  *   { ok: false, step, error, cleanedUp }   cleanedUp = halb angelegter Agent wieder gelöscht?
  */
 export const createAgent = async ({ api, name, boxes, hours, onStep = () => {} }) => {
-    if (!boxes || !boxes.length)
-        return { ok: false, step: 'pruefen', error: 'Kein Werkzeugkasten gewählt.', cleanedUp: false };
+    boxes = boxes || []; // keine Kästen = ein Agent ohne Werkzeuge (seit 24.10.2026 erlaubt)
     if (boxes.some(b => !b.rootUuid)) {
         return { ok: false, step: 'pruefen', error: 'Ein gewählter Kasten ist nicht erreichbar.', cleanedUp: false };
     }
