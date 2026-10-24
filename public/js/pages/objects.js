@@ -96,6 +96,7 @@ import {
     checkInviteForm
 } from '../core/access.js';
 import { renderDnaTree } from '../core/tree.js';
+import { renderSnapshotsTab } from './objectSnapshots.js'; // Zeitmaschine (Plan "R4")
 import {
     buildPreviewDocument,
     createPreviewFrame,
@@ -2650,6 +2651,8 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         { id: 'sichtbar', label: 'Sichtbarkeit' },
         { id: 'website', label: 'Website' },
         { id: 'auftraege', label: 'Aufträge' },
+        // Zeitmaschine (Plan "R4"): gesichert wird immer eine ganze Website -> nur bei der Wurzel
+        ...(isRoot(o) ? [{ id: 'zeit', label: 'Zeitmaschine' }] : []),
         { id: 'loeschen', label: 'Löschen' }
     ];
     let bar = null;
@@ -2667,6 +2670,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         else if (id === 'sichtbar') renderVisibilityTab(body, o, objects, { onDone: uuid => reload(uuid) });
         else if (id === 'website') renderSiteTab(body, o, objects, { onTab: next => bar.select(next) });
         else if (id === 'auftraege') renderJobsTab(body, o);
+        else if (id === 'zeit') renderSnapshotsTab(body, o);
         else if (id === 'loeschen')
             renderDeleteTab(body, o, objects, {
                 // Nach dem Löschen: zum Eltern-Objekt (bei einem Kind) oder zur Liste
