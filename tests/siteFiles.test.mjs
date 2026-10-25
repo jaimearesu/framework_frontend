@@ -98,6 +98,23 @@ describe('/_at0mic/datei/<pfad>', () => {
         assert.equal(calls[0].headers['x-besucher-ausweis'], undefined, 'ohne Cookie: anonym');
     });
 
+    // Plan "Klassiker": Dokumente kommen als Download – der Hinweis des Backends muss durch
+    test('Office-Dokument: content-disposition (Download) und sandbox gehen an den Browser', async () => {
+        const XLSX = Buffer.from('PK-Inhalt');
+        answer = () =>
+            reply(200, XLSX, {
+                'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'content-length': String(XLSX.length),
+                'cache-control': 'public, max-age=300',
+                'content-disposition': 'attachment; filename="Preisliste.xlsx"',
+                'content-security-policy': "default-src 'none'; frame-ancestors 'none'; sandbox"
+            });
+        const r = await request('shop.at0mic.site', '/_at0mic/datei/preisliste.xlsx');
+        assert.equal(r.status, 200);
+        assert.equal(r.headers['content-disposition'], 'attachment; filename="Preisliste.xlsx"');
+        assert.match(r.headers['content-security-policy'], /sandbox/);
+    });
+
     // Plan "R2", R2b: Dateien in Sammlungen (Uploads von Besuchern) über ~<uuid>
     test('~<uuid>[.endung] geht ans Backend; kaputte UUID-Formen nie', async () => {
         const uuid = '3f5c3cde-6697-4efb-8461-cd03469027ca';

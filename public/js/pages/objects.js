@@ -541,15 +541,18 @@ const inlinePreviewFiles = async (doc, domain) => {
 const renderPreviewTab = (box, o, objects) => renderComposedPreview(box, o, objects, { height: '560px' });
 
 // --- Reiter "Datei" (Plan "Dateien mit R2", D2) ---
-// Ein Objekt kann EINE Datei haben (Bild, PDF, Schrift, mp3) – jedes Hochladen ist eine neue
+// Ein Objekt kann EINE Datei haben (Bild, PDF, Schrift, mp3, Office-Dokument) – jedes Hochladen ist eine neue
 // Version, die neuesten 3 bleiben. Die Bytes liegen in Cloudflare R2. Die Art erkennt das
 // Backend am Inhalt (nicht am Namen) – nur Text-Arten (csv, ics, json, txt, Plan "R1") an der Endung. Die Vorschau holt die Bytes mit deinen Rechten und
 // zeigt sie als "blob:"-Adresse – nie als HTML, darum kann auch ein SVG hier nichts ausführen.
-const FILE_ACCEPT = '.png,.jpg,.jpeg,.gif,.webp,.avif,.svg,.pdf,.woff2,.woff,.ttf,.otf,.mp3,.csv,.ics,.json,.txt';
+const FILE_ACCEPT =
+    '.png,.jpg,.jpeg,.gif,.webp,.avif,.svg,.ico,.heic,.pdf,.woff2,.woff,.ttf,.otf,.mp3,.docx,.xlsx,.pptx,.odt,.ods,.odp,.csv,.ics,.json,.txt,.md,.vcf';
 const FILE_MAX_BYTES = 10 * 1024 * 1024; // wie SYSTEM.files.maxFileBytes im Backend
-const IMAGE_KINDS = ['png', 'jpg', 'gif', 'webp', 'avif', 'svg'];
+const IMAGE_KINDS = ['png', 'jpg', 'gif', 'webp', 'avif', 'svg', 'ico'];
+// Dokumente (Plan "Klassiker"): keine Vorschau, nur herunterladen
+const DOCUMENT_KINDS = ['docx', 'xlsx', 'pptx', 'odt', 'ods', 'odp'];
 // Text-Arten (Plan "R1"): Vorschau als reiner Text (textContent, nie HTML), höchstens so viele Zeichen
-const TEXT_KINDS = ['csv', 'ics', 'json', 'txt'];
+const TEXT_KINDS = ['csv', 'ics', 'json', 'txt', 'md', 'vcf'];
 const TEXT_PREVIEW_CHARS = 5000;
 let fileObjectUrls = []; // blob:-Adressen der letzten Vorschau – beim Neuzeichnen freigeben
 
@@ -606,7 +609,20 @@ const renderFileTab = async (box, o) => {
                             icon('external', { size: 16 }),
                             'PDF öffnen'
                         )
-                      : h('p', { class: 'small muted' }, `Schrift (${kind}) – keine Vorschau, aber gespeichert.`),
+                      : DOCUMENT_KINDS.includes(kind)
+                        ? h(
+                              'a',
+                              { class: 'btn', href: url, download: info.originalName || `dokument.${kind}` },
+                              icon('download', { size: 16 }),
+                              `Dokument (${kind}) herunterladen`
+                          )
+                        : kind === 'heic'
+                          ? h(
+                                'p',
+                                { class: 'small muted' },
+                                'iPhone-Foto (heic) – Vorschau zeigt nur Safari, gespeichert ist es.'
+                            )
+                          : h('p', { class: 'small muted' }, `Schrift (${kind}) – keine Vorschau, aber gespeichert.`),
             h('p', { class: 'small muted' }, `Version ${version}${version === current?.version ? ' (aktuell)' : ''}`)
         );
     };
@@ -674,7 +690,7 @@ const renderFileTab = async (box, o) => {
                 title: 'Datei',
                 icon: 'image',
                 subtitle:
-                    'Ein Bild, PDF, eine Schrift oder ein mp3 für dieses Objekt. Jedes Hochladen ist eine neue Version – die neuesten 3 bleiben. Erkannt wird die Art am Inhalt, nicht am Namen.'
+                    'Ein Bild, PDF, Office-Dokument, eine Schrift oder ein mp3 für dieses Objekt. Jedes Hochladen ist eine neue Version – die neuesten 3 bleiben. Erkannt wird die Art am Inhalt, nicht am Namen.'
             },
             current
                 ? h(
@@ -722,7 +738,7 @@ const renderFileTab = async (box, o) => {
                 field(
                     'Datei',
                     input,
-                    'png, jpg, gif, webp, avif, svg, pdf, woff2, woff, ttf, otf, mp3 – dazu Text: csv, ics, json, txt (Endung zählt). Keine Videos.'
+                    'png, jpg, gif, webp, avif, svg, ico, heic, pdf, woff2, woff, ttf, otf, mp3, Office (docx, xlsx, pptx, odt, ods, odp – ohne Makros) – dazu Text: csv, ics, json, txt, md, vcf (Endung zählt). Keine Videos.'
                 ),
                 busyButton('Hochladen', () => send(input.files?.[0]), { className: 'btn primary', iconName: 'upload' })
             )

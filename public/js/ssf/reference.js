@@ -328,7 +328,7 @@ export const TOOLS = [
         role: 'red',
         budget: 'files (max. 5 pro Ausführung, zusammen 10 MB, je 2 MB)',
         returns: '{ version, kind, mime, bytes, sha256, name, createdAt }',
-        text: "Legt eine Datei als neue Version ab (die neuesten 3 bleiben). Text: type 'csv' | 'ics' | 'json' | 'txt' oder name mit Endung; SVG erkennt at0mic selbst; Bilder/PDFs als base64 mit encoding: 'base64'. Nie HTML. Das Objekt muss es schon geben. Gäste haben keinen Speicher (e.code 'QUOTA_EXCEEDED').",
+        text: "Legt eine Datei als neue Version ab (die neuesten 3 bleiben). Text: type 'csv' | 'ics' | 'json' | 'txt' | 'md' | 'vcf' oder name mit Endung; SVG erkennt at0mic selbst; Bilder/PDFs als base64 mit encoding: 'base64'. Nie HTML. Das Objekt muss es schon geben. Gäste haben keinen Speicher (e.code 'QUOTA_EXCEEDED').",
         snippet: "await api.files.write('shop/export', 'sku;preis\\nA-1;9.90\\n', { type: 'csv' });\n"
     },
     {

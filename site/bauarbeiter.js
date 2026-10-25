@@ -84,7 +84,15 @@ const FILE_ROUTE =
     /^\/_at0mic\/datei\/((?:~[0-9a-fA-F-]{36}|[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)(?:\.[A-Za-z0-9]{2,5})?)$/;
 const FILE_TIMEOUT_MS = 20000; // bis 10 MB aus R2 über das Backend
 // Diese Header des Backends gehen an den Browser (sonst nichts)
-const FILE_HEADERS = ['content-type', 'content-length', 'cache-control', 'etag', 'content-security-policy'];
+// content-disposition: Dokumente (Office, LibreOffice) kommen als Download (Plan "Klassiker")
+const FILE_HEADERS = [
+    'content-type',
+    'content-length',
+    'cache-control',
+    'etag',
+    'content-security-policy',
+    'content-disposition'
+];
 
 // Webhook: /_at0mic/hook/<pfad> (gleiche Pfad-Regeln wie bei run)
 const HOOK_ROUTE = /^\/_at0mic\/hook\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
