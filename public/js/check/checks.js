@@ -1042,6 +1042,34 @@ export const CHECKS = [
         }
     },
     {
+        // Plan "W – Live-Verbindungen" (W4): api.live.send aus der Sandbox – eigener Kanal,
+        // Kanal eines Geschwisters (red über die Familie), ungültiger Kanal, zu grosse Nachricht.
+        // Ob die Nachricht beim Browser ankommt, zeigt erst der Live-Test auf einer echten Website.
+        id: 'ssf-live',
+        group: 'SSF',
+        title: 'SSF schickt eine Live-Nachricht (api.live.send)',
+        needs: ['funktion', 'daten'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `const eigen = await api.live.send('systemcheck', { hallo: 'welt' });
+const geschwister = await api.live.send('systemcheck', 1, { ziel: '${ctx.domainName}/daten' });
+let falsch = 'KEIN FEHLER';
+try { await api.live.send('mit leerzeichen', 1); } catch (e) { falsch = 'abgelehnt'; }
+let gross = 'KEIN FEHLER';
+try { await api.live.send('systemcheck', 'x'.repeat(17 * 1024)); } catch (e) { gross = e.code; }
+return { eigen, geschwister, falsch, gross };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const res = r.data.result || {};
+            expect(res.eigen && res.eigen.gesendet === true, 'Eigener Kanal: nicht gesendet', r);
+            expect(res.geschwister && res.geschwister.gesendet === true, 'Kanal des Geschwisters: nicht gesendet', r);
+            expect(res.falsch === 'abgelehnt', 'Ungültiger Kanal-Name wurde angenommen', r);
+            expect(res.gross === 'MESSAGE_TOO_LARGE', `Zu grosse Nachricht: ${res.gross}`, r);
+            return 'Gesendet (eigener Kanal + Geschwister), ungültiger Kanal und 17 KB abgelehnt';
+        }
+    },
+    {
         // Plan "MCP Etappe 5b": Der Speicher einer App ist ein Kind der App, NICHT in
         // der DNA. Die SSF (ein Geschwister) schreibt ohne zusätzliche Rechte hinein –
         // aber nur per UUID (Pfade laufen über die DNA). Danach wird er gleich gelöscht.

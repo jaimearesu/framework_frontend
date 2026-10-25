@@ -48,6 +48,11 @@ export const TOOL_GROUPS = [
         text: 'Dateien ablegen und lesen (Plan „R1“): Kalender, CSV-Exporte, Grafiken, Importe – mit den Rechten der SSF, der Platz zählt aufs Konto.'
     },
     {
+        id: 'live',
+        title: 'Live-Nachrichten',
+        text: 'Neues sofort an alle Besucher schicken, die auf der Website zuhören (Chat, Bestellungen, Zähler) – statt dass die Website immer wieder nachfragt (Plan „W“).'
+    },
+    {
         id: 'crypto',
         title: 'Sicherer Zufall',
         text: 'Geheime Tokens und IDs, die niemand erraten kann – für Geheimes nie Math.random() benutzen.'
@@ -376,6 +381,18 @@ export const TOOLS = [
         returns: '{ name, kind, bytes, sha256, text | base64 }',
         text: "Liest die Datei eines Website-Besuchers, OHNE sie abzulegen – z.B. eine CSV-Liste direkt einlesen. Ohne Upload: e.code 'NO_UPLOAD'.",
         snippet: "const liste = await api.files.readUpload();\nreturn liste.text.split('\\n').length;\n"
+    },
+    {
+        // Plan "W – Live-Verbindungen": die Website hört mit at0mic.live.listen(pfad, kanal, …) zu
+        name: 'live.send',
+        group: 'live',
+        signature: 'kanal, nachricht, { ziel }',
+        role: 'ohne ziel: keine (eigener Kanal) · mit ziel: red',
+        budget: 'live (max. 20 pro Ausführung, je 16 KB)',
+        returns: '{ gesendet: true }',
+        text: "Schickt eine Nachricht sofort an alle Besucher, die auf diesem Kanal zuhören (Website: <script src=\"/_at0mic/live.js\"> und at0mic.live.listen('api', 'chat', n => …)). Zuhören darf, wer das Objekt sehen darf – bei einer öffentlichen SSF also jeder. Kanäle speichern nichts: zuerst speichern, dann senden. Zu gross: e.code 'MESSAGE_TOO_LARGE'.",
+        snippet:
+            "await api.data.insert(SPEICHER, nachricht);   // zuerst speichern …\nawait api.live.send('chat', nachricht);       // … dann allen zeigen\n"
     },
     {
         name: 'crypto.randomToken',
