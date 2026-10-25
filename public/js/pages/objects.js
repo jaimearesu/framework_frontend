@@ -77,7 +77,8 @@ import {
     screenshotSource,
     customDomainStatusText,
     dnsNameHint,
-    customDomainInputProblem
+    customDomainInputProblem,
+    liveCountText
 } from '../core/site.js';
 import { addChildToDna, removeChildFromDna } from '../core/dna.js';
 import {
@@ -2465,6 +2466,13 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
     // Screenshot (Plan "Screenshots in der Vorschau", S3)
     const screenshotBox = h('div');
     renderScreenshotCard(screenshotBox, status.name);
+    // Live-Verbindungen gerade jetzt (Plan "W", W4b) – nur Zahlen, nie wer
+    const liveBox = h('span', { class: 'muted' }, '…');
+    const loadLive = async () => {
+        const res = await api.get(`/api/objects/${o.uuid}/live`);
+        liveBox.textContent = res.ok ? liveCountText(res.data.data) : 'nicht abrufbar';
+    };
+    loadLive();
     mount(
         box,
         card(
@@ -2481,7 +2489,8 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
                     status.online
                         ? badge('🌍 online', 'ok')
                         : badge(`${visibilityInfo(o.visibility).emoji} nicht online`, 'neutral')
-                ]
+                ],
+                ['Live gerade', liveBox]
             ]),
             status.online
                 ? null

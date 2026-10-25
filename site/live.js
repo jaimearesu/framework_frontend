@@ -63,7 +63,8 @@ const DEFAULT_LIMITS = Object.freeze({
     // Interne Leitung zum Backend
     streamSilenceMs: 70000, // so lange ohne Lebenszeichen -> neu verbinden (Backend pingt alle 25 s)
     streamRetryMinMs: 1000,
-    streamRetryMaxMs: 30000
+    streamRetryMaxMs: 30000,
+    reportMs: 30000 // so oft meldet der Bauarbeiter dem Backend die Zahlen pro Website (Cockpit)
 });
 
 // Schliess-Codes (4000–4999 sind für Anwendungen frei)
@@ -524,6 +525,40 @@ const createLive = ({
         }
     };
 
+    // ---------------------------------------------------------------------
+    // ZAHLEN FÜRS COCKPIT (W4b): alle 30 s pro Website, wie viele Verbindungen und
+    // Kanäle es gerade gibt -> POST /api/sites/_live/zahlen. Nur Zahlen, nie wer.
+    // Gezählt werden Verbindungen mit mindestens einem Abo (die anderen wissen noch
+    // nicht, wohin sie gehören, und werden nach einer Minute ohnehin getrennt).
+    // ---------------------------------------------------------------------
+    const countsPerSite = () => {
+        const sites = {};
+        for (const conn of connections) {
+            if (conn.closed || conn.subs.size === 0) continue;
+            const entry = sites[conn.site] || (sites[conn.site] = { verbindungen: 0, kanaele: new Set() });
+            entry.verbindungen++;
+            for (const sub of conn.subs.values()) entry.kanaele.add(sub.listenKey);
+        }
+        const out = {};
+        for (const [name, e] of Object.entries(sites))
+            out[name] = { verbindungen: e.verbindungen, kanaele: e.kanaele.size };
+        return out;
+    };
+    const reportCounts = async () => {
+        try {
+            const res = await fetchImpl(`${apiUrl}/api/sites/_live/zahlen`, {
+                method: 'POST',
+                headers: { 'x-bauarbeiter-key': key, 'content-type': 'application/json' },
+                body: JSON.stringify({ websites: countsPerSite() }),
+                signal: AbortSignal.timeout(limits.accessTimeoutMs)
+            });
+            if (!res.ok) log.warn(`[LIVE] Zahlen melden: Backend antwortet ${res.status}`);
+        } catch (error) {
+            log.warn(`[LIVE] Zahlen melden: Backend nicht erreichbar (${error.message})`);
+        }
+    };
+    let reportTimer = null;
+
     const start = () => {
         if (running || !key) return;
         running = true;
@@ -532,6 +567,8 @@ const createLive = ({
         recheckTimer = setInterval(() => {
             recheckAll().catch(error => log.warn(`[LIVE] Neu prüfen fehlgeschlagen: ${error.message}`));
         }, limits.recheckMs);
+        reportTimer = setInterval(reportCounts, limits.reportMs);
+        if (reportTimer.unref) reportTimer.unref();
         if (pingTimer.unref) pingTimer.unref();
         if (recheckTimer.unref) recheckTimer.unref();
     };
@@ -540,6 +577,7 @@ const createLive = ({
         running = false;
         clearInterval(pingTimer);
         clearInterval(recheckTimer);
+        clearInterval(reportTimer);
         if (streamAbort) streamAbort.abort();
         for (const conn of [...connections]) conn.ws.terminate();
         wss.close();
@@ -553,7 +591,7 @@ const createLive = ({
         streamReconnects: stats.streamReconnects
     });
 
-    return { handleUpgrade, start, stop, getStats, deliver, recheckAll, pingAll };
+    return { handleUpgrade, start, stop, getStats, deliver, recheckAll, pingAll, countsPerSite, reportCounts };
 };
 
 module.exports = { createLive, visitorIpFromRaw, LIVE_PATH, CLOSE, DEFAULT_LIMITS };

@@ -138,3 +138,18 @@ export const screenshotSource = shot => {
     if (typeof shot.base64 !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(shot.base64)) return null;
     return `data:${shot.mimeType};base64,${shot.base64}`;
 };
+
+// ---------------------------------------------------------------------
+// LIVE-VERBINDUNGEN (Plan "W", W4b): Text für "Live gerade" im Reiter "Website"
+// data = Antwort von GET /api/objects/:uuid/live -> { verbindungen, kanaele, stand }
+// verbindungen null = unbekannt (der Bauarbeiter hat sich länger nicht gemeldet)
+// ---------------------------------------------------------------------
+export const liveCountText = data => {
+    if (!data || data.verbindungen === null || data.verbindungen === undefined) {
+        return 'unbekannt (der Bauarbeiter meldet sich alle 30 s)';
+    }
+    if (data.verbindungen === 0) return 'niemand verbunden';
+    const wer = data.verbindungen === 1 ? '1 Verbindung' : `${data.verbindungen} Verbindungen`;
+    const kanaele = data.kanaele === 1 ? '1 Kanal' : `${data.kanaele} Kanäle`;
+    return `${wer} · ${kanaele}`;
+};

@@ -474,3 +474,32 @@ describe('Teil 3: /_at0mic/live und /_at0mic/live.js im Bauarbeiter', () => {
         await new Promise(r => srv.close(r));
     });
 });
+
+describe('Teil 4: Zahlen fürs Cockpit', () => {
+    test('Bauarbeiter zählt pro Website Verbindungen mit Abo und verschiedene Kanäle', async () => {
+        resetBackend();
+        await startLive();
+        const a = await connect('shop');
+        const b = await connect('shop');
+        const c = await connect('zwei');
+        const idle = await connect('shop'); // ohne Abo: zählt nicht
+        await abo(a, 'api', 'chat');
+        await abo(a, 'api', 'tisch');
+        await abo(b, 'api', 'chat');
+        await abo(c, 'api', 'chat');
+        assert.deepEqual(live.countsPerSite(), {
+            shop: { verbindungen: 2, kanaele: 2 },
+            zwei: { verbindungen: 1, kanaele: 1 }
+        });
+        for (const x of [a, b, c, idle]) x.ws.close();
+        await stopLive();
+    });
+
+    test('Text im Cockpit', async () => {
+        const { liveCountText } = await import('../public/js/core/site.js');
+        assert.equal(liveCountText({ verbindungen: null }), 'unbekannt (der Bauarbeiter meldet sich alle 30 s)');
+        assert.equal(liveCountText({ verbindungen: 0, kanaele: 0 }), 'niemand verbunden');
+        assert.equal(liveCountText({ verbindungen: 1, kanaele: 1 }), '1 Verbindung · 1 Kanal');
+        assert.equal(liveCountText({ verbindungen: 12, kanaele: 3 }), '12 Verbindungen · 3 Kanäle');
+    });
+});
