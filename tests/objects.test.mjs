@@ -218,11 +218,32 @@ import {
 
 describe('Objekt-Liste: sortieren, filtern, Weg zum gewählten Objekt', () => {
     const LIST = [
-        { uuid: 'a', domain: 'alpha', path: ['0'], visibility: 'public', created_at: '2026-10-01', updated_at: '2026-10-02' },
+        {
+            uuid: 'a',
+            domain: 'alpha',
+            path: ['0'],
+            visibility: 'public',
+            created_at: '2026-10-01',
+            updated_at: '2026-10-02'
+        },
         { uuid: 'a1', domain_ref: 'alpha', path: ['0', '0,1'], visibility: 'private', updated_at: '2026-10-20' },
         { uuid: 'a2', domain_ref: 'alpha', path: ['0', '0,1', '0,1'], visibility: 'members', updated_at: '2026-10-03' },
-        { uuid: 'b', domain: 'beta', path: ['0'], visibility: 'private', created_at: '2026-10-10', updated_at: '2026-10-11' },
-        { uuid: 'c', domain: 'charlie', path: ['0'], visibility: 'members', created_at: '2026-09-01', updated_at: '2026-10-15' }
+        {
+            uuid: 'b',
+            domain: 'beta',
+            path: ['0'],
+            visibility: 'private',
+            created_at: '2026-10-10',
+            updated_at: '2026-10-11'
+        },
+        {
+            uuid: 'c',
+            domain: 'charlie',
+            path: ['0'],
+            visibility: 'members',
+            created_at: '2026-09-01',
+            updated_at: '2026-10-15'
+        }
     ];
     const names = forest => forest.map(n => n.object.domain || n.object.uuid);
 
