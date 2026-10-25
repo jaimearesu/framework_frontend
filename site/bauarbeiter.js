@@ -28,6 +28,8 @@
 //                                       <img src="/_at0mic/datei/bilder/logo.png">
 //   GET  /_at0mic/vorschau?code         Screenshot mit Live-Daten (Plan "Screenshots", S2b):
 //                                       Einmal-Code gegen einen 2-Minuten-Ausweis tauschen
+//   GET  /_at0mic/live (WebSocket)      Live-Verbindungen (Plan "W", site/live.js)
+//   GET  /_at0mic/live.js               Skript dazu: at0mic.live.listen(pfad, kanal, fn)
 // Ist jemand angemeldet, schickt der Bauarbeiter seinen Ausweis ans Backend
 // mit – dann sieht er, was ER sehen darf. Solche Antworten landen NIE im
 // gemeinsamen Zwischenspeicher. Einzelheiten zu den Cookies: login.js.
@@ -50,6 +52,8 @@ const { BauplanCache } = require('./cache');
 const { MESSAGES, neutralPage, markdownPage, markdownTitle } = require('./pages');
 const login = require('./login');
 const crypto = require('crypto');
+const { LIVE_PATH } = require('./live');
+const { LIVE_SCRIPT, LIVE_SCRIPT_PATH } = require('./liveClient');
 
 const FETCH_TIMEOUT_MS = 8000;
 // SSF-Aufrufe der Website (/_at0mic/run/…) dürfen länger dauern: Eine SSF kann auf
@@ -874,7 +878,25 @@ const createBauarbeiter = ({
         return cache.isFresh(entry) && entry.kind === 'site' ? entry.bauplan.customDomain || null : null;
     };
 
-    return async (req, res, next) => {
+    // ---------------------------------------------------------------------
+    // LIVE-VERBINDUNGEN (Plan "W", W2/W3)
+    //   GET /_at0mic/live      nur als WebSocket (das macht site/live.js über
+    //                          server.on('upgrade')) – als normale Anfrage: 426
+    //   GET /_at0mic/live.js   das kleine Skript für Websites (at0mic.live.listen)
+    // resolveHost (unten an der Middleware): Welche Website gehört zu dieser
+    // Adresse? live.js braucht das beim Verbinden – mit denselben Regeln für
+    // eigene Domains wie hier.
+    // ---------------------------------------------------------------------
+    const resolveHost = async hostHeader => {
+        const kind = classifyHost(hostHeader, siteDomain, cockpitHosts || []);
+        if (kind.kind === 'site') return { name: kind.name, custom: null };
+        if (kind.kind !== 'custom' || !cockpitHosts) return null;
+        const name = await lookupCustomHost(kind.hostname);
+        if (name === undefined) return undefined; // Backend gerade weg
+        return name ? { name, custom: kind.hostname } : null;
+    };
+
+    const middleware = async (req, res, next) => {
         const kind = classifyHost(req.headers.host, siteDomain, cockpitHosts || []);
         // Ohne cockpitHosts (aus) gehen fremde Namen wie bisher ans Cockpit
         if (kind.kind === 'cockpit' || (kind.kind === 'custom' && !cockpitHosts)) return next();
@@ -925,6 +947,18 @@ const createBauarbeiter = ({
                     return res.status(405).json({ error: 'Nur POST.' });
                 }
                 return await uploadFile(req, res, host.name, up[1], token);
+            }
+
+            // Live-Verbindungen (Plan "W"): die WebSocket-Tür selbst nimmt site/live.js an
+            if (host.name && req.path === LIVE_PATH) {
+                res.set('Cache-Control', 'no-store');
+                return res.status(426).set('Upgrade', 'websocket').json({ error: 'Nur als WebSocket.' });
+            }
+            if (host.name && req.path === LIVE_SCRIPT_PATH) {
+                if (req.method !== 'GET' && req.method !== 'HEAD') return sendPage(res, 'methodNotAllowed');
+                res.set('Content-Type', 'text/javascript; charset=utf-8');
+                res.set('Cache-Control', 'public, max-age=300');
+                return res.status(200).send(LIVE_SCRIPT);
             }
 
             // SSF der Website (nur POST, nur unter /_at0mic/run/)
@@ -981,6 +1015,8 @@ const createBauarbeiter = ({
             if (!res.headersSent) sendPage(res, 'unavailable');
         }
     };
+    middleware.resolveHost = resolveHost;
+    return middleware;
 };
 
 module.exports = { createBauarbeiter, setSecurityHeaders, visitorIpOf };

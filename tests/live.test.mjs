@@ -1,0 +1,476 @@
+// tests/live.test.mjs
+// ---------------------------------------------------------------------
+// LIVE-VERBINDUNGEN IM BAUARBEITER (Plan "W – Live-Verbindungen", W2 + W3)
+//
+// Teil 1: die WebSocket-Tür (site/live.js) als echter Server mit echten
+//         WebSockets. Das Backend ist nachgebaut: Zutritt (fetchImpl) und die
+//         interne Leitung (ein Strom, in den der Test Zeilen schreibt).
+// Teil 2: das Skript für Websites (site/liveClient.js) in einem nachgebauten
+//         Browser mit einem falschen WebSocket.
+// ---------------------------------------------------------------------
+import { test, describe, before, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import vm from 'node:vm';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { WebSocket } = require('ws');
+const { createLive, visitorIpFromRaw, CLOSE } = require('../site/live.js');
+const { LIVE_SCRIPT } = require('../site/liveClient.js');
+
+const KEY = 'k'.repeat(40);
+const API = 'http://backend.test';
+const API_UUID = '11111111-1111-4111-8111-111111111111';
+const PRIV_UUID = '22222222-2222-4222-8222-222222222222';
+const silent = { info() {}, warn() {}, error() {} };
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+// ---------------------------------------------------------------------
+// Das nachgebaute Backend
+// ---------------------------------------------------------------------
+const backend = {
+    calls: [], // Zutritts-Fragen: { site, pfade, headers }
+    erlaubt: { api: API_UUID }, // was der Zutritt erlaubt
+    maxVerbindungen: 100,
+    tokenInvalid: false,
+    streams: [] // offene interne Leitungen (Controller zum Hineinschreiben)
+};
+const resetBackend = () => {
+    backend.calls = [];
+    backend.erlaubt = { api: API_UUID };
+    backend.maxVerbindungen = 100;
+    backend.tokenInvalid = false;
+};
+const pushLine = obj => {
+    const line = new TextEncoder().encode(`${JSON.stringify(obj)}\n`);
+    for (const s of backend.streams) {
+        try {
+            s.enqueue(line);
+        } catch {
+            // geschlossen
+        }
+    }
+};
+const fakeFetch = async (url, init = {}) => {
+    const u = new URL(url);
+    if (u.pathname === '/api/sites/_live/strom') {
+        assert.equal(init.headers['x-bauarbeiter-key'], KEY);
+        let controller;
+        const body = new ReadableStream({
+            start(c) {
+                controller = c;
+                backend.streams.push(c);
+                c.enqueue(new TextEncoder().encode('{"t":"hallo"}\n'));
+            },
+            cancel() {
+                backend.streams = backend.streams.filter(s => s !== controller);
+            }
+        });
+        init.signal?.addEventListener('abort', () => {
+            backend.streams = backend.streams.filter(s => s !== controller);
+            try {
+                controller.error(new Error('abgebrochen'));
+            } catch {
+                // schon zu
+            }
+        });
+        return new Response(body, { status: 200 });
+    }
+    const m = /^\/api\/sites\/([^/]+)\/live\/zutritt$/.exec(u.pathname);
+    if (m) {
+        const { pfade } = JSON.parse(init.body);
+        backend.calls.push({ site: m[1], pfade, headers: init.headers });
+        const erlaubt = Object.fromEntries(pfade.map(p => [p, backend.erlaubt[p] || null]));
+        const headers = backend.tokenInvalid ? { 'x-besucher-ausweis-status': 'ungueltig' } : {};
+        return new Response(
+            JSON.stringify({
+                success: true,
+                data: {
+                    erlaubt,
+                    konto: `konto-${m[1] === 'zwei' ? 'b' : 'a'}`,
+                    maxVerbindungen: backend.maxVerbindungen
+                }
+            }),
+            { status: 200, headers }
+        );
+    }
+    return new Response('{}', { status: 404 });
+};
+
+// Adresse -> Website (wie der Bauarbeiter): *.site.localhost, sonst keine
+const resolveHost = async host => {
+    const m = /^([a-z0-9-]+)\.site\.localhost(:\d+)?$/.exec(String(host || ''));
+    return m ? { name: m[1], custom: null } : null;
+};
+
+// ---------------------------------------------------------------------
+// Ein echter Server mit der WebSocket-Tür
+// ---------------------------------------------------------------------
+let server, port, live;
+const startLive = async (limits = {}, extra = {}) => {
+    live = createLive({ apiUrl: API, key: KEY, resolveHost, fetchImpl: fakeFetch, log: silent, limits, ...extra });
+    server = http.createServer((req, res) => res.end('kein upgrade'));
+    server.on('upgrade', (req, socket, head) => live.handleUpgrade(req, socket, head));
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    port = server.address().port;
+    live.start();
+    for (let i = 0; i < 50 && backend.streams.length === 0; i++) await wait(10);
+};
+const stopLive = async () => {
+    live.stop();
+    server.closeAllConnections();
+    await new Promise(r => server.close(r));
+};
+
+// Einen Browser-WebSocket öffnen und alles mitschreiben
+const connect = (site = 'shop', { origin, cookie, forwardedFor } = {}) =>
+    new Promise(resolve => {
+        const host = `${site}.site.localhost:${port}`;
+        const headers = { host, origin: origin === undefined ? `http://${host}` : origin };
+        if (origin === null) delete headers.origin;
+        if (cookie) headers.cookie = cookie;
+        if (forwardedFor) headers['x-forwarded-for'] = forwardedFor;
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/_at0mic/live`, { headers });
+        const client = { ws, messages: [], status: null, closed: null };
+        ws.on('message', data => client.messages.push(JSON.parse(data.toString())));
+        ws.on('unexpected-response', (req, res) => {
+            client.status = res.statusCode;
+            resolve(client);
+        });
+        ws.on('open', () => resolve(client));
+        ws.on('close', (code, reason) => {
+            client.closed = { code, reason: reason.toString() };
+        });
+        ws.on('error', () => resolve(client));
+    });
+const until = async (fn, ms = 1000) => {
+    const start = Date.now();
+    while (Date.now() - start < ms) {
+        if (fn()) return true;
+        await wait(10);
+    }
+    return false;
+};
+const lastOf = (client, typ) => [...client.messages].reverse().find(m => m.typ === typ);
+const abo = async (client, pfad = 'api', kanal = 'chat') => {
+    client.ws.send(JSON.stringify({ typ: 'abo', pfad, kanal }));
+    await until(() => client.messages.some(m => (m.typ === 'abo-ok' || m.typ === 'abo-fehler') && m.pfad === pfad));
+    return client.messages.find(m => (m.typ === 'abo-ok' || m.typ === 'abo-fehler') && m.pfad === pfad);
+};
+
+describe('Teil 1: die WebSocket-Tür', () => {
+    before(() => startLive());
+    after(() => stopLive());
+    beforeEach(resetBackend);
+
+    test('Verbinden: "hallo"; falsche Adresse 404, fremde Herkunft 403, ohne Herkunft 403', async () => {
+        const ok = await connect();
+        assert.equal(ok.status, null);
+        await until(() => ok.messages.length > 0);
+        assert.deepEqual(ok.messages[0], { typ: 'hallo' });
+        ok.ws.close();
+
+        const foreign = await connect('shop', { origin: 'http://andere.site.localhost:1' });
+        assert.equal(foreign.status, 403, 'L5: eine Nachbar-Website darf nicht verbinden');
+        const noOrigin = await connect('shop', { origin: null });
+        assert.equal(noOrigin.status, 403);
+
+        const wrongPath = await new Promise(resolve => {
+            const ws = new WebSocket(`ws://127.0.0.1:${port}/_at0mic/anders`, {
+                headers: { host: `shop.site.localhost:${port}`, origin: `http://shop.site.localhost:${port}` }
+            });
+            ws.on('unexpected-response', (req, res) => resolve(res.statusCode));
+            ws.on('error', () => resolve('error'));
+        });
+        assert.equal(wrongPath, 404);
+    });
+
+    test('Abo erlaubt -> Nachrichten kommen an; nicht erlaubt -> abo-fehler (gleiche Meldung)', async () => {
+        backend.erlaubt = { api: API_UUID };
+        const c = await connect();
+        assert.deepEqual(await abo(c, 'api', 'chat'), { typ: 'abo-ok', pfad: 'api', kanal: 'chat' });
+        const denied = await abo(c, 'privat', 'chat');
+        assert.deepEqual(denied, {
+            typ: 'abo-fehler',
+            pfad: 'privat',
+            kanal: 'chat',
+            fehler: 'Kein Zugriff oder nicht gefunden.'
+        });
+        assert.equal(backend.calls[0].site, 'shop');
+        assert.equal(backend.calls[0].headers['x-bauarbeiter-key'], KEY);
+
+        pushLine({ t: 'n', o: API_UUID, k: 'chat', d: { text: 'Hallo' } });
+        pushLine({ t: 'n', o: API_UUID, k: 'anderer-kanal', d: 'nicht für mich' });
+        pushLine({ t: 'n', o: PRIV_UUID, k: 'chat', d: 'auch nicht' });
+        assert.ok(await until(() => lastOf(c, 'nachricht')));
+        await wait(50);
+        const got = c.messages.filter(m => m.typ === 'nachricht');
+        assert.deepEqual(got, [{ typ: 'nachricht', pfad: 'api', kanal: 'chat', daten: { text: 'Hallo' } }]);
+
+        // "ende": danach kommt nichts mehr
+        c.ws.send(JSON.stringify({ typ: 'ende', pfad: 'api', kanal: 'chat' }));
+        await wait(50);
+        pushLine({ t: 'n', o: API_UUID, k: 'chat', d: 'zu spät' });
+        await wait(50);
+        assert.equal(c.messages.filter(m => m.typ === 'nachricht').length, 1);
+        c.ws.close();
+    });
+
+    test('der Ausweis geht nur mit, wenn er im Cookie steht; ungültig -> trennen (4401)', async () => {
+        const token = `at0s_${'a'.repeat(43)}`;
+        const c = await connect('shop', { cookie: `at0mic_ausweis=${token}` });
+        await abo(c);
+        assert.equal(backend.calls.at(-1).headers['x-besucher-ausweis'], token);
+
+        backend.tokenInvalid = true;
+        const c2 = await connect('shop', { cookie: `at0mic_ausweis=${token}` });
+        c2.ws.send(JSON.stringify({ typ: 'abo', pfad: 'api', kanal: 'chat' }));
+        assert.ok(await until(() => c2.closed));
+        assert.equal(c2.closed.code, CLOSE.ABGEMELDET);
+        c.ws.close();
+    });
+
+    test('Konto-Grenze (L4): mehr als maxVerbindungen -> VOLL (4429)', async () => {
+        backend.maxVerbindungen = 1;
+        const a = await connect();
+        assert.equal((await abo(a)).typ, 'abo-ok');
+        const b = await connect();
+        b.ws.send(JSON.stringify({ typ: 'abo', pfad: 'api', kanal: 'chat' }));
+        assert.ok(await until(() => b.closed));
+        assert.equal(b.closed.code, CLOSE.VOLL);
+        assert.equal(lastOf(b, 'fehler').code, 'VOLL');
+        // Eine andere Website eines anderen Kontos ist nicht betroffen
+        const z = await connect('zwei');
+        assert.equal((await abo(z)).typ, 'abo-ok');
+        // Wird a geschlossen, ist wieder Platz
+        a.ws.close();
+        await wait(50);
+        const c = await connect();
+        assert.equal((await abo(c)).typ, 'abo-ok');
+        z.ws.close();
+        c.ws.close();
+    });
+
+    test('Prüfungen: ungültige Nachrichten, ungültiger Pfad, kein Senden an andere', async () => {
+        const c = await connect();
+        c.ws.send('kein json');
+        c.ws.send(JSON.stringify({ typ: 'senden', an: 'alle', text: 'Spam' }));
+        c.ws.send(JSON.stringify({ typ: 'abo', pfad: '../x', kanal: 'chat' }));
+        c.ws.send(JSON.stringify({ typ: 'abo', pfad: 'api', kanal: 'mit leerzeichen' }));
+        c.ws.send(JSON.stringify({ typ: 'ping' }));
+        await until(() => c.messages.some(m => m.typ === 'pong'));
+        assert.equal(c.messages.filter(m => m.typ === 'fehler').length, 2);
+        assert.equal(c.messages.filter(m => m.typ === 'abo-fehler').length, 2);
+        assert.equal(backend.calls.length, 0, 'Ungültiges geht nie ans Backend');
+        c.ws.close();
+    });
+
+    test('Bremse: zu viele Nachrichten vom Browser -> trennen (4408)', async () => {
+        const c = await connect();
+        for (let i = 0; i < 40; i++) c.ws.send(JSON.stringify({ typ: 'ping' }));
+        assert.ok(await until(() => c.closed));
+        assert.equal(c.closed.code, CLOSE.ZU_VIEL);
+    });
+
+    test('Neu prüfen: wird etwas privat, hört der Besucher nicht mehr mit', async () => {
+        const c = await connect();
+        await abo(c);
+        backend.erlaubt = {}; // jetzt nicht mehr sichtbar
+        await live.recheckAll();
+        assert.ok(await until(() => lastOf(c, 'abo-fehler')));
+        pushLine({ t: 'n', o: API_UUID, k: 'chat', d: 'geheim' });
+        await wait(50);
+        assert.equal(c.messages.filter(m => m.typ === 'nachricht').length, 0);
+        c.ws.close();
+    });
+
+    test('interne Leitung bricht ab -> neu verbinden und "wieder-da" an alle', async () => {
+        const c = await connect();
+        await abo(c);
+        // Leitung vom Backend her schliessen
+        for (const s of backend.streams) s.close();
+        backend.streams = [];
+        assert.ok(await until(() => lastOf(c, 'wieder-da'), 3000), 'wieder-da kommt nach dem Neuverbinden');
+        assert.equal(live.getStats().streamReconnects, 1);
+        pushLine({ t: 'n', o: API_UUID, k: 'chat', d: 'nach dem Abbruch' });
+        assert.ok(await until(() => lastOf(c, 'nachricht')));
+        c.ws.close();
+    });
+});
+
+describe('Teil 1b: Grenzen pro IP und ohne Abo', () => {
+    before(() => startLive({ maxPerIp: 2, idleNoSubscriptionMs: 100 }, { trustProxyHops: 1 }));
+    after(() => stopLive());
+    beforeEach(resetBackend);
+
+    test('höchstens maxPerIp Verbindungen pro Besucher-IP (aus X-Forwarded-For)', async () => {
+        const a = await connect('shop', { forwardedFor: '198.51.100.1' });
+        const b = await connect('shop', { forwardedFor: '198.51.100.1' });
+        const c = await connect('shop', { forwardedFor: '198.51.100.1' });
+        assert.equal(c.status, 429);
+        const other = await connect('shop', { forwardedFor: '198.51.100.2' });
+        assert.equal(other.status, null);
+        for (const x of [a, b, other]) x.ws.close();
+    });
+
+    test('ohne ein einziges Abo wird nach kurzer Zeit getrennt', async () => {
+        const c = await connect();
+        assert.ok(await until(() => c.closed, 2000));
+        assert.equal(c.closed.code, CLOSE.UNGENUTZT);
+    });
+});
+
+describe('Besucher-IP aus der rohen Anfrage', () => {
+    const req = (xff, remote) => ({
+        headers: xff ? { 'x-forwarded-for': xff } : {},
+        socket: { remoteAddress: remote }
+    });
+    test('wie "trust proxy" mit einer Zahl', () => {
+        assert.equal(visitorIpFromRaw(req('203.0.113.5', '10.0.0.2'), 1), '203.0.113.5');
+        // Cloudflare + Traefik: der vorderste von zwei Zwischenhalten
+        assert.equal(visitorIpFromRaw(req('203.0.113.5, 172.68.1.1', '10.0.0.2'), 2), '203.0.113.5');
+        // gefälschter Eintrag ganz vorne zählt nicht
+        assert.equal(visitorIpFromRaw(req('6.6.6.6, 203.0.113.5', '10.0.0.2'), 1), '203.0.113.5');
+        assert.equal(visitorIpFromRaw(req(null, '::ffff:127.0.0.1'), 1), '127.0.0.1');
+    });
+});
+
+// ---------------------------------------------------------------------
+// TEIL 2: das Skript für Websites in einem nachgebauten Browser
+// ---------------------------------------------------------------------
+describe('Teil 2: at0mic.live im Browser', () => {
+    const makeBrowser = () => {
+        const sockets = [];
+        class FakeWebSocket {
+            constructor(url) {
+                this.url = url;
+                this.readyState = 0;
+                this.sent = [];
+                sockets.push(this);
+            }
+            send(text) {
+                this.sent.push(JSON.parse(text));
+            }
+            close(code = 1000) {
+                this.readyState = 3;
+                this.onclose?.({ code });
+            }
+            // Helfer für den Test
+            open() {
+                this.readyState = 1;
+                this.onopen?.();
+            }
+            receive(obj) {
+                this.onmessage?.({ data: JSON.stringify(obj) });
+            }
+        }
+        const timers = [];
+        const window = {
+            location: { protocol: 'https:', host: 'shop.at0mic.site' },
+            WebSocket: FakeWebSocket,
+            console: { error() {} },
+            setTimeout: (fn, ms) => {
+                timers.push({ fn, ms });
+                return timers.length;
+            },
+            clearTimeout: () => {},
+            Math,
+            JSON,
+            Object
+        };
+        window.window = window;
+        vm.runInNewContext(LIVE_SCRIPT, window);
+        return { window, sockets, timers };
+    };
+
+    test('listen öffnet EINE Verbindung, abonniert und liefert Nachrichten', () => {
+        const { window, sockets } = makeBrowser();
+        const got = [];
+        const fehler = [];
+        window.at0mic.live.listen('api', 'chat', n => got.push(n), { fehler: t => fehler.push(t) });
+        window.at0mic.live.listen('api', 'tisch', () => {});
+        assert.equal(sockets.length, 1);
+        assert.equal(sockets[0].url, 'wss://shop.at0mic.site/_at0mic/live');
+        sockets[0].open();
+        assert.deepEqual(sockets[0].sent, [
+            { typ: 'abo', pfad: 'api', kanal: 'chat' },
+            { typ: 'abo', pfad: 'api', kanal: 'tisch' }
+        ]);
+        assert.equal(window.at0mic.live.status, 'verbunden');
+        sockets[0].receive({ typ: 'nachricht', pfad: 'api', kanal: 'chat', daten: { text: 'Hallo' } });
+        sockets[0].receive({ typ: 'abo-fehler', pfad: 'api', kanal: 'chat', fehler: 'Kein Zugriff' });
+        assert.deepEqual(got, [{ text: 'Hallo' }]);
+        assert.deepEqual(fehler, ['Kein Zugriff']);
+    });
+
+    test('nach einer Unterbrechung: neu verbinden, neu abonnieren, wiederDa aufrufen', () => {
+        const { window, sockets, timers } = makeBrowser();
+        let wiederDa = 0;
+        window.at0mic.live.listen('api', 'chat', () => {}, { wiederDa: () => wiederDa++ });
+        sockets[0].open();
+        assert.equal(wiederDa, 0, 'beim ersten Verbinden nicht');
+        sockets[0].close(1006);
+        assert.equal(window.at0mic.live.status, 'getrennt');
+        assert.equal(timers.length, 1);
+        assert.ok(timers[0].ms >= 1000 && timers[0].ms < 2000, 'erste Pause etwa 1 s');
+        timers[0].fn(); // Pause vorbei
+        assert.equal(sockets.length, 2);
+        sockets[1].open();
+        assert.deepEqual(sockets[1].sent, [{ typ: 'abo', pfad: 'api', kanal: 'chat' }]);
+        assert.equal(wiederDa, 1);
+        // "wieder-da" vom Bauarbeiter (seine interne Leitung war weg)
+        sockets[1].receive({ typ: 'wieder-da' });
+        assert.equal(wiederDa, 2);
+    });
+
+    test('stopp: letztes listen beendet -> "ende" und Verbindung zu', () => {
+        const { window, sockets } = makeBrowser();
+        const stopp = window.at0mic.live.listen('api', 'chat', () => {});
+        sockets[0].open();
+        stopp();
+        assert.deepEqual(sockets[0].sent.at(-1), { typ: 'ende', pfad: 'api', kanal: 'chat' });
+        assert.equal(sockets[0].readyState, 3);
+        assert.throws(() => window.at0mic.live.listen('api'), /listen\(pfad, kanal, funktion\)/);
+    });
+});
+
+// ---------------------------------------------------------------------
+// TEIL 3: die normalen Adressen im Bauarbeiter
+// ---------------------------------------------------------------------
+describe('Teil 3: /_at0mic/live und /_at0mic/live.js im Bauarbeiter', () => {
+    test('ohne WebSocket: 426; das Skript wird als JavaScript ausgeliefert; resolveHost', async () => {
+        const express = (await import('express')).default;
+        const { createBauarbeiter } = require('../site/bauarbeiter.js');
+        const bauarbeiter = createBauarbeiter({
+            apiUrl: API,
+            key: KEY,
+            siteDomain: 'site.localhost',
+            fetchImpl: async () => new Response('{}', { status: 404 }),
+            log: silent
+        });
+        const app = express();
+        app.use(bauarbeiter);
+        const srv = http.createServer(app);
+        await new Promise(r => srv.listen(0, '127.0.0.1', r));
+        const base = `http://127.0.0.1:${srv.address().port}`;
+        const get = path =>
+            new Promise((resolve, reject) => {
+                http.get(`${base}${path}`, { headers: { host: 'shop.site.localhost' } }, res => {
+                    let body = '';
+                    res.on('data', c => (body += c));
+                    res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body }));
+                }).on('error', reject);
+            });
+        const plain = await get('/_at0mic/live');
+        assert.equal(plain.status, 426);
+        const script = await get('/_at0mic/live.js');
+        assert.equal(script.status, 200);
+        assert.match(script.headers['content-type'], /text\/javascript/);
+        assert.equal(script.body, LIVE_SCRIPT);
+        assert.deepEqual(await bauarbeiter.resolveHost('shop.site.localhost:3001'), { name: 'shop', custom: null });
+        assert.equal(await bauarbeiter.resolveHost('localhost:3001'), null);
+        srv.closeAllConnections();
+        await new Promise(r => srv.close(r));
+    });
+});
