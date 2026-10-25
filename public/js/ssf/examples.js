@@ -703,3 +703,42 @@ return {
 };
 `
 });
+
+// ------------------------------------------------------------------
+// 14) LIVE-NACHRICHT (Plan "W – Live-Verbindungen", W4)
+EXAMPLES.push({
+    id: 'live',
+    title: 'Live-Nachricht senden',
+    level: 'Fortgeschritten',
+    summary: 'Eine Nachricht speichern und sofort an alle schicken, die auf der Website zuhören.',
+    learn: [
+        'api.live.send(kanal, nachricht) schickt sofort an alle offenen Seiten, die zuhören',
+        'Ohne ziel ist es der Kanal der SSF selbst – dafür braucht sie kein Recht',
+        'Kanäle speichern nichts: zuerst in den Daten speichern, dann senden',
+        'Auf der Website: <script src="/_at0mic/live.js"> und at0mic.live.listen(pfad, kanal, …)'
+    ],
+    tools: ['data.insert', 'live.send'],
+    body: { text: 'Hallo zusammen!' },
+    presets: {
+        Gruss: { text: 'Hallo zusammen!' },
+        'Neue Bestellung': { text: 'Tisch 4: 2x Rösti' }
+    },
+    code: `// 14) LIVE-NACHRICHT
+// Auf einer echten Website hört das JavaScript so zu (siehe Anleitung "live"):
+//     <script src="/_at0mic/live.js"></script>
+//     at0mic.live.listen('api', 'chat', nachricht => zeigeAn(nachricht));
+// Hier in der Spielwiese hört niemand zu – die Nachricht geht trotzdem raus.
+const text = String((requestContext.body || {}).text || '').trim().slice(0, 500);
+if (!text) return { fehler: 'Bitte einen Text schicken, z.B. { "text": "Hallo" }.' };
+
+const nachricht = { text, zeit: new Date().toISOString() };
+
+// 1. Zuerst speichern: Wer gerade nicht zuhört, holt es später aus den Daten
+await api.data.insert('{{SHOP}}/nachrichten', nachricht);
+
+// 2. Dann allen zeigen, die zuhören (max. 16 KB, max. 20 pro Ausführung)
+const live = await api.live.send('chat', nachricht);
+
+return { ok: true, live, nachricht };
+`
+});

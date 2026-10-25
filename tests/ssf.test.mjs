@@ -14,9 +14,9 @@ import { CHILDREN, SEED_PRODUCTS, SEED_STOCK } from '../public/js/ssf/playground
 const AsyncFunction = (async () => {}).constructor;
 
 describe('ssf: Beispiel-Bibliothek', () => {
-    test('es gibt 13 Beispiele mit eindeutiger id', () => {
-        assert.equal(EXAMPLES.length, 13);
-        assert.equal(new Set(EXAMPLES.map(e => e.id)).size, 13);
+    test('es gibt 14 Beispiele mit eindeutiger id', () => {
+        assert.equal(EXAMPLES.length, 14);
+        assert.equal(new Set(EXAMPLES.map(e => e.id)).size, 14);
     });
 
     test('„LLM fragen“ wartet lange (timeoutMs) und holt den Schlüssel aus dem Tresor', () => {
@@ -93,7 +93,7 @@ describe('ssf: Beispiel-Bibliothek', () => {
 });
 
 describe('ssf: Werkzeug-Referenz', () => {
-    test('alle 35 Werkzeuge des Backends sind beschrieben', () => {
+    test('alle 36 Werkzeuge des Backends sind beschrieben', () => {
         assert.deepEqual(TOOLS.map(t => t.name).sort(), [
             'crypto.randomToken',
             'crypto.randomUuid',
@@ -117,6 +117,7 @@ describe('ssf: Werkzeug-Referenz', () => {
             'jobs.start',
             'jobs.status',
             'lib.load',
+            'live.send',
             'objects.clone',
             'objects.create',
             'objects.get',

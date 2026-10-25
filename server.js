@@ -17,6 +17,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const { createBauarbeiter } = require('./site/bauarbeiter');
+const { createLive } = require('./site/live');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -44,25 +45,35 @@ const SITE_URL = isProduction ? `https://{name}.${SITE_DOMAIN}` : `http://{name}
 if (!process.env.BAUARBEITER_KEY) {
     console.warn('[BAUARBEITER] Kein BAUARBEITER_KEY gesetzt – alle Besucher teilen sich eine Bremse im Backend.');
 }
-app.use(
-    createBauarbeiter({
-        apiUrl: process.env.SITE_API_URL || process.env.API_URL || 'http://localhost:3000',
-        key: process.env.BAUARBEITER_KEY || null,
-        siteDomain: SITE_DOMAIN,
-        isProduction,
-        // Login auf Websites: Hierhin schickt der Bauarbeiter den BROWSER des Besuchers
-        // zum Anmelden – darum die öffentliche Adresse (API_URL), nicht SITE_API_URL
-        loginUrl: process.env.API_URL || 'http://localhost:3000',
-        // Eigene Domains (Plan "SSF-Ausbau", D2): Unter diesen Namen läuft das COCKPIT.
-        // Jeder andere fremde Name ist vielleicht die eigene Domain eines Kunden
-        // (www.meinladen.ch) – der Bauarbeiter fragt das Backend. IP-Adressen und
-        // localhost gehen immer ans Cockpit. In der .env änderbar (Komma-getrennt).
-        cockpitHosts: (process.env.COCKPIT_HOSTS || 'at0mic.ch,www.at0mic.ch')
-            .split(',')
-            .map(h => h.trim().toLowerCase())
-            .filter(Boolean)
-    })
-);
+const bauarbeiter = createBauarbeiter({
+    apiUrl: process.env.SITE_API_URL || process.env.API_URL || 'http://localhost:3000',
+    key: process.env.BAUARBEITER_KEY || null,
+    siteDomain: SITE_DOMAIN,
+    isProduction,
+    // Login auf Websites: Hierhin schickt der Bauarbeiter den BROWSER des Besuchers
+    // zum Anmelden – darum die öffentliche Adresse (API_URL), nicht SITE_API_URL
+    loginUrl: process.env.API_URL || 'http://localhost:3000',
+    // Eigene Domains (Plan "SSF-Ausbau", D2): Unter diesen Namen läuft das COCKPIT.
+    // Jeder andere fremde Name ist vielleicht die eigene Domain eines Kunden
+    // (www.meinladen.ch) – der Bauarbeiter fragt das Backend. IP-Adressen und
+    // localhost gehen immer ans Cockpit. In der .env änderbar (Komma-getrennt).
+    cockpitHosts: (process.env.COCKPIT_HOSTS || 'at0mic.ch,www.at0mic.ch')
+        .split(',')
+        .map(h => h.trim().toLowerCase())
+        .filter(Boolean)
+});
+app.use(bauarbeiter);
+
+// 1b. Live-Verbindungen der Websites (Plan "W"): WebSockets auf /_at0mic/live.
+//     Sie laufen nicht durch Express, sondern über das "upgrade"-Ereignis des
+//     Servers (unten). Die interne Leitung zum Backend startet sofort.
+const live = createLive({
+    apiUrl: process.env.SITE_API_URL || process.env.API_URL || 'http://localhost:3000',
+    key: process.env.BAUARBEITER_KEY || null,
+    resolveHost: bauarbeiter.resolveHost,
+    isProduction,
+    trustProxyHops: Number.isInteger(hops) && hops >= 1 ? hops : 1
+});
 
 // 2. Das Cockpit
 app.use(express.static(path.join(__dirname, 'public')));
@@ -90,6 +101,14 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`[FRONTEND] Server läuft auf Port ${PORT}`);
+    live.start();
+});
+// Ein Browser will eine WebSocket-Verbindung: nur /_at0mic/live auf einer Website
+server.on('upgrade', (req, socket, head) => {
+    live.handleUpgrade(req, socket, head).catch(error => {
+        console.error(`[LIVE] Fehler beim Verbinden: ${error.message}`);
+        socket.destroy();
+    });
 });
