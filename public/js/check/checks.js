@@ -592,6 +592,21 @@ export const CHECKS = [
         }
     },
     {
+        // Plan "F", F-1: früher fiel ein unbekannter Operator still weg -> ALLE Datensätze
+        id: 'data-filter-unknown',
+        group: 'Daten & Suche',
+        title: 'Unbekannter Filter-Operator wird abgelehnt (nie still "alles")',
+        needs: ['dataInserted'],
+        run: async ctx => {
+            const r = await api.post(`/api/core-data/search/${ctx.daten}`, {
+                filter: { name: { $contains: 'Kartoffel' } }
+            });
+            expectStatus(r, 400, 'Suche mit $contains');
+            expect(/\$contains/.test(r.error || ''), 'Meldung nennt den Operator nicht', r);
+            return '400 mit klarer Meldung';
+        }
+    },
+    {
         id: 'data-sort-number',
         group: 'Daten & Suche',
         title: 'Sortierung nach Zahl (100 vor 12 vor 6.9)',
