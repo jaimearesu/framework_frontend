@@ -653,6 +653,109 @@ describe('Teil 2: at0mic.live im Browser', () => {
         assert.equal(sockets[0].readyState, 3);
         assert.throws(() => window.at0mic.live.listen('api'), /listen\(pfad, kanal, funktion\)/);
     });
+
+    // Plan "F", F-3c
+    test('id aus "hallo"; publish nur nach listen und erst, wenn das Abo steht; Ticket geht mit', () => {
+        const { window, sockets } = makeBrowser();
+        const live = window.at0mic.live;
+        assert.throws(() => live.publish('api', 'cursor', { x: 1 }), /zuerst at0mic\.live\.listen/);
+        const got = [];
+        live.listen('api', 'cursor', (daten, info) => got.push({ daten, info }), { ticket: 'lt1.a.b' });
+        sockets[0].open();
+        assert.deepEqual(sockets[0].sent, [{ typ: 'abo', pfad: 'api', kanal: 'cursor', ticket: 'lt1.a.b' }]);
+        sockets[0].receive({ typ: 'hallo', id: 'abcdefghijkl' });
+        assert.equal(live.id, 'abcdefghijkl');
+        assert.equal(live.publish('api', 'cursor', { x: 1 }), false, 'Abo steht noch nicht');
+        sockets[0].receive({ typ: 'abo-ok', pfad: 'api', kanal: 'cursor' });
+        assert.equal(live.publish('api', 'cursor', { x: 1 }), true);
+        assert.deepEqual(sockets[0].sent.at(-1), { typ: 'senden', pfad: 'api', kanal: 'cursor', daten: { x: 1 } });
+
+        sockets[0].receive({
+            typ: 'nachricht',
+            pfad: 'api',
+            kanal: 'cursor',
+            daten: { x: 5 },
+            von: 'zzz',
+            fluechtig: true
+        });
+        sockets[0].receive({ typ: 'nachricht', pfad: 'api', kanal: 'cursor', daten: { ssf: true } });
+        assert.deepEqual(JSON.parse(JSON.stringify(got)), [
+            { daten: { x: 5 }, info: { von: 'zzz', fluechtig: true } },
+            { daten: { ssf: true }, info: {} }
+        ]);
+    });
+
+    test('presence: "da" nach dem Abo, Liste wird geführt, update, stopp -> weg + ende', () => {
+        const { window, sockets } = makeBrowser();
+        const listen = [];
+        const joins = [];
+        const ich = window.at0mic.live.presence(
+            'api',
+            'raum-1',
+            { name: 'Anna' },
+            {
+                liste: alle => listen.push(JSON.parse(JSON.stringify(alle))),
+                join: e => joins.push(e.von)
+            }
+        );
+        sockets[0].open();
+        assert.deepEqual(sockets[0].sent, [{ typ: 'abo', pfad: 'api', kanal: 'raum-1' }]);
+        sockets[0].receive({ typ: 'abo-ok', pfad: 'api', kanal: 'raum-1' });
+        assert.deepEqual(sockets[0].sent.at(-1), {
+            typ: 'da',
+            pfad: 'api',
+            kanal: 'raum-1',
+            zustand: { name: 'Anna' }
+        });
+
+        sockets[0].receive({
+            typ: 'anwesend',
+            pfad: 'api',
+            kanal: 'raum-1',
+            liste: [{ von: 'b', zustand: { name: 'Beat' } }]
+        });
+        sockets[0].receive({ typ: 'join', pfad: 'api', kanal: 'raum-1', von: 'c', zustand: { name: 'Cleo' } });
+        sockets[0].receive({ typ: 'leave', pfad: 'api', kanal: 'raum-1', von: 'b' });
+        assert.deepEqual(listen, [
+            [{ von: 'b', zustand: { name: 'Beat' } }],
+            [
+                { von: 'b', zustand: { name: 'Beat' } },
+                { von: 'c', zustand: { name: 'Cleo' } }
+            ],
+            [{ von: 'c', zustand: { name: 'Cleo' } }]
+        ]);
+        assert.deepEqual(joins, ['c']);
+
+        ich.update({ name: 'Anna', tippt: true });
+        assert.deepEqual(sockets[0].sent.at(-1).zustand, { name: 'Anna', tippt: true });
+        ich.stopp();
+        assert.deepEqual(sockets[0].sent.slice(-2), [
+            { typ: 'weg', pfad: 'api', kanal: 'raum-1' },
+            { typ: 'ende', pfad: 'api', kanal: 'raum-1' }
+        ]);
+        assert.equal(sockets[0].readyState, 3, 'niemand hört mehr zu -> Verbindung zu');
+    });
+
+    test('presence nach einer Unterbrechung: Liste geleert, nach dem neuen Abo wieder "da"', () => {
+        const { window, sockets, timers } = makeBrowser();
+        const listen = [];
+        window.at0mic.live.presence('api', 'raum-1', { name: 'Anna' }, { liste: alle => listen.push(alle.length) });
+        sockets[0].open();
+        sockets[0].receive({ typ: 'abo-ok', pfad: 'api', kanal: 'raum-1' });
+        sockets[0].receive({ typ: 'anwesend', pfad: 'api', kanal: 'raum-1', liste: [{ von: 'b', zustand: {} }] });
+        sockets[0].close(1006);
+        assert.deepEqual(listen, [1, 0], 'nach dem Abbruch: leer');
+        timers[0].fn();
+        sockets[1].open();
+        assert.deepEqual(sockets[1].sent, [{ typ: 'abo', pfad: 'api', kanal: 'raum-1' }]);
+        sockets[1].receive({ typ: 'abo-ok', pfad: 'api', kanal: 'raum-1' });
+        assert.deepEqual(sockets[1].sent.at(-1), {
+            typ: 'da',
+            pfad: 'api',
+            kanal: 'raum-1',
+            zustand: { name: 'Anna' }
+        });
+    });
 });
 
 // ---------------------------------------------------------------------
