@@ -201,6 +201,7 @@ describe('Teil 1: die WebSocket-Tür', () => {
         const denied = await abo(c, 'privat', 'chat');
         assert.deepEqual(denied, {
             typ: 'abo-fehler',
+            code: 'KEIN_ZUGRIFF', // F-3e: Code für die Website
             pfad: 'privat',
             kanal: 'chat',
             fehler: 'Kein Zugriff oder nicht gefunden.'
@@ -476,7 +477,9 @@ describe('Teil 5: flüchtig, Presence, Räume (Plan "F", F-3b)', () => {
     test('Raum mit Ticket: ohne/mit falschem Ticket abo-fehler, mit gültigem abo-ok', async () => {
         backend.regeln = { api: { kanaele: { 'board-*': rule({ ticket: true }) } } };
         const a = await hallo(await connect());
-        assert.equal((await abo(a, 'api', 'board-1')).typ, 'abo-fehler');
+        const ohne = await abo(a, 'api', 'board-1');
+        assert.equal(ohne.typ, 'abo-fehler');
+        assert.equal(ohne.code, 'TICKET');
         const b = await hallo(await connect());
         b.ws.send(
             JSON.stringify({ typ: 'abo', pfad: 'api', kanal: 'board-1', ticket: makeTicket(API_UUID, 'board-2') })
@@ -734,6 +737,36 @@ describe('Teil 2: at0mic.live im Browser', () => {
             { typ: 'ende', pfad: 'api', kanal: 'raum-1' }
         ]);
         assert.equal(sockets[0].readyState, 3, 'niemand hört mehr zu -> Verbindung zu');
+    });
+
+    // Plan "F", F-3e (Feedback live-board): Fehler mit Code, Laufzeit messen
+    test('fehler(text, code): der Code kommt mit (Takt von Fehler unterscheiden)', () => {
+        const { window, sockets } = makeBrowser();
+        const got = [];
+        window.at0mic.live.listen('api', 'cursor', () => {}, { fehler: (text, code) => got.push([text, code]) });
+        sockets[0].open();
+        sockets[0].receive({ typ: 'fehler', code: 'TAKT', fehler: 'Zu schnell', pfad: 'api', kanal: 'cursor' });
+        sockets[0].receive({ typ: 'abo-fehler', code: 'TICKET', fehler: 'Ticket fehlt', pfad: 'api', kanal: 'cursor' });
+        assert.deepEqual(got, [
+            ['Zu schnell', 'TAKT'],
+            ['Ticket fehlt', 'TICKET']
+        ]);
+    });
+
+    test('ping(): Laufzeit in ms nach dem pong; nicht verbunden: null; zwei gleichzeitig: ein ping', async () => {
+        const { window, sockets } = makeBrowser();
+        window.Promise = Promise;
+        window.Date = Date;
+        const live = window.at0mic.live;
+        live.listen('api', 'chat', () => {});
+        assert.equal(await live.ping(), null, 'noch nicht verbunden');
+        sockets[0].open();
+        const a = live.ping();
+        const b = live.ping();
+        assert.equal(sockets[0].sent.filter(m => m.typ === 'ping').length, 1);
+        sockets[0].receive({ typ: 'pong' });
+        const [msA, msB] = await Promise.all([a, b]);
+        assert.ok(Number.isInteger(msA) && msA >= 0 && msA === msB);
     });
 
     test('presence nach einer Unterbrechung: Liste geleert, nach dem neuen Abo wieder "da"', () => {

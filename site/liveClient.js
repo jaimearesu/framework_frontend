@@ -7,7 +7,7 @@
 // und hört dann zu:
 //   const stopp = at0mic.live.listen('api', 'chat', (nachricht, info) => zeigeAn(nachricht), {
 //       wiederDa: () => ladeNeueste(),     // nach einer Unterbrechung: Verpasstes über die SSF holen
-//       fehler: text => console.warn(text), // z.B. "Kein Zugriff oder nicht gefunden."
+//       fehler: (text, code) => console.warn(text), // z.B. "Kein Zugriff …", code 'KEIN_ZUGRIFF' (F-3e)
 //       ticket: t                           // Raum (Regel "ticket" in der DNA): Ticket der SSF
 //   });
 //   stopp(); // nicht mehr zuhören
@@ -24,7 +24,10 @@
 //       fehler, ticket
 //   });
 //   ich.update({ name: 'Anna', tippt: true }); ich.stopp();
-//   at0mic.live.id   die eigene Verbindungs-ID (z.B. an die SSF schicken für { ausser })
+//   at0mic.live.id   die eigene Verbindungs-ID (z.B. an die SSF schicken für { ausser }) – sie
+//                    WECHSELT bei jedem Neuverbinden: immer erst beim Senden lesen
+//   at0mic.live.ping() -> Promise mit der Laufzeit hin und zurück in ms (null = nicht verbunden)
+//   fehler(text, code): code = KEIN_ZUGRIFF, TICKET, TAKT, NICHT_ERLAUBT, FELDER, ZU_GROSS, … (F-3e)
 //
 // Was das Skript selbst erledigt:
 //   - EINE Verbindung pro Seite, egal wie viele listen()/presence()
@@ -59,6 +62,7 @@ function at0micLiveClient() {
         listen: listen,
         publish: publish,
         presence: presence,
+        ping: ping,
         // Für Website-Code, der wissen will, ob die Verbindung steht
         onStatus: null
     };
@@ -172,9 +176,11 @@ function at0micLiveClient() {
                 if (sub.presence)
                     sendJson({ typ: 'da', pfad: sub.pfad, kanal: sub.kanal, zustand: sub.presence.zustand });
             } else if (msg.typ === 'abo-fehler' && sub) {
-                each(sub, 'fehler', msg.fehler);
+                each(sub, 'fehler', msg.fehler, msg.code || null);
             } else if (msg.typ === 'fehler' && sub) {
-                each(sub, 'fehler', msg.fehler);
+                each(sub, 'fehler', msg.fehler, msg.code || null);
+            } else if (msg.typ === 'pong') {
+                pongArrived();
             } else if (
                 (msg.typ === 'anwesend' || msg.typ === 'join' || msg.typ === 'update' || msg.typ === 'leave') &&
                 sub
@@ -209,6 +215,36 @@ function at0micLiveClient() {
         socket.onerror = function () {
             // onclose kommt danach von selbst
         };
+    }
+
+    // Laufzeit messen (F-3e): ping hin, pong zurück. Es läuft immer nur EIN ping gleichzeitig;
+    // wer während eines laufenden fragt, bekommt dieselbe Antwort.
+    var pending = null; // { start, waiting: [resolve], timer }
+    function pongArrived() {
+        if (!pending) return;
+        var p = pending;
+        pending = null;
+        clearTimeout(p.timer);
+        var ms = Date.now() - p.start;
+        p.waiting.forEach(function (r) {
+            r(ms);
+        });
+    }
+    function ping() {
+        return new Promise(function (resolve) {
+            if (!ws || ws.readyState !== 1) return resolve(null);
+            if (pending) return pending.waiting.push(resolve);
+            pending = { start: Date.now(), waiting: [resolve], timer: null };
+            pending.timer = setTimeout(function () {
+                var p = pending;
+                pending = null;
+                if (p)
+                    p.waiting.forEach(function (r) {
+                        r(null);
+                    });
+            }, 10000);
+            sendJson({ typ: 'ping' });
+        });
     }
 
     // Abo anlegen bzw. finden (gemeinsam für listen und presence)
