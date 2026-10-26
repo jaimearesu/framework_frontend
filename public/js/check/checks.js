@@ -1120,6 +1120,57 @@ return { eigen, geschwister, falsch, gross };`
         }
     },
     {
+        // Plan "F", F-3a/d: Live-Regeln in der DNA (geprüft beim Speichern), Ticket für einen
+        // Raum, ausser. Ob Cursor und Anwesenheit im Browser ankommen, zeigt der Live-Test.
+        id: 'ssf-live-regeln',
+        group: 'SSF',
+        title: 'Live-Regeln in der DNA, Ticket für einen Raum, ausser',
+        needs: ['funktion'],
+        run: async ctx => {
+            const cur = await api.get(`/api/ast/${ctx.funktion}`);
+            expectStatus(cur, 200, 'DNA lesen');
+            const dna = JSON.parse(cur.data.data.syntax);
+            const mitRegel = {
+                ...dna,
+                live: {
+                    kanaele: {
+                        cursor: { browser: true, felder: ['x', 'y'] },
+                        'raum-*': { presence: true, ticket: true }
+                    }
+                }
+            };
+            const ok = await api.post(`/api/ast/${ctx.funktion}`, {
+                snippets: [{ type: 'syntax', code: JSON.stringify(mitRegel) }]
+            });
+            expectStatus(ok, 201, 'DNA mit Live-Regeln speichern');
+            const kaputt = await api.post(`/api/ast/${ctx.funktion}`, {
+                snippets: [
+                    {
+                        type: 'syntax',
+                        code: JSON.stringify({ ...dna, live: { kanaele: { cursor: { proSekunde: 500 } } } })
+                    }
+                ]
+            });
+            expectStatus(kaputt, 422, 'Ungültige Regel');
+            expect(/proSekunde/.test(JSON.stringify(kaputt.data)), 'Meldung nennt proSekunde nicht', kaputt);
+
+            const r = await runSsf(
+                ctx,
+                `const t = await api.live.ticket('raum-1', { sekunden: 120 });
+const s = await api.live.send('cursor', { x: 1 }, { ausser: 'abcdefghijkl' });
+let falsch = 'KEIN FEHLER';
+try { await api.live.send('cursor', 1, { ausser: 'kurz' }); } catch (e) { falsch = 'abgelehnt'; }
+return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const res = r.data.result || {};
+            expect(res.ticket === 'lt1.', 'Kein Ticket', r);
+            expect(res.s && res.s.gesendet === true, 'Senden mit ausser ging nicht', r);
+            expect(res.falsch === 'abgelehnt', 'Ungültige Verbindungs-ID wurde angenommen', r);
+            return 'Regeln geprüft (gültig gespeichert, ungültig 422), Ticket ausgestellt, ausser geht';
+        }
+    },
+    {
         // Plan "MCP Etappe 5b": Der Speicher einer App ist ein Kind der App, NICHT in
         // der DNA. Die SSF (ein Geschwister) schreibt ohne zusätzliche Rechte hinein –
         // aber nur per UUID (Pfade laufen über die DNA). Danach wird er gleich gelöscht.
