@@ -92,6 +92,9 @@ const neutralPage = (kind, { actions = [], note = null } = {}) => {
         '<head>',
         '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
+        // Erkennungszeichen für Screenshots (Plan "F", F-1b): Das Backend merkt so, dass Cloudflare
+        // statt der Website eine Seite des Bauarbeiters fotografiert hat (z.B. "loginFailed").
+        `<meta name="at0mic-seite" content="${kind}">`,
         '<meta name="robots" content="noindex">',
         `<title>${escapeHtml(title)}</title>`,
         '<style>',
