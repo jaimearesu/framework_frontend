@@ -578,6 +578,14 @@ describe('Screenshot mit Live-Daten: /_at0mic/vorschau', () => {
         assert.equal(backend.calls.length, 1, 'ohne Code wird das Backend nicht gefragt');
     });
 
+    // Plan "F", F-1: Cloudflare öffnete die Adresse bei einer langsamen Seite ein zweites Mal
+    test('zweites Öffnen (Code schon verbraucht) MIT Ausweis-Cookie: weiter zum Ziel, kein neuer Ausweis', async () => {
+        const r = await request('shop.at0mic.site', `/_at0mic/vorschau?code=${CODE}&ziel=%2Fseite`, { cookie: COOKIE });
+        assert.equal(r.status, 302);
+        assert.equal(r.headers.location, '/seite');
+        assert.equal(cookieValue(r, '__Host-at0mic_ausweis'), undefined);
+    });
+
     test('nur GET', async () => {
         const r = await request('shop.at0mic.site', `/_at0mic/vorschau?code=${CODE}`, { method: 'POST' });
         assert.equal(r.status, 405);
