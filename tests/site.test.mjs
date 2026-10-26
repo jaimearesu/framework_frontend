@@ -146,6 +146,11 @@ describe('Seiten', () => {
         assert.match(html, /noindex/);
     });
 
+    // Plan "F", F-1b: daran erkennt das Backend, dass ein Screenshot keine Website zeigt
+    test('neutrale Seite trägt ihre Art als Erkennungszeichen', () => {
+        assert.match(neutralPage('loginFailed'), /<meta name="at0mic-seite" content="loginFailed">/);
+    });
+
     test('Markdown-Rahmen: Titel maskiert, style.css nur wenn vorhanden', () => {
         assert.match(markdownPage('<h1>x</h1>', { title: '<b>', hasStyle: true }), /<title>&lt;b&gt;<\/title>/);
         assert.match(markdownPage('', { title: 't', hasStyle: true }), /href="\/style.css"/);
