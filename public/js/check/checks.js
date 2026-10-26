@@ -2031,6 +2031,26 @@ return { uuid: kopie.uuid, left: austritt.left };`
             return `${shot.width}×${shot.height} ${shot.mimeType}, ${shot.consoleErrors.length} Konsolen-Meldung(en)`;
         }
     },
+    // Plan "F", F-4c: Browser-Test mit mehreren Schritten (test_site). Prüft nur die Ablehnungen –
+    // ein echter Test kostet Browser-Zeit bei Cloudflare (den macht ein Agent auf dem Server).
+    {
+        id: 'site-test-steps',
+        group: 'Website',
+        title: 'Browser-Test (test_site): ungültige Schritte und Gäste abgelehnt',
+        needs: ['domainName'],
+        run: async ctx => {
+            const url = `/api/sites/${ctx.domainName}/test`;
+            const zwei = await api.post(url, { steps: [{ klick: '#a', tippen: '#b' }] });
+            if (zwei.status === 403) return 'als Gast abgelehnt (403) – richtig; Schritte nur mit Login prüfbar';
+            expectStatus(zwei, 400, 'zwei Aktionen in einem Schritt');
+            expect(/genau EINE Aktion/.test(zwei.error || ''), 'Meldung unklar', zwei);
+            const taste = await api.post(url, { steps: [{ taste: 'F13' }] });
+            expectStatus(taste, 400, 'unbekannte Taste');
+            const fremd = await api.post(url, { steps: [{ oeffnen: 'https://böse.example' }] });
+            expectStatus(fremd, 400, 'fremde Adresse bei oeffnen');
+            return 'zwei Aktionen, unbekannte Taste, fremde Adresse: abgelehnt (400)';
+        }
+    },
     // Plan "Geo-Monitor", G4: Unterseite fotografieren – nur Pfade dieser Website.
     // Prüft nur die Ablehnungen (kostet keinen Screenshot bei Cloudflare).
     {
