@@ -2288,6 +2288,72 @@ const renderCustomDomainCard = async (box, o) => {
 };
 
 // ------------------------------------------------------------------
+// KARTE "CODE-BAUM" (Plan "F", F-2d, Entscheidungen O1, D3, D4)
+// at0mic speichert Code als Text. Den Syntax-Baum (AST) kann eine Website
+// zusätzlich speichern – er braucht Platz und ist die Grundlage für spätere
+// Extras (z.B. eine Variable über viele Objekte finden). Umschalten darf nur
+// ein Mensch mit blue; die KI sieht nur, ob er an ist.
+// ------------------------------------------------------------------
+const renderCodeTreeCard = async (box, o) => {
+    const body = h('div');
+    const load = async () => {
+        mount(body, spinner('Lade Code-Baum …'));
+        const res = await api.get(`/api/objects/${o.uuid}/code-tree`);
+        if (!res.ok) {
+            return mount(
+                body,
+                res.status === 403 || res.status === 404
+                    ? h('p', { class: 'small muted' }, 'Den Code-Baum sehen nur Menschen mit blue auf dieser Website.')
+                    : resultLine(res)
+            );
+        }
+        const { on, treeBytes, textBytes } = res.data.data;
+        const toggle = async () => {
+            const r = await api.put(`/api/objects/${o.uuid}/code-tree`, { on: !on });
+            if (!r.ok) return toast(r.error, 'error', 6000);
+            const d = r.data.data;
+            toast(
+                d.on
+                    ? `Code-Baum an – ${d.built} Bäume für den neuesten Stand gebaut.`
+                    : `Code-Baum aus – ${d.dropped} Bäume gelöscht, der Code bleibt.`,
+                'ok'
+            );
+            return load();
+        };
+        mount(
+            body,
+            infoList([
+                ['Status', on ? badge('an', 'ok') : badge('aus', 'neutral')],
+                ['Code (Text)', formatBytes(textBytes)],
+                ['Bäume', formatBytes(treeBytes)]
+            ]),
+            h(
+                'div',
+                { class: 'row gap-s wrap' },
+                busyButton(on ? 'Code-Baum ausschalten' : 'Code-Baum einschalten', toggle, {
+                    className: on ? 'btn' : 'btn primary',
+                    iconName: 'layers'
+                })
+            )
+        );
+        return null;
+    };
+    mount(
+        box,
+        card(
+            { title: 'Code-Baum', icon: 'layers' },
+            h(
+                'p',
+                { class: 'small muted' },
+                'at0mic speichert deinen Code genau so, wie er kommt. Auf Wunsch zusätzlich als Syntax-Baum – das braucht mehr Platz und ist die Grundlage für spätere Extras (z.B. eine Variable über viele Objekte finden). Einschalten baut die Bäume für den neuesten Stand; ausschalten löscht sie, der Code bleibt. Umschalten können nur Menschen mit blue (nie eine KI).'
+            ),
+            body
+        )
+    );
+    await load();
+};
+
+// ------------------------------------------------------------------
 // KARTE "SCREENSHOT" (Plan "Screenshots in der Vorschau", S3)
 // Cloudflare öffnet die Vorschau (mit DEINEN Rechten zusammengesetzt) in einem
 // echten Browser: Bild + Fehler aus der Browser-Konsole. Live-Daten aus SSFs
@@ -2479,6 +2545,9 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
     // Eigene Domain (Plan "SSF-Ausbau", D3): eigene Karte unter der Website-Karte
     const domainBox = h('div');
     renderCustomDomainCard(domainBox, o);
+    // Code-Baum (Plan "F", F-2d)
+    const treeBox = h('div');
+    renderCodeTreeCard(treeBox, o);
     // Screenshot (Plan "Screenshots in der Vorschau", S3)
     const screenshotBox = h('div');
     renderScreenshotCard(screenshotBox, status.name);
@@ -2571,7 +2640,8 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
             )
         ),
         screenshotBox,
-        domainBox
+        domainBox,
+        treeBox
     );
 };
 
