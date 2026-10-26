@@ -393,6 +393,41 @@ export const CHECKS = [
             return `${received.chars} Zeichen, Prüfwert stimmt`;
         }
     },
+    // Plan "F", F-2a: Text-Arten speichert at0mic GENAU so, wie sie kommen (kein Umformatieren mehr)
+    {
+        id: 'code-exact-text',
+        group: 'Code',
+        title: 'Code kommt genau so zurück, wie er gespeichert wurde',
+        needs: ['root'],
+        run: async ctx => {
+            const css = 'h1{color:red}\n\n.a  >  .b { margin:0 }';
+            const s = await api.post(`/api/ast/${ctx.root}`, { snippets: [{ type: 'css', code: css }] });
+            expectStatus(s, 201, 'Code speichern');
+            expect(s.data.formatted?.[0]?.reformatted === false, 'at0mic hat umformatiert', s);
+            const r = await api.get(`/api/ast/${ctx.root}`);
+            expectStatus(r, 200, 'Code lesen');
+            expect(r.data.data.css === css, 'Gelesener Text weicht ab', r);
+            return 'CSS unverändert gespeichert und gelesen';
+        }
+    },
+    // Plan "F", F-2d: Baum-Schalter der Website (nur Menschen mit blue)
+    {
+        id: 'code-tree-switch',
+        group: 'Code',
+        title: 'Code-Baum ein- und ausschalten (Text bleibt)',
+        needs: ['root'],
+        run: async ctx => {
+            const an = await api.put(`/api/objects/${ctx.root}/code-tree`, { on: true });
+            expectStatus(an, 200, 'Einschalten');
+            expect(an.data.data.on === true && an.data.data.treeBytes > 0, 'Keine Bäume gebaut', an);
+            const aus = await api.put(`/api/objects/${ctx.root}/code-tree`, { on: false });
+            expectStatus(aus, 200, 'Ausschalten');
+            expect(aus.data.data.treeBytes === 0, 'Bäume nicht gelöscht', aus);
+            const r = await api.get(`/api/ast/${ctx.root}`);
+            expect(typeof r.data.data.css === 'string', 'Code fehlt nach dem Ausschalten', r);
+            return `an: ${an.data.data.built} Bäume gebaut, aus: ${aus.data.data.dropped} gelöscht, Code da`;
+        }
+    },
     {
         id: 'code-syntax-error',
         group: 'Code',

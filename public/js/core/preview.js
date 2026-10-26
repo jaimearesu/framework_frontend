@@ -7,10 +7,11 @@
 //   - Objekte     -> Reiter "Vorschau" (das Objekt MIT seinen Kindern)
 //
 // Wichtige Punkte:
-//   1. Das Backend gibt HTML immer als ganzes Dokument zurück
-//      ("<html><head></head><body>…</body></html>"), weil es beim
-//      Speichern in einen Baum (AST) umgewandelt wird. Wir holen darum
-//      nur den Inhalt von <body> (und <head>) heraus.
+//   1. HTML kann ein ganzes Dokument sein ("<html><head></head><body>…
+//      </body></html>" – so speicherte das Backend bis Plan "F", F-2a)
+//      oder genau der Text, den jemand geschickt hat (seit F-2a). Bei
+//      einem ganzen Dokument holen wir nur den Inhalt von <body> (und
+//      <head>) heraus, sonst nehmen wir den Text, wie er ist.
 //   2. Die Seite läuft in einem abgeschotteten Rahmen (iframe sandbox):
 //      Scripts laufen, kommen aber nicht an das Cockpit, deine Cookies
 //      oder das Backend heran. Anfragen ans Backend (fetch) scheitern
