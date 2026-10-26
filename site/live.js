@@ -30,7 +30,8 @@
 //   { "typ": "anwesend", "pfad", "kanal", "liste" }      wer schon da ist (nach dem ersten "da")
 //   { "typ": "join" | "update" | "leave", "pfad", "kanal", "von", "zustand" }
 //   { "typ": "abo-ok", "pfad", "kanal" }                 zuhören klappt
-//   { "typ": "abo-fehler", "pfad", "kanal", "fehler" }   darfst du nicht / gibt es nicht
+//   { "typ": "abo-fehler", "pfad", "kanal", "fehler", "code" }   darfst du nicht / gibt es nicht
+//        code (F-3e): KEIN_ZUGRIFF | TICKET | ZU_VIELE_ABOS | NICHT_ERREICHBAR | FORMAT
 //   { "typ": "nachricht", "pfad", "kanal", "daten" }     eine Nachricht der SSF
 //   { "typ": "wieder-da" }                               die interne Leitung war kurz weg –
 //                                                        Verpasstes über die SSF nachholen
@@ -271,6 +272,7 @@ const createLive = ({
         if (conn.subs.size + conn.pending.size >= limits.maxSubscriptions) {
             return send(conn, {
                 typ: 'abo-fehler',
+                code: 'ZU_VIELE_ABOS',
                 pfad,
                 kanal,
                 fehler: `Höchstens ${limits.maxSubscriptions} Kanäle pro Verbindung.`
@@ -284,7 +286,7 @@ const createLive = ({
         if (!answer.data) {
             const fehler =
                 answer.status === 429 ? 'Gerade zu viele Anfragen – bitte gleich nochmal.' : 'Gerade nicht erreichbar.';
-            return send(conn, { typ: 'abo-fehler', pfad, kanal, fehler });
+            return send(conn, { typ: 'abo-fehler', code: 'NICHT_ERREICHBAR', pfad, kanal, fehler });
         }
 
         // Konto-Grenze (L4): beim ersten Abo zählt die Verbindung zum Konto der Website
@@ -306,7 +308,13 @@ const createLive = ({
         const uuid = answer.data.erlaubt[pfad];
         if (typeof uuid !== 'string' || !UUID.test(uuid)) {
             // "gibt es nicht" und "darfst du nicht" sehen gleich aus
-            return send(conn, { typ: 'abo-fehler', pfad, kanal, fehler: 'Kein Zugriff oder nicht gefunden.' });
+            return send(conn, {
+                typ: 'abo-fehler',
+                code: 'KEIN_ZUGRIFF',
+                pfad,
+                kanal,
+                fehler: 'Kein Zugriff oder nicht gefunden.'
+            });
         }
         // Plan "F", F-3b: Regel aus der DNA (vom Backend mitgeschickt) und angemeldet ja/nein
         conn.angemeldet = answer.data.angemeldet === true;
@@ -314,6 +322,7 @@ const createLive = ({
         if (rule && rule.ticket && !verifyTicket({ ticket, objectUuid: uuid, kanal, baseKey: key })) {
             return send(conn, {
                 typ: 'abo-fehler',
+                code: 'TICKET',
                 pfad,
                 kanal,
                 fehler: 'Für diesen Raum braucht es ein Ticket der Website (fehlt, falsch oder abgelaufen).'
@@ -395,7 +404,13 @@ const createLive = ({
             typeof kanal !== 'string' ||
             !KANAL.test(kanal)
         ) {
-            return send(conn, { typ: 'abo-fehler', pfad: null, kanal: null, fehler: 'pfad oder kanal ungültig.' });
+            return send(conn, {
+                typ: 'abo-fehler',
+                code: 'FORMAT',
+                pfad: null,
+                kanal: null,
+                fehler: 'pfad oder kanal ungültig.'
+            });
         }
         if (msg.typ === 'ende') {
             removeListener(conn, `${pfad}|${kanal}`);
@@ -754,9 +769,12 @@ const createLive = ({
                     removeListener(conn, subKey);
                     send(conn, {
                         typ: 'abo-fehler',
+                        code: ticketOk ? 'KEIN_ZUGRIFF' : 'TICKET',
                         pfad: sub.pfad,
                         kanal: sub.kanal,
-                        fehler: 'Kein Zugriff oder nicht gefunden.'
+                        fehler: ticketOk
+                            ? 'Kein Zugriff oder nicht gefunden.'
+                            : 'Das Ticket für diesen Raum ist abgelaufen.'
                     });
                 }
             }
