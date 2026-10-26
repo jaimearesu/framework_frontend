@@ -95,6 +95,23 @@ describe('preview: buildPreviewDocument', () => {
     test('meldet Fehler ans Cockpit (Fehler-Melder ist eingebaut)', () => {
         assert.match(doc, /at0micPreview/);
     });
+    // Plan "F", F-6: wie im Backend – kopf = im <head>, modul = type="module"
+    test('JS mit { kopf, modul }: früh im Kopf bzw. als Modul', () => {
+        const d = buildPreviewDocument({
+            html: '<p>x</p>',
+            js: [
+                { code: 'window.farbe = 1;', kopf: true },
+                { code: 'export const a = 1;', modul: true },
+                'normal()',
+                { code: ' ' }
+            ]
+        });
+        const head = d.slice(0, d.indexOf('</head>'));
+        assert.match(head, /<script>window\.farbe = 1;<\/script>/);
+        assert.doesNotMatch(head, /export const a|normal\(\)/);
+        assert.match(d, /<script type="module">export const a = 1;<\/script>/);
+        assert.match(d, /<script>normal\(\)<\/script>\n<\/body>/);
+    });
 });
 
 // Gleiche Regel wie das Backend (Finale 12.10.): lang übernehmen, nichts doppelt

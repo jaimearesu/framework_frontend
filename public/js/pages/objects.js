@@ -273,6 +273,54 @@ const renderForest = (box, objects, selectedUuid, filterText, { sort = 'neu', fi
 // RECHTS: DETAILS
 // ==================================================================
 
+// --- Notiz pro Objekt (Plan "F", F-6) ---
+// "Was macht das, wer nutzt es?" – lesen mit black, ändern mit red (PUT /api/objects/:uuid/note).
+// Text nur über textContent (h), nie innerHTML: die Notiz kann auch von einer KI stammen.
+const NOTE_MAX = 2000;
+const noteEditor = o => {
+    const box = h('div', { class: 'note-box' });
+    const show = note => {
+        mount(
+            box,
+            note
+                ? h('p', { class: 'note-text', style: 'white-space: pre-wrap; margin: 0 0 .4rem' }, note)
+                : h('span', { class: 'muted small' }, 'Keine Notiz. '),
+            h(
+                'button',
+                { class: 'btn small', type: 'button', onclick: () => edit(note) },
+                note ? 'Notiz bearbeiten' : 'Notiz schreiben'
+            )
+        );
+    };
+    const edit = note => {
+        const area = h('textarea', { rows: 4, maxlength: NOTE_MAX, style: 'width: 100%' });
+        area.value = note || '';
+        mount(
+            box,
+            area,
+            h(
+                'div',
+                { class: 'muted small' },
+                `Max. ${NOTE_MAX} Zeichen. Leer = Notiz löschen. Wer das Objekt lesen darf, sieht sie.`
+            ),
+            busyButton(
+                'Speichern',
+                async () => {
+                    const r = await api.put(`/api/objects/${o.uuid}/note`, { note: area.value });
+                    if (!r.ok) return toast(r.error || 'Notiz nicht gespeichert', 'error');
+                    o.note = r.data?.data?.note ?? null;
+                    toast('Notiz gespeichert', 'ok');
+                    show(o.note);
+                },
+                { className: 'btn primary small' }
+            ),
+            h('button', { class: 'btn ghost small', type: 'button', onclick: () => show(note) }, 'Abbrechen')
+        );
+    };
+    show(o.note || null);
+    return box;
+};
+
 // --- Reiter "Übersicht" ---
 const renderInfoTab = async (box, o, objects) => {
     const parent = findParent(objects, o);
@@ -284,6 +332,7 @@ const renderInfoTab = async (box, o, objects) => {
         box,
         infoList([
             ['UUID', h('span', { class: 'id-line' }, h('code', {}, o.uuid), copyButton(o.uuid, 'UUID kopieren'))],
+            ['Notiz', noteEditor(o)],
             isRoot(o) ? ['Domain', h('strong', {}, o.domain)] : ['Gehört zu (domain_ref)', o.domain_ref],
             ['Pfad', h('code', {}, JSON.stringify(o.path || []))],
             [
@@ -416,7 +465,9 @@ const composeObject = async (rootObject, objects) => {
         }
         const parts = [];
         const css = [code.css || ''];
-        const js = [code.javascript || ''];
+        // Plan "F", F-6: "js" aus der DNA (kopf/modul) wie auf der Website
+        const jsOptions = node?.js && typeof node.js === 'object' ? node.js : {};
+        const js = [{ code: code.javascript || '', kopf: jsOptions.kopf === true, modul: jsOptions.modul === true }];
         for (const child of Array.isArray(node?.children) ? node.children : []) {
             const childObj = find(child.domain, child.source);
             if (!childObj) {
