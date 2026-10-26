@@ -34,6 +34,8 @@ const backend = {
     erlaubt: { api: API_UUID }, // was der Zutritt erlaubt
     maxVerbindungen: 100,
     tokenInvalid: false,
+    regeln: {}, // F-3b: Live-Regeln pro Pfad (wie aus der DNA)
+    angemeldet: false,
     streams: [] // offene interne Leitungen (Controller zum Hineinschreiben)
 };
 const resetBackend = () => {
@@ -41,6 +43,8 @@ const resetBackend = () => {
     backend.erlaubt = { api: API_UUID };
     backend.maxVerbindungen = 100;
     backend.tokenInvalid = false;
+    backend.regeln = {};
+    backend.angemeldet = false;
 };
 const pushLine = obj => {
     const line = new TextEncoder().encode(`${JSON.stringify(obj)}\n`);
@@ -88,6 +92,8 @@ const fakeFetch = async (url, init = {}) => {
                 success: true,
                 data: {
                     erlaubt,
+                    regeln: Object.fromEntries(pfade.map(p => [p, backend.regeln[p] || null])),
+                    angemeldet: backend.angemeldet,
                     konto: `konto-${m[1] === 'zwei' ? 'b' : 'a'}`,
                     maxVerbindungen: backend.maxVerbindungen
                 }
@@ -168,7 +174,9 @@ describe('Teil 1: die WebSocket-Tür', () => {
         const ok = await connect();
         assert.equal(ok.status, null);
         await until(() => ok.messages.length > 0);
-        assert.deepEqual(ok.messages[0], { typ: 'hallo' });
+        // F-3b: mit eigener Verbindungs-ID (zufällig, 12 Zeichen)
+        assert.equal(ok.messages[0].typ, 'hallo');
+        assert.match(ok.messages[0].id, /^[A-Za-z0-9_-]{12}$/);
         ok.ws.close();
 
         const foreign = await connect('shop', { origin: 'http://andere.site.localhost:1' });
@@ -296,6 +304,218 @@ describe('Teil 1: die WebSocket-Tür', () => {
         pushLine({ t: 'n', o: API_UUID, k: 'chat', d: 'nach dem Abbruch' });
         assert.ok(await until(() => lastOf(c, 'nachricht')));
         c.ws.close();
+    });
+});
+
+// ---------------------------------------------------------------------
+// Plan "F", F-3b: flüchtig senden, Presence, Räume mit Ticket, ausser
+// ---------------------------------------------------------------------
+const crypto = require('crypto');
+const { verifyTicket } = require('../site/liveTicket.js');
+// Ein Ticket so ausstellen, wie es das Backend tut (framework/src/services/liveTicket.js)
+const makeTicket = (objectUuid, kanal, seconds = 600) => {
+    const key = crypto.createHash('sha256').update(`at0mic-live-ticket\n${KEY}`).digest();
+    const payload = Buffer.from(
+        JSON.stringify({ o: objectUuid, k: kanal, e: Math.floor(Date.now() / 1000) + seconds })
+    ).toString('base64url');
+    const sig = crypto.createHmac('sha256', key).update(`lt1.${payload}`).digest('base64url');
+    return `lt1.${payload}.${sig}`;
+};
+const rule = (extra = {}) => ({
+    browser: false,
+    proSekunde: 10,
+    maxBytes: 512,
+    wer: 'alle',
+    presence: false,
+    ticket: false,
+    ...extra
+});
+const msgs = (client, typ) => client.messages.filter(m => m.typ === typ);
+const idOf = client => client.messages.find(m => m.typ === 'hallo').id;
+const sendJson = (client, obj) => client.ws.send(JSON.stringify(obj));
+const hallo = async client => {
+    await until(() => client.messages.some(m => m.typ === 'hallo'));
+    return client;
+};
+
+describe('Teil 5: flüchtig, Presence, Räume (Plan "F", F-3b)', () => {
+    before(() => startLive());
+    after(() => stopLive());
+    beforeEach(resetBackend);
+
+    test('Ticket-Regel wie im Backend: festes Ticket aus dem Backend wird erkannt', () => {
+        // erzeugt mit framework/src/services/liveTicket.js signTicket (Schlüssel 'k' x 40, 1.1.2026 + 1 h)
+        const ticket =
+            'lt1.eyJvIjoiMTExMTExMTEtMTExMS00MTExLTgxMTEtMTExMTExMTExMTExIiwiayI6ImJvYXJkLTEiLCJlIjoxNzY3MjI5MjAwfQ.0PxMU9VjS0bVjjEc-MUDs-zD4kjg0tYYQBhjKIemKOs';
+        const now = Date.UTC(2026, 0, 1);
+        const args = { ticket, objectUuid: API_UUID, kanal: 'board-1', baseKey: KEY };
+        assert.equal(verifyTicket({ ...args, now }), true);
+        assert.equal(verifyTicket({ ...args, now: now + 3601 * 1000 }), false, 'abgelaufen');
+        assert.equal(verifyTicket({ ...args, kanal: 'board-2', now }), false);
+    });
+
+    test('ohne Regel: Browser darf nicht senden (E1); nicht abonniert: auch nicht (E2)', async () => {
+        const a = await hallo(await connect());
+        sendJson(a, { typ: 'senden', pfad: 'api', kanal: 'chat', daten: { x: 1 } });
+        await until(() => msgs(a, 'fehler').length > 0);
+        assert.equal(msgs(a, 'fehler')[0].code, 'NICHT_ABONNIERT');
+        await abo(a);
+        sendJson(a, { typ: 'senden', pfad: 'api', kanal: 'chat', daten: { x: 1 } });
+        await until(() => msgs(a, 'fehler').length > 1);
+        assert.equal(msgs(a, 'fehler')[1].code, 'NICHT_ERLAUBT');
+        a.ws.close();
+    });
+
+    test('mit Regel: an alle anderen, mit "von" vom Bauarbeiter, ohne Echo; Felder und Grösse geprüft', async () => {
+        backend.regeln = { api: { kanaele: { cursor: rule({ browser: true, felder: ['x', 'y'], maxBytes: 64 }) } } };
+        const a = await hallo(await connect());
+        const b = await hallo(await connect());
+        await abo(a, 'api', 'cursor');
+        await abo(b, 'api', 'cursor');
+        sendJson(a, { typ: 'senden', pfad: 'api', kanal: 'cursor', daten: { x: 10, y: 20 }, von: 'gefaelscht' });
+        assert.ok(await until(() => msgs(b, 'nachricht').length === 1));
+        assert.deepEqual(msgs(b, 'nachricht')[0], {
+            typ: 'nachricht',
+            pfad: 'api',
+            kanal: 'cursor',
+            daten: { x: 10, y: 20 },
+            von: idOf(a),
+            fluechtig: true
+        });
+        await wait(50);
+        assert.equal(msgs(a, 'nachricht').length, 0, 'kein Echo');
+
+        sendJson(a, { typ: 'senden', pfad: 'api', kanal: 'cursor', daten: { x: 1, farbe: 'rot' } });
+        sendJson(a, { typ: 'senden', pfad: 'api', kanal: 'cursor', daten: { x: 'x'.repeat(100) } });
+        sendJson(a, { typ: 'senden', pfad: 'api', kanal: 'cursor', daten: [1, 2] });
+        await until(() => msgs(a, 'fehler').length >= 3);
+        assert.deepEqual(
+            msgs(a, 'fehler').map(m => m.code),
+            ['FELDER', 'ZU_GROSS', 'FORMAT']
+        );
+        assert.equal(msgs(b, 'nachricht').length, 1, 'nichts davon kam an');
+        a.ws.close();
+        b.ws.close();
+    });
+
+    test('Takt pro Kanal: zu viel wird verworfen (ein Hinweis); wer: angemeldet', async () => {
+        backend.regeln = {
+            api: {
+                kanaele: {
+                    cursor: rule({ browser: true, proSekunde: 3 }),
+                    intern: rule({ browser: true, wer: 'angemeldet' })
+                }
+            }
+        };
+        const a = await hallo(await connect());
+        const b = await hallo(await connect());
+        await abo(a, 'api', 'cursor');
+        await abo(b, 'api', 'cursor');
+        for (let i = 0; i < 10; i++) sendJson(a, { typ: 'senden', pfad: 'api', kanal: 'cursor', daten: { i } });
+        await until(() => msgs(b, 'nachricht').length >= 3);
+        await wait(80);
+        assert.equal(msgs(b, 'nachricht').length, 3);
+        assert.equal(msgs(a, 'fehler').filter(m => m.code === 'TAKT').length, 1);
+
+        sendJson(a, { typ: 'abo', pfad: 'api', kanal: 'intern' });
+        await until(() => a.messages.some(m => m.typ === 'abo-ok' && m.kanal === 'intern'));
+        sendJson(a, { typ: 'senden', pfad: 'api', kanal: 'intern', daten: { x: 1 } });
+        await until(() => msgs(a, 'fehler').some(m => m.code === 'NICHT_ERLAUBT'));
+        assert.match(msgs(a, 'fehler').find(m => m.code === 'NICHT_ERLAUBT').fehler, /angemeldet/);
+        a.ws.close();
+        b.ws.close();
+    });
+
+    test('mehr als 60 flüchtige Nachrichten pro Sekunde -> trennen (4408)', async () => {
+        backend.regeln = { api: { kanaele: { cursor: rule({ browser: true, proSekunde: 30 }) } } };
+        const a = await hallo(await connect());
+        await abo(a, 'api', 'cursor');
+        for (let i = 0; i < 70; i++) sendJson(a, { typ: 'senden', pfad: 'api', kanal: 'cursor', daten: { i } });
+        assert.ok(await until(() => a.closed));
+        assert.equal(a.closed.code, CLOSE.ZU_VIEL);
+    });
+
+    test('Presence: Liste für Neue, join/update für andere, leave beim Schliessen', async () => {
+        backend.regeln = { api: { kanaele: { 'raum-*': rule({ presence: true }) } } };
+        const a = await hallo(await connect());
+        const b = await hallo(await connect());
+        await abo(a, 'api', 'raum-1');
+        sendJson(a, { typ: 'da', pfad: 'api', kanal: 'raum-1', zustand: { name: 'Anna' } });
+        assert.ok(await until(() => msgs(a, 'anwesend').length === 1));
+        assert.deepEqual(msgs(a, 'anwesend')[0].liste, []);
+
+        await abo(b, 'api', 'raum-1');
+        sendJson(b, { typ: 'da', pfad: 'api', kanal: 'raum-1', zustand: { name: 'Beat' } });
+        assert.ok(await until(() => msgs(b, 'anwesend').length === 1));
+        assert.deepEqual(msgs(b, 'anwesend')[0].liste, [{ von: idOf(a), zustand: { name: 'Anna' } }]);
+        assert.ok(await until(() => msgs(a, 'join').length === 1));
+        assert.equal(msgs(a, 'join')[0].von, idOf(b));
+
+        sendJson(a, { typ: 'da', pfad: 'api', kanal: 'raum-1', zustand: { name: 'Anna', tippt: true } });
+        assert.ok(await until(() => msgs(b, 'update').length === 1));
+        assert.deepEqual(msgs(b, 'update')[0].zustand, { name: 'Anna', tippt: true });
+
+        sendJson(a, { typ: 'da', pfad: 'api', kanal: 'raum-1', zustand: { x: 'x'.repeat(600) } });
+        await until(() => msgs(a, 'fehler').some(m => m.code === 'ZU_GROSS'));
+
+        b.ws.close();
+        assert.ok(await until(() => msgs(a, 'leave').length === 1), 'Leitung weg -> leave');
+        assert.equal(msgs(a, 'leave')[0].von, idOf(b));
+        a.ws.close();
+    });
+
+    test('Presence ohne Regel: abgelehnt', async () => {
+        const a = await hallo(await connect());
+        await abo(a, 'api', 'chat');
+        sendJson(a, { typ: 'da', pfad: 'api', kanal: 'chat', zustand: {} });
+        await until(() => msgs(a, 'fehler').length > 0);
+        assert.equal(msgs(a, 'fehler')[0].code, 'NICHT_ERLAUBT');
+        a.ws.close();
+    });
+
+    test('Raum mit Ticket: ohne/mit falschem Ticket abo-fehler, mit gültigem abo-ok', async () => {
+        backend.regeln = { api: { kanaele: { 'board-*': rule({ ticket: true }) } } };
+        const a = await hallo(await connect());
+        assert.equal((await abo(a, 'api', 'board-1')).typ, 'abo-fehler');
+        const b = await hallo(await connect());
+        b.ws.send(
+            JSON.stringify({ typ: 'abo', pfad: 'api', kanal: 'board-1', ticket: makeTicket(API_UUID, 'board-2') })
+        );
+        await until(() => b.messages.some(m => m.typ === 'abo-fehler' || m.typ === 'abo-ok'));
+        assert.ok(msgs(b, 'abo-fehler').length === 1, 'Ticket für einen anderen Raum');
+        const c = await hallo(await connect());
+        c.ws.send(
+            JSON.stringify({ typ: 'abo', pfad: 'api', kanal: 'board-1', ticket: makeTicket(API_UUID, 'board-1') })
+        );
+        assert.ok(await until(() => msgs(c, 'abo-ok').length === 1));
+        a.ws.close();
+        b.ws.close();
+        c.ws.close();
+    });
+
+    test('ausser: die Nachricht der SSF geht an alle ausser an diese Verbindung', async () => {
+        const a = await hallo(await connect());
+        const b = await hallo(await connect());
+        await abo(a);
+        await abo(b);
+        pushLine({ t: 'n', o: API_UUID, k: 'chat', d: { text: 'hi' }, a: idOf(a) });
+        assert.ok(await until(() => msgs(b, 'nachricht').length === 1));
+        await wait(50);
+        assert.equal(msgs(a, 'nachricht').length, 0);
+        a.ws.close();
+        b.ws.close();
+    });
+
+    test('Neu prüfen: Regel entfernt -> Senden nicht mehr erlaubt', async () => {
+        backend.regeln = { api: { kanaele: { cursor: rule({ browser: true }) } } };
+        const a = await hallo(await connect());
+        await abo(a, 'api', 'cursor');
+        backend.regeln = {};
+        await live.recheckAll();
+        sendJson(a, { typ: 'senden', pfad: 'api', kanal: 'cursor', daten: { x: 1 } });
+        await until(() => msgs(a, 'fehler').length > 0);
+        assert.equal(msgs(a, 'fehler')[0].code, 'NICHT_ERLAUBT');
+        a.ws.close();
     });
 });
 
@@ -432,6 +652,109 @@ describe('Teil 2: at0mic.live im Browser', () => {
         assert.deepEqual(sockets[0].sent.at(-1), { typ: 'ende', pfad: 'api', kanal: 'chat' });
         assert.equal(sockets[0].readyState, 3);
         assert.throws(() => window.at0mic.live.listen('api'), /listen\(pfad, kanal, funktion\)/);
+    });
+
+    // Plan "F", F-3c
+    test('id aus "hallo"; publish nur nach listen und erst, wenn das Abo steht; Ticket geht mit', () => {
+        const { window, sockets } = makeBrowser();
+        const live = window.at0mic.live;
+        assert.throws(() => live.publish('api', 'cursor', { x: 1 }), /zuerst at0mic\.live\.listen/);
+        const got = [];
+        live.listen('api', 'cursor', (daten, info) => got.push({ daten, info }), { ticket: 'lt1.a.b' });
+        sockets[0].open();
+        assert.deepEqual(sockets[0].sent, [{ typ: 'abo', pfad: 'api', kanal: 'cursor', ticket: 'lt1.a.b' }]);
+        sockets[0].receive({ typ: 'hallo', id: 'abcdefghijkl' });
+        assert.equal(live.id, 'abcdefghijkl');
+        assert.equal(live.publish('api', 'cursor', { x: 1 }), false, 'Abo steht noch nicht');
+        sockets[0].receive({ typ: 'abo-ok', pfad: 'api', kanal: 'cursor' });
+        assert.equal(live.publish('api', 'cursor', { x: 1 }), true);
+        assert.deepEqual(sockets[0].sent.at(-1), { typ: 'senden', pfad: 'api', kanal: 'cursor', daten: { x: 1 } });
+
+        sockets[0].receive({
+            typ: 'nachricht',
+            pfad: 'api',
+            kanal: 'cursor',
+            daten: { x: 5 },
+            von: 'zzz',
+            fluechtig: true
+        });
+        sockets[0].receive({ typ: 'nachricht', pfad: 'api', kanal: 'cursor', daten: { ssf: true } });
+        assert.deepEqual(JSON.parse(JSON.stringify(got)), [
+            { daten: { x: 5 }, info: { von: 'zzz', fluechtig: true } },
+            { daten: { ssf: true }, info: {} }
+        ]);
+    });
+
+    test('presence: "da" nach dem Abo, Liste wird geführt, update, stopp -> weg + ende', () => {
+        const { window, sockets } = makeBrowser();
+        const listen = [];
+        const joins = [];
+        const ich = window.at0mic.live.presence(
+            'api',
+            'raum-1',
+            { name: 'Anna' },
+            {
+                liste: alle => listen.push(JSON.parse(JSON.stringify(alle))),
+                join: e => joins.push(e.von)
+            }
+        );
+        sockets[0].open();
+        assert.deepEqual(sockets[0].sent, [{ typ: 'abo', pfad: 'api', kanal: 'raum-1' }]);
+        sockets[0].receive({ typ: 'abo-ok', pfad: 'api', kanal: 'raum-1' });
+        assert.deepEqual(sockets[0].sent.at(-1), {
+            typ: 'da',
+            pfad: 'api',
+            kanal: 'raum-1',
+            zustand: { name: 'Anna' }
+        });
+
+        sockets[0].receive({
+            typ: 'anwesend',
+            pfad: 'api',
+            kanal: 'raum-1',
+            liste: [{ von: 'b', zustand: { name: 'Beat' } }]
+        });
+        sockets[0].receive({ typ: 'join', pfad: 'api', kanal: 'raum-1', von: 'c', zustand: { name: 'Cleo' } });
+        sockets[0].receive({ typ: 'leave', pfad: 'api', kanal: 'raum-1', von: 'b' });
+        assert.deepEqual(listen, [
+            [{ von: 'b', zustand: { name: 'Beat' } }],
+            [
+                { von: 'b', zustand: { name: 'Beat' } },
+                { von: 'c', zustand: { name: 'Cleo' } }
+            ],
+            [{ von: 'c', zustand: { name: 'Cleo' } }]
+        ]);
+        assert.deepEqual(joins, ['c']);
+
+        ich.update({ name: 'Anna', tippt: true });
+        assert.deepEqual(sockets[0].sent.at(-1).zustand, { name: 'Anna', tippt: true });
+        ich.stopp();
+        assert.deepEqual(sockets[0].sent.slice(-2), [
+            { typ: 'weg', pfad: 'api', kanal: 'raum-1' },
+            { typ: 'ende', pfad: 'api', kanal: 'raum-1' }
+        ]);
+        assert.equal(sockets[0].readyState, 3, 'niemand hört mehr zu -> Verbindung zu');
+    });
+
+    test('presence nach einer Unterbrechung: Liste geleert, nach dem neuen Abo wieder "da"', () => {
+        const { window, sockets, timers } = makeBrowser();
+        const listen = [];
+        window.at0mic.live.presence('api', 'raum-1', { name: 'Anna' }, { liste: alle => listen.push(alle.length) });
+        sockets[0].open();
+        sockets[0].receive({ typ: 'abo-ok', pfad: 'api', kanal: 'raum-1' });
+        sockets[0].receive({ typ: 'anwesend', pfad: 'api', kanal: 'raum-1', liste: [{ von: 'b', zustand: {} }] });
+        sockets[0].close(1006);
+        assert.deepEqual(listen, [1, 0], 'nach dem Abbruch: leer');
+        timers[0].fn();
+        sockets[1].open();
+        assert.deepEqual(sockets[1].sent, [{ typ: 'abo', pfad: 'api', kanal: 'raum-1' }]);
+        sockets[1].receive({ typ: 'abo-ok', pfad: 'api', kanal: 'raum-1' });
+        assert.deepEqual(sockets[1].sent.at(-1), {
+            typ: 'da',
+            pfad: 'api',
+            kanal: 'raum-1',
+            zustand: { name: 'Anna' }
+        });
     });
 });
 
