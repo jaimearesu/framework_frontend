@@ -252,7 +252,9 @@ export const tidyWarnings = warnings => [...new Set(warnings)].slice(0, MAX_WARN
 //   html   – HTML (ganzes Dokument oder Stück)
 //   css    – eine oder mehrere CSS-Texte
 //   js     – ein oder mehrere JS-Texte (jeder in eigenem <script>,
-//            damit ein Fehler in einem die anderen nicht stoppt)
+//            damit ein Fehler in einem die anderen nicht stoppt); statt Text auch
+//            { code, kopf, modul } (Plan "F", F-6 – wie im Backend: kopf = im <head>,
+//            modul = type="module")
 //   body   – (freiwillig) der fertig zusammengesetzte Inhalt von <body>;
 //            dann ist html das HTML der WURZEL (für Kopf, <html> und <body>)
 //   childHeads – (freiwillig) [{ identifier, head }] der Kinder (Plan E1)
@@ -263,7 +265,11 @@ export const buildPreviewDocument = ({ html = '', css = [], js = [], body, child
     const content = body === undefined ? own.body : body;
     const tags = rootTags(html);
     const styles = [].concat(css).filter(s => s && s.trim());
-    const scripts = [].concat(js).filter(s => s && s.trim());
+    const scripts = []
+        .concat(js)
+        .map(s => (typeof s === 'string' ? { code: s } : s || {}))
+        .filter(s => typeof s.code === 'string' && s.code.trim());
+    const scriptTag = s => `<script${s.modul ? ' type="module"' : ''}>${safeScript(s.code)}<\/script>`;
     return [
         `<!doctype html>${tags.html}<head>`,
         ...missingHeadDefaults(head),
@@ -272,9 +278,16 @@ export const buildPreviewDocument = ({ html = '', css = [], js = [], body, child
         ERROR_BRIDGE,
         head,
         styles.map(s => `<style>${s.replace(/<\/style/gi, '<\\/style')}</style>`).join('\n'),
+        scripts
+            .filter(s => s.kopf)
+            .map(scriptTag)
+            .join('\n'),
         `</head>${tags.body}`,
         content || EMPTY_NOTE,
-        scripts.map(s => `<script>${safeScript(s)}<\/script>`).join('\n'),
+        scripts
+            .filter(s => !s.kopf)
+            .map(scriptTag)
+            .join('\n'),
         '</body></html>'
     ].join('\n');
 };

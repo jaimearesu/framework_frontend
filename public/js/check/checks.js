@@ -428,6 +428,41 @@ export const CHECKS = [
             return `an: ${an.data.data.built} Bäume gebaut, aus: ${aus.data.data.dropped} gelöscht, Code da`;
         }
     },
+    // Plan "F", F-6: JavaScript mit import/export lässt sich speichern (für <script type="module">)
+    {
+        id: 'code-js-module',
+        group: 'Code',
+        title: 'JavaScript-Modul (import/export) wird angenommen',
+        needs: ['root'],
+        run: async ctx => {
+            const code = "export const farbe = 'rot';\nconst d = await Promise.resolve(1);";
+            const s = await api.post(`/api/ast/${ctx.root}`, { snippets: [{ type: 'javascript', code }] });
+            expectStatus(s, 201, 'Modul speichern');
+            const plain = await api.post(`/api/ast/${ctx.root}`, {
+                snippets: [{ type: 'javascript', code: 'await x;' }]
+            });
+            expectStatus(plain, 422, 'await ganz oben ohne import/export');
+            return 'Modul gespeichert, await ohne Modul weiterhin abgelehnt';
+        }
+    },
+    // Plan "F", F-6: Notiz pro Objekt ("was macht das, wer nutzt es")
+    {
+        id: 'object-note',
+        group: 'Code',
+        title: 'Notiz pro Objekt setzen, lesen, löschen',
+        needs: ['root'],
+        run: async ctx => {
+            const set = await api.put(`/api/objects/${ctx.root}/note`, { note: 'Systemcheck: Testobjekt' });
+            expectStatus(set, 200, 'Notiz setzen');
+            const get = await api.get(`/api/objects/${ctx.root}/note`);
+            expect(get.data?.data?.note === 'Systemcheck: Testobjekt', 'Notiz nicht gelesen', get);
+            const lang = await api.put(`/api/objects/${ctx.root}/note`, { note: 'x'.repeat(2001) });
+            expectStatus(lang, 400, 'zu lange Notiz');
+            const del = await api.put(`/api/objects/${ctx.root}/note`, { note: '' });
+            expect(del.data?.data?.note === null, 'Notiz nicht gelöscht', del);
+            return 'gesetzt, gelesen, Grenze 2000, gelöscht';
+        }
+    },
     {
         id: 'code-syntax-error',
         group: 'Code',
@@ -1032,6 +1067,36 @@ export const CHECKS = [
             expectStatus(r, 200, 'Ausführen');
             expect(typeof r.data.result === 'string', 'Keine ID zurück', r);
             return 'Datensatz angelegt';
+        }
+    },
+    // Plan "F", F-5: Version + Konflikt, $set, updateMany/deleteMany, api.limits.remaining()
+    {
+        id: 'ssf-data-f5',
+        group: 'SSF',
+        title: 'Daten: ifVersion (CONFLICT), $set, updateMany, deleteMany, limits',
+        needs: ['funktion', 'daten'],
+        run: async ctx => {
+            const ziel = `${ctx.domainName}/daten`;
+            const r = await runSsf(
+                ctx,
+                `const neu = await api.data.insert('${ziel}', { sku: 'F5', f5: true, zellen: { a: 1 } });
+const v = (await api.data.get('${ziel}', neu._sys_id))._sys_version;
+const nach = await api.data.update('${ziel}', neu._sys_id, { $set: { 'zellen.b': 2, 'info.von': 'check' } }, { ifVersion: v });
+let konflikt = null;
+try { await api.data.update('${ziel}', neu._sys_id, { x: 1 }, { ifVersion: v }); } catch (e) { konflikt = e.code; }
+await api.data.insertMany('${ziel}', [{ sku: 'F5', f5: true }, { sku: 'F5', f5: true }]);
+const u = await api.data.updateMany('${ziel}', { f5: true }, { geprueft: true });
+const d = await api.data.deleteMany('${ziel}', { f5: true });
+return { v, v2: nach._sys_version, zellen: nach.zellen, info: nach.info, konflikt, u, d, rest: api.limits.remaining() };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const x = r.data.result;
+            expect(x.v === 1 && x.v2 === 2, `Versionen: ${x.v} -> ${x.v2}`, r);
+            expect(x.zellen.a === 1 && x.zellen.b === 2 && x.info.von === 'check', '$set falsch', r);
+            expect(x.konflikt === 'CONFLICT', `Kein CONFLICT: ${x.konflikt}`, r);
+            expect(x.u.geaendert === 3 && x.d.geloescht === 3, 'updateMany/deleteMany falsch', r);
+            expect(x.rest.aufrufe === 50 - 7 && typeof x.rest.schreiben === 'number', 'limits.remaining falsch', r);
+            return `CONFLICT erkannt, 3 geändert, 3 gelöscht, noch ${x.rest.aufrufe} Aufrufe`;
         }
     },
     {
