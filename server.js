@@ -35,20 +35,25 @@ app.set('trust proxy', Number.isInteger(hops) && hops >= 1 ? hops : 1);
 app.disable('x-powered-by');
 
 // 1. Kunden-Websites
-//    SITE_DOMAIN      Domain der Websites (Server: at0mic.site, lokal: site.localhost)
+//    SITE_DOMAIN      Domain(s) der Websites, Komma-getrennt. Die ERSTE ist die Hauptadresse,
+//                     die weiteren laufen weiter (Umbenennung 27.10.2026).
+//                     Server: vindelis.site,at0mic.site – lokal: site.localhost
 //    SITE_API_URL     Backend für die Baupläne (Standard: API_URL)
 //    BAUARBEITER_KEY  gleicher Wert wie in der .env des Backends
-const SITE_DOMAIN = process.env.SITE_DOMAIN || (isProduction ? 'at0mic.site' : 'site.localhost');
+const SITE_DOMAINS = (process.env.SITE_DOMAIN || (isProduction ? 'vindelis.site,at0mic.site' : 'site.localhost'))
+    .split(',')
+    .map(d => d.trim().toLowerCase())
+    .filter(Boolean);
 // Adresse einer Website fürs Cockpit (Reiter "Website"): auf dem Server https ohne Port,
-// lokal http mit dem Port dieses Servers
-const SITE_URL = isProduction ? `https://{name}.${SITE_DOMAIN}` : `http://{name}.${SITE_DOMAIN}:${PORT}`;
+// lokal http mit dem Port dieses Servers – immer mit der Hauptadresse
+const SITE_URL = isProduction ? `https://{name}.${SITE_DOMAINS[0]}` : `http://{name}.${SITE_DOMAINS[0]}:${PORT}`;
 if (!process.env.BAUARBEITER_KEY) {
     console.warn('[BAUARBEITER] Kein BAUARBEITER_KEY gesetzt – alle Besucher teilen sich eine Bremse im Backend.');
 }
 const bauarbeiter = createBauarbeiter({
     apiUrl: process.env.SITE_API_URL || process.env.API_URL || 'http://localhost:3000',
     key: process.env.BAUARBEITER_KEY || null,
-    siteDomain: SITE_DOMAIN,
+    siteDomain: SITE_DOMAINS,
     isProduction,
     // Login auf Websites: Hierhin schickt der Bauarbeiter den BROWSER des Besuchers
     // zum Anmelden – darum die öffentliche Adresse (API_URL), nicht SITE_API_URL
@@ -57,7 +62,7 @@ const bauarbeiter = createBauarbeiter({
     // Jeder andere fremde Name ist vielleicht die eigene Domain eines Kunden
     // (www.meinladen.ch) – der Bauarbeiter fragt das Backend. IP-Adressen und
     // localhost gehen immer ans Cockpit. In der .env änderbar (Komma-getrennt).
-    cockpitHosts: (process.env.COCKPIT_HOSTS || 'at0mic.ch,www.at0mic.ch')
+    cockpitHosts: (process.env.COCKPIT_HOSTS || 'vindelis.com,www.vindelis.com,at0mic.ch,www.at0mic.ch')
         .split(',')
         .map(h => h.trim().toLowerCase())
         .filter(Boolean)
@@ -105,7 +110,7 @@ const server = app.listen(PORT, () => {
     console.log(`[FRONTEND] Server läuft auf Port ${PORT}`);
     live.start();
 });
-// Ein Browser will eine WebSocket-Verbindung: nur /_at0mic/live auf einer Website
+// Ein Browser will eine WebSocket-Verbindung: nur /_at0mic/live (oder /_vindelis/live) auf einer Website
 server.on('upgrade', (req, socket, head) => {
     live.handleUpgrade(req, socket, head).catch(error => {
         console.error(`[LIVE] Fehler beim Verbinden: ${error.message}`);

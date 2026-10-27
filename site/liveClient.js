@@ -45,7 +45,9 @@
 /* eslint-env browser */
 function at0micLiveClient() {
     'use strict';
-    var root = (window.at0mic = window.at0mic || {});
+    // window.vindelis ist der neue Name (Umbenennung 27.10.2026) – beide zeigen auf dasselbe
+    var root = (window.at0mic = window.at0mic || window.vindelis || {});
+    window.vindelis = root;
     if (root.live) return; // schon geladen (Skript doppelt eingebunden)
 
     // "pfad|kanal" -> { pfad, kanal, handlers: [ { fn, options } ], ok, ticket, presence }

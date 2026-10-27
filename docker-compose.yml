@@ -15,8 +15,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      # Hört auf deine Hauptdomain (at0mic.ch oder www.at0mic.ch)
-      - "traefik.http.routers.atomic-frontend.rule=Host(`at0mic.ch`) || Host(`www.at0mic.ch`)"
+      # Hört auf deine Hauptdomain (vindelis.com, www.vindelis.com) und die alte (at0mic.ch)
+      - "traefik.http.routers.atomic-frontend.rule=Host(`vindelis.com`) || Host(`www.vindelis.com`) || Host(`at0mic.ch`) || Host(`www.at0mic.ch`)"
       - "traefik.http.routers.atomic-frontend.entrypoints=websecure"
       - "traefik.http.routers.atomic-frontend.tls.certresolver=letsencrypt"
       # Leitet an unseren Frontend-Express-Port weiter
@@ -33,6 +33,14 @@ services:
       - "traefik.http.routers.atomic-sites.tls.certresolver=letsencrypt"
       - "traefik.http.routers.atomic-sites.tls.domains[0].main=at0mic.site"
       - "traefik.http.routers.atomic-sites.tls.domains[0].sans=*.at0mic.site"
+      # Dasselbe für die neue Hauptadresse vindelis.site (Umbenennung 27.10.2026).
+      # Eigener Router, weil jedes Wildcard-Zertifikat seinen eigenen Router braucht.
+      - "traefik.http.routers.vindelis-sites.rule=Host(`vindelis.site`) || HostRegexp(`^[a-z0-9-]+\\.vindelis\\.site$`)"
+      - "traefik.http.routers.vindelis-sites.entrypoints=websecure"
+      - "traefik.http.routers.vindelis-sites.service=atomic-frontend"
+      - "traefik.http.routers.vindelis-sites.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.vindelis-sites.tls.domains[0].main=vindelis.site"
+      - "traefik.http.routers.vindelis-sites.tls.domains[0].sans=*.vindelis.site"
       # Eigene Domains der Kunden (Plan "SSF-Ausbau", D2): z.B. www.meinladen.ch kommt über
       # Cloudflare for SaaS (kunden.at0mic.site) zu uns. Diese Regel nimmt ALLE übrigen Namen
       # an – mit der tiefsten Priorität (1), damit die Regeln oben immer zuerst greifen.

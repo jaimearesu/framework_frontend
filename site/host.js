@@ -11,6 +11,11 @@
 // Adresse, die auf ".localhost" endet, an den eigenen PC. So geht
 // http://shop.site.localhost:3001 ohne DNS-Eintrag.
 //
+// Seit der Umbenennung (27.10.2026) gibt es MEHRERE Website-Domains:
+// vindelis.site (die neue Hauptadresse) und at0mic.site (läuft weiter,
+// damit alte Links nicht kaputt gehen). shop.vindelis.site und
+// shop.at0mic.site sind dieselbe Website.
+//
 // WICHTIG: Alles unter der Website-Domain wird IMMER vom Bauarbeiter
 // beantwortet, nie vom Cockpit – sonst liefe das Cockpit (mit Login) auf
 // der Domain, auf der fremder Kunden-Code läuft.
@@ -21,9 +26,10 @@
 const SITE_NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 /**
- * @param {string} hostHeader  der Host-Header, z.B. "shop.at0mic.site" oder "shop.site.localhost:3001"
- * @param {string} siteDomain  z.B. "at0mic.site"
- * @returns {{ isSiteHost: boolean, name: string|null }}
+ * @param {string} hostHeader  der Host-Header, z.B. "shop.vindelis.site" oder "shop.site.localhost:3001"
+ * @param {string|string[]} siteDomain  z.B. "vindelis.site" oder ["vindelis.site", "at0mic.site"]
+ * @returns {{ isSiteHost: boolean, name: string|null, domain?: string }}
+ *          domain = welche der Website-Domains gepasst hat
  */
 const siteNameFromHost = (hostHeader, siteDomain) => {
     let host = String(hostHeader || '')
@@ -32,14 +38,17 @@ const siteNameFromHost = (hostHeader, siteDomain) => {
     if (host.startsWith('[')) return { isSiteHost: false, name: null }; // IPv6-Adresse, nie eine Website
     host = host.replace(/:\d+$/, '').replace(/\.$/, ''); // Port und Punkt am Ende weg
 
-    const domain = String(siteDomain || '').toLowerCase();
-    if (!domain) return { isSiteHost: false, name: null };
-    if (host === domain) return { isSiteHost: true, name: null };
-    if (!host.endsWith('.' + domain)) return { isSiteHost: false, name: null };
-
-    const label = host.slice(0, -(domain.length + 1));
-    // Mehrere Ebenen (a.b.at0mic.site) oder ungültige Zeichen: dazugehörig, aber keine Website
-    return { isSiteHost: true, name: SITE_NAME.test(label) ? label : null };
+    const domains = (Array.isArray(siteDomain) ? siteDomain : [siteDomain])
+        .map(d => String(d || '').toLowerCase())
+        .filter(Boolean);
+    for (const domain of domains) {
+        if (host === domain) return { isSiteHost: true, name: null, domain };
+        if (!host.endsWith('.' + domain)) continue;
+        const label = host.slice(0, -(domain.length + 1));
+        // Mehrere Ebenen (a.b.vindelis.site) oder ungültige Zeichen: dazugehörig, aber keine Website
+        return { isSiteHost: true, name: SITE_NAME.test(label) ? label : null, domain };
+    }
+    return { isSiteHost: false, name: null };
 };
 
 // ---------------------------------------------------------------------
@@ -47,7 +56,7 @@ const siteNameFromHost = (hostHeader, siteDomain) => {
 // (www.meinladen.ch) verbinden können, schickt Traefik ALLE fremden Namen
 // hierher. Wir unterscheiden vier Fälle:
 //
-//   { kind: 'site', name }       shop.at0mic.site  -> Website "shop"
+//   { kind: 'site', name, domain } shop.at0mic.site -> Website "shop" (domain: at0mic.site)
 //   { kind: 'siteNoName' }       at0mic.site, a.b.at0mic.site -> 404 (wie bisher)
 //   { kind: 'cockpit' }          at0mic.ch, localhost, IP-Adressen -> Cockpit
 //   { kind: 'custom', hostname } alles andere -> vielleicht eine eigene Domain
@@ -61,7 +70,9 @@ const HOSTNAME = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9
 
 const classifyHost = (hostHeader, siteDomain, cockpitHosts = []) => {
     const site = siteNameFromHost(hostHeader, siteDomain);
-    if (site.isSiteHost) return site.name ? { kind: 'site', name: site.name } : { kind: 'siteNoName' };
+    if (site.isSiteHost) {
+        return site.name ? { kind: 'site', name: site.name, domain: site.domain } : { kind: 'siteNoName' };
+    }
 
     const raw = String(hostHeader || '')
         .trim()

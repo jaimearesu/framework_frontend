@@ -67,6 +67,11 @@ const RUN_TIMEOUT_MS = 95000;
 const PERSONAL_SECONDS = 30;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Seit der Umbenennung zu vindelis (27.10.2026) gilt /_vindelis/… gleich wie /_at0mic/…:
+// Die Middleware schreibt den neuen Namen am Anfang auf den alten um.
+const OLD_PREFIX = '/_at0mic/';
+const NEW_PREFIX = '/_vindelis/';
+
 // SSF der Website: /_at0mic/run/<pfad> – Pfad wie die identifier in der DNA
 const RUN_ROUTE = /^\/_at0mic\/run\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
 const MAX_RUN_BODY_BYTES = 64 * 1024; // Eingabe für die SSF: höchstens 64 KB
@@ -175,7 +180,8 @@ const visitorIpOf = req => String(req.ip || '').replace(/^::ffff:(?=\d+\.\d+\.\d
  * @param {object} options
  * @param {string} options.apiUrl       Adresse des Backends, z.B. "https://api.at0mic.ch"
  * @param {string} [options.key]        BAUARBEITER_KEY (ohne: alle Besucher teilen sich eine Bremse)
- * @param {string} options.siteDomain   z.B. "at0mic.site" (lokal "site.localhost")
+ * @param {string|string[]} options.siteDomain  z.B. ["vindelis.site", "at0mic.site"] (lokal "site.localhost").
+ *                                      Die ERSTE ist die Hauptadresse, die weiteren laufen weiter.
  * @param {boolean} [options.isProduction]
  * @param {function} [options.fetchImpl]       nur für Tests
  * @param {BauplanCache} [options.cache]       nur für Tests
@@ -214,6 +220,8 @@ const createBauarbeiter = ({
     // (der Ausweis selbst liegt so nie als Klartext im Arbeitsspeicher-Index)
     const personalKey = (name, token) => `${name}|${crypto.createHash('sha256').update(token).digest('hex')}`;
     const cookies = login.cookieNames(isProduction);
+    // Hauptadresse der Websites (die erste in der Liste)
+    const mainSiteDomain = String((Array.isArray(siteDomain) ? siteDomain[0] : siteDomain) || '').toLowerCase();
 
     // ---------------------------------------------------------------------
     // EIGENE DOMAINS (Plan "SSF-Ausbau", D2): Zu welcher Website gehört
@@ -585,7 +593,9 @@ const createBauarbeiter = ({
     };
 
     // Die Anmelde-Adressen: /_at0mic/<aktion> -> true, wenn beantwortet
-    const handleLoginRoute = async (req, res, name, token, customHost = null) => {
+    // altHost: die Website läuft gerade unter einer WEITEREN Website-Domain (shop.at0mic.site
+    // statt shop.vindelis.site) – dann muss der Rücksprung des Logins auch dorthin
+    const handleLoginRoute = async (req, res, name, token, customHost = null, altHost = null) => {
         const action = req.path.slice('/_at0mic/'.length);
         const methods = { login: ['GET'], callback: ['GET'], logout: ['GET', 'POST'], me: ['GET'], vorschau: ['GET'] };
         if (!Object.prototype.hasOwnProperty.call(methods, action)) return false;
@@ -599,7 +609,7 @@ const createBauarbeiter = ({
             res.status(403).json({ error: 'Nur von dieser Website aus.' });
             return true;
         }
-        if (action === 'login') startLogin(req, res, name, customHost);
+        if (action === 'login') startLogin(req, res, name, customHost || altHost);
         else if (action === 'callback') await finishLogin(req, res, name);
         else if (action === 'logout') await logout(req, res, name, token);
         else if (action === 'vorschau') await startScreenshot(req, res, name, customHost, token);
@@ -920,6 +930,12 @@ const createBauarbeiter = ({
         if (kind.kind === 'cockpit' || (kind.kind === 'custom' && !cockpitHosts)) return next();
         // host = { name, custom }: name = Website, custom = eigene Domain (oder null)
         const host = { name: kind.kind === 'site' ? kind.name : null, custom: null };
+        // Unter einer weiteren Website-Domain (shop.at0mic.site)? Dann diese Adresse fürs Login
+        const altHost = kind.kind === 'site' && kind.domain !== mainSiteDomain ? `${kind.name}.${kind.domain}` : null;
+
+        // Neuer Name /_vindelis/… = dasselbe wie /_at0mic/… (Umbenennung 27.10.2026).
+        // Bestehende Websites benutzen /_at0mic/ – das bleibt für immer gültig.
+        if (req.url.startsWith(NEW_PREFIX)) req.url = OLD_PREFIX + req.url.slice(NEW_PREFIX.length);
 
         try {
             setSecurityHeaders(res, isProduction);
@@ -1000,7 +1016,7 @@ const createBauarbeiter = ({
             if (
                 host.name &&
                 req.path.startsWith('/_at0mic/') &&
-                (await handleLoginRoute(req, res, host.name, token, host.custom))
+                (await handleLoginRoute(req, res, host.name, token, host.custom, altHost))
             ) {
                 return undefined;
             }

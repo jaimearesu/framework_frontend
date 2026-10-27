@@ -156,7 +156,8 @@ before(async () => {
         createBauarbeiter({
             apiUrl: 'http://backend.intern',
             key: KEY,
-            siteDomain: 'at0mic.site',
+            // Hauptadresse at0mic.site, dazu eine weitere Website-Domain (Umbenennung)
+            siteDomain: ['at0mic.site', 'vindelis.site'],
             isProduction: true,
             fetchImpl: fakeFetch,
             cache,
@@ -199,6 +200,21 @@ describe('Anmelden: /_at0mic/login und /_at0mic/callback', () => {
         assert.match(line, /Secure/);
         assert.match(line, /Max-Age=600/);
         assert.equal(backend.calls.length, 0, 'fragt das Backend dabei nicht');
+    });
+
+    test('weitere Website-Domain: Rücksprung dorthin (host), auf der Hauptadresse ohne host', async () => {
+        const main = await request('shop.at0mic.site', '/_at0mic/login');
+        assert.equal(new URL(main.headers.location).searchParams.get('host'), null);
+        const other = await request('shop.vindelis.site', '/_at0mic/login');
+        assert.equal(other.status, 302);
+        assert.equal(new URL(other.headers.location).searchParams.get('host'), 'shop.vindelis.site');
+    });
+
+    test('/_vindelis/… ist derselbe Weg wie /_at0mic/…', async () => {
+        const r = await request('shop.vindelis.site', '/_vindelis/login?zurueck=%2Fkunden');
+        assert.equal(r.status, 302);
+        assert.equal(new URL(r.headers.location).pathname, '/site-login');
+        assert.equal(login.decodeLogin(cookieValue(r, '__Host-at0mic_login')).returnPath, '/kunden');
     });
 
     // Plan "Brotzeit-Test", C5: steht so in der Anleitung (topic "login") – das # als %23

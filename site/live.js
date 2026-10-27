@@ -60,6 +60,7 @@ const { verifyTicket } = require('./liveTicket'); // Räume (Plan "F", F-3b)
 const { ruleFor } = require('./liveRules');
 
 const LIVE_PATH = '/_at0mic/live';
+const LIVE_PATH_NEW = '/_vindelis/live';
 const PFAD = /^[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*$/;
 const KANAL = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -558,7 +559,8 @@ const createLive = ({
         } catch {
             return rejectUpgrade(socket, 400, 'Bad Request');
         }
-        if (pathname !== LIVE_PATH) return rejectUpgrade(socket, 404, 'Not Found');
+        // /_vindelis/live = neuer Name (Umbenennung 27.10.2026), /_at0mic/live bleibt gültig
+        if (pathname !== LIVE_PATH && pathname !== LIVE_PATH_NEW) return rejectUpgrade(socket, 404, 'Not Found');
         if (!key) return rejectUpgrade(socket, 503, 'Service Unavailable');
 
         let host;
