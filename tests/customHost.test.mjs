@@ -25,7 +25,7 @@ const COCKPIT = ['at0mic.ch', 'www.at0mic.ch'];
 describe('Adresse einordnen (classifyHost)', () => {
     const kind = host => classifyHost(host, 'at0mic.site', COCKPIT);
     test('Website, Website-Domain ohne Namen, Cockpit, eigene Domain', () => {
-        assert.deepEqual(kind('shop.at0mic.site'), { kind: 'site', name: 'shop' });
+        assert.deepEqual(kind('shop.at0mic.site'), { kind: 'site', name: 'shop', domain: 'at0mic.site' });
         assert.deepEqual(kind('at0mic.site'), { kind: 'siteNoName' });
         assert.deepEqual(kind('a.b.at0mic.site'), { kind: 'siteNoName' });
         assert.deepEqual(kind('at0mic.ch'), { kind: 'cockpit' });

@@ -122,8 +122,8 @@ export const customDomainInputProblem = value => {
     if (parts.length < 3) {
         return `Bitte eine Unterdomain wie www.${host}. Die nackte Domain leitest du bei deinem Anbieter auf www um.`;
     }
-    if (host.endsWith('.at0mic.site') || host.endsWith('.at0mic.ch'))
-        return 'Adressen von at0mic kann man nicht verbinden.';
+    if (['.vindelis.site', '.vindelis.com', '.at0mic.site', '.at0mic.ch'].some(end => host.endsWith(end)))
+        return 'Adressen von vindelis kann man nicht verbinden.';
     return null;
 };
 

@@ -39,19 +39,40 @@ describe('Adresse -> Name der Website', () => {
     const name = host => siteNameFromHost(host, 'at0mic.site');
 
     test('Subdomain = Name (Port, Grossschreibung und Punkt am Ende egal)', () => {
-        assert.deepEqual(name('shop.at0mic.site'), { isSiteHost: true, name: 'shop' });
-        assert.deepEqual(name('Mein-Shop.AT0MIC.site:443'), { isSiteHost: true, name: 'mein-shop' });
-        assert.deepEqual(name('shop.at0mic.site.'), { isSiteHost: true, name: 'shop' });
+        assert.deepEqual(name('shop.at0mic.site'), { isSiteHost: true, name: 'shop', domain: 'at0mic.site' });
+        assert.deepEqual(name('Mein-Shop.AT0MIC.site:443'), {
+            isSiteHost: true,
+            name: 'mein-shop',
+            domain: 'at0mic.site'
+        });
+        assert.deepEqual(name('shop.at0mic.site.'), { isSiteHost: true, name: 'shop', domain: 'at0mic.site' });
         assert.deepEqual(siteNameFromHost('shop.site.localhost:3001', 'site.localhost'), {
             isSiteHost: true,
-            name: 'shop'
+            name: 'shop',
+            domain: 'site.localhost'
         });
     });
 
     test('gehört zu den Websites, aber ohne gültigen Namen', () => {
         for (const host of ['at0mic.site', 'a.b.at0mic.site', '-x.at0mic.site', 'a_b.at0mic.site']) {
-            assert.deepEqual(name(host), { isSiteHost: true, name: null }, host);
+            assert.deepEqual(name(host), { isSiteHost: true, name: null, domain: 'at0mic.site' }, host);
         }
+    });
+
+    test('mehrere Website-Domains (Umbenennung zu vindelis): beide gelten, domain sagt welche', () => {
+        const both = ['vindelis.site', 'at0mic.site'];
+        assert.deepEqual(siteNameFromHost('shop.vindelis.site', both), {
+            isSiteHost: true,
+            name: 'shop',
+            domain: 'vindelis.site'
+        });
+        assert.deepEqual(siteNameFromHost('shop.at0mic.site', both), {
+            isSiteHost: true,
+            name: 'shop',
+            domain: 'at0mic.site'
+        });
+        assert.equal(siteNameFromHost('vindelis.com', both).isSiteHost, false);
+        assert.equal(siteNameFromHost('evilvindelis.site', both).isSiteHost, false);
     });
 
     test('alles andere geht ans Cockpit', () => {
@@ -725,7 +746,9 @@ describe('Eigene Domains: Helfer für die Karte (Etappe D3)', () => {
         assert.equal(customDomainInputProblem('www.meinladen.ch'), null);
         assert.equal(customDomainInputProblem(' https://WWW.MeinLaden.ch/ '), null);
         assert.match(customDomainInputProblem('meinladen.ch'), /Unterdomain wie www\.meinladen\.ch/);
-        assert.match(customDomainInputProblem('shop.at0mic.site'), /Adressen von at0mic/);
+        assert.match(customDomainInputProblem('shop.at0mic.site'), /Adressen von vindelis/);
+        assert.match(customDomainInputProblem('www.vindelis.site'), /Adressen von vindelis/);
+        assert.match(customDomainInputProblem('www.vindelis.com'), /Adressen von vindelis/);
         assert.match(customDomainInputProblem('www.grüne.ch'), /Nur Buchstaben/);
         assert.match(customDomainInputProblem(''), /Bitte eine Domain/);
     });
