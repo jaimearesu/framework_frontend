@@ -514,7 +514,7 @@ const renderComposedPreview = async (box, o, objects, { height = '520px', compac
         warnings: composed.warnings
     });
     const warnings = tidyWarnings(composed.warnings);
-    // Dateien (Plan "Dateien mit R2", D3): /_at0mic/datei/… mit deinen Rechten holen und
+    // Dateien (Plan "Dateien mit R2", D3): /_vindelis/datei/… mit deinen Rechten holen und
     // eingebettet einsetzen – der abgeschottete Rahmen könnte sie selbst nicht laden
     const files = await inlinePreviewFiles(doc, objectFamily(o));
 
@@ -546,7 +546,7 @@ const renderComposedPreview = async (box, o, objects, { height = '520px', compac
             ? callout(
                   'warn',
                   'Datei nicht gefunden:',
-                  ` ${files.missing.map(p => `/_at0mic/datei/${p}`).join(', ')} – gibt es das Objekt mit einer Datei (Reiter „Datei“)? Passt die Endung zur Art?`
+                  ` ${files.missing.map(p => `/_vindelis/datei/${p}`).join(', ')} – gibt es das Objekt mit einer Datei (Reiter „Datei“)? Passt die Endung zur Art?`
               )
             : null,
         warnings.length
@@ -1168,7 +1168,7 @@ const renderAccessTab = async (box, o, objects) => {
             field(
                 'Wer?',
                 who,
-                'Objekt-UUID oder die UUID eines Menschen. Ein angemeldeter Besucher sieht seine ID auf deiner Website unter /_at0mic/me.'
+                'Objekt-UUID oder die UUID eines Menschen. Ein angemeldeter Besucher sieht seine ID auf deiner Website unter /_vindelis/me.'
             ),
             scopeChoice,
             field('Rolle', role),
@@ -1359,7 +1359,7 @@ const invitationsCard = (o, isPart) => {
         {
             title: 'Einladungen',
             icon: 'link',
-            subtitle: 'Statt einer UUID einen Link schicken: Wer ihn annimmt (mit at0mic-Konto), bekommt das Recht.'
+            subtitle: 'Statt einer UUID einen Link schicken: Wer ihn annimmt (mit vindelis-Konto), bekommt das Recht.'
         },
         loggedIn
             ? null
@@ -1829,7 +1829,7 @@ const renderVisibilityTab = (box, o, objects, { onDone }) => {
 
 // --- Reiter "Website" ---
 // Plan "Bauarbeiter + Bauplan-Format": Jede Domain kann eine Website sein
-// (<name>.at0mic.site). Ohne Anmeldung ist nur online, was ÖFFENTLICH ist.
+// (<name>.vindelis.site). Ohne Anmeldung ist nur online, was ÖFFENTLICH ist.
 // Seit "Login auf Websites" sehen angemeldete Besucher zusätzlich, was sie
 // dürfen (Reiter "Zugriff"). Hier siehst du, ob die Website öffentlich ist,
 // welche Teile ohne Anmeldung fehlen, und den Bauplan (GET /api/sites/<name>).
@@ -2049,7 +2049,7 @@ const renderJobsTab = async (box, o) => {
             h(
                 'p',
                 { class: 'small muted' },
-                'Lange Arbeit Stück für Stück: Die SSF bekommt requestContext.job und gibt { continue: merkzettel } zurück, solange es weitergeht. Nach Fehlern versucht at0mic es später nochmals (1, 5, 30, 120 Min.), nach 5 Fehlversuchen ist der Auftrag gescheitert.'
+                'Lange Arbeit Stück für Stück: Die SSF bekommt requestContext.job und gibt { continue: merkzettel } zurück, solange es weitergeht. Nach Fehlern versucht vindelis es später nochmals (1, 5, 30, 120 Min.), nach 5 Fehlversuchen ist der Auftrag gescheitert.'
             ),
             listBox,
             h('button', { class: 'btn small', type: 'button', onclick: () => load() }, 'Neu laden')
@@ -2164,7 +2164,7 @@ const renderWebhookCard = async (box, o) => {
 // ---------------------------------------------------------------------
 // KARTE "EIGENE DOMAIN" (Plan "SSF-Ausbau", Etappe D3)
 // Nur bei der Wurzel einer Website. Ein Mensch mit blue verbindet z.B.
-// www.meinladen.ch: at0mic meldet die Domain bei Cloudflare an, hier steht,
+// www.meinladen.ch: vindelis meldet die Domain bei Cloudflare an, hier steht,
 // welchen CNAME der Kunde bei seinem Anbieter setzen muss, und wie weit es ist.
 // Eintragen/Entfernen nur echte Menschen (prüft das Backend: keine Gäste, keine KI).
 // Texte vom Backend immer als Text (h/textContent), nie als HTML.
@@ -2215,7 +2215,7 @@ const renderCustomDomainCard = async (box, o) => {
                       const remove = async () => {
                           if (
                               !confirm(
-                                  `„${d.hostname}“ wirklich trennen? Die Website ist danach nur noch unter at0mic.site erreichbar.`
+                                  `„${d.hostname}“ wirklich trennen? Die Website ist danach nur noch unter vindelis.site erreichbar.`
                               )
                           )
                               return;
@@ -2280,7 +2280,7 @@ const renderCustomDomainCard = async (box, o) => {
                                     h(
                                         'p',
                                         { class: 'muted' },
-                                        'Liegt die Domain auch bei Cloudflare: Proxy-Status „DNS only“ (graue Wolke). Danach dauert es meist 5–30 Minuten; at0mic schaut alle 5 Minuten selbst nach.'
+                                        'Liegt die Domain auch bei Cloudflare: Proxy-Status „DNS only“ (graue Wolke). Danach dauert es meist 5–30 Minuten; vindelis schaut alle 5 Minuten selbst nach.'
                                     )
                                 ),
                           d.lastError ? h('p', { class: 'small muted' }, `Stand: ${d.lastError}`) : null,
@@ -2330,7 +2330,7 @@ const renderCustomDomainCard = async (box, o) => {
             h(
                 'p',
                 { class: 'small muted' },
-                'Die Website unter deiner eigenen Adresse zeigen, z.B. www.meinladen.ch statt name.at0mic.site. Das Zertifikat (https) macht Cloudflare. Sobald die Domain aktiv ist, leitet name.at0mic.site automatisch dorthin um. Verbinden und trennen können nur eingeloggte Menschen.'
+                'Die Website unter deiner eigenen Adresse zeigen, z.B. www.meinladen.ch statt name.vindelis.site. Das Zertifikat (https) macht Cloudflare. Sobald die Domain aktiv ist, leitet name.vindelis.site automatisch dorthin um. Verbinden und trennen können nur eingeloggte Menschen.'
             ),
             listBox
         )
@@ -2340,7 +2340,7 @@ const renderCustomDomainCard = async (box, o) => {
 
 // ------------------------------------------------------------------
 // KARTE "CODE-BAUM" (Plan "F", F-2d, Entscheidungen O1, D3, D4)
-// at0mic speichert Code als Text. Den Syntax-Baum (AST) kann eine Website
+// vindelis speichert Code als Text. Den Syntax-Baum (AST) kann eine Website
 // zusätzlich speichern – er braucht Platz und ist die Grundlage für spätere
 // Extras (z.B. eine Variable über viele Objekte finden). Umschalten darf nur
 // ein Mensch mit blue; die KI sieht nur, ob er an ist.
@@ -2396,7 +2396,7 @@ const renderCodeTreeCard = async (box, o) => {
             h(
                 'p',
                 { class: 'small muted' },
-                'at0mic speichert deinen Code genau so, wie er kommt. Auf Wunsch zusätzlich als Syntax-Baum – das braucht mehr Platz und ist die Grundlage für spätere Extras (z.B. eine Variable über viele Objekte finden). Einschalten baut die Bäume für den neuesten Stand; ausschalten löscht sie, der Code bleibt. Umschalten können nur Menschen mit blue (nie eine KI).'
+                'vindelis speichert deinen Code genau so, wie er kommt. Auf Wunsch zusätzlich als Syntax-Baum – das braucht mehr Platz und ist die Grundlage für spätere Extras (z.B. eine Variable über viele Objekte finden). Einschalten baut die Bäume für den neuesten Stand; ausschalten löscht sie, der Code bleibt. Umschalten können nur Menschen mit blue (nie eine KI).'
             ),
             body
         )
@@ -2452,7 +2452,7 @@ const renderScreenshotCard = (box, name) => {
             shot.blockedLiveCalls
                 ? callout(
                       'info',
-                      `${shot.blockedLiveCalls} Aufruf(e) an /_at0mic/… `,
+                      `${shot.blockedLiveCalls} Aufruf(e) an /_vindelis/… `,
                       'liefen im Screenshot nicht – Daten aus Server-Funktionen und das Login fehlen hier noch.'
                   )
                 : null
@@ -2510,7 +2510,7 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
                 callout(
                     'warn',
                     'Dieser Name kann keine Website werden. ',
-                    'Adressen wie name.at0mic.site erlauben nur Kleinbuchstaben, Ziffern und „-“ (nicht am Anfang oder Ende, max. 63 Zeichen). ',
+                    'Adressen wie name.vindelis.site erlauben nur Kleinbuchstaben, Ziffern und „-“ (nicht am Anfang oder Ende, max. 63 Zeichen). ',
                     `Gesperrt sind ausserdem: ${RESERVED_SITE_NAMES.join(', ')}.`
                 )
             )
@@ -2633,7 +2633,7 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
                 : callout(
                       'warn',
                       'Nicht öffentlich: ',
-                      `„${status.name}“ ist ${visibilityInfo(o.visibility).label.toLowerCase()}. Ohne Anmeldung sieht man nur „Diese Website ist privat – Anmelden“. Wer sich auf der Website mit seinem at0mic-Konto anmeldet, sieht, was er darf (${o.visibility === 'members' ? 'jeder Angemeldete' : 'nur wer eine Rolle hat'} – siehe Reiter „Zugriff“). Für alle öffentlich: Reiter „Sichtbarkeit“ (nur ein eingeloggter Mensch, nie eine KI).`
+                      `„${status.name}“ ist ${visibilityInfo(o.visibility).label.toLowerCase()}. Ohne Anmeldung sieht man nur „Diese Website ist privat – Anmelden“. Wer sich auf der Website mit seinem vindelis-Konto anmeldet, sieht, was er darf (${o.visibility === 'members' ? 'jeder Angemeldete' : 'nur wer eine Rolle hat'} – siehe Reiter „Zugriff“). Für alle öffentlich: Reiter „Sichtbarkeit“ (nur ein eingeloggter Mensch, nie eine KI).`
                   ),
             status.online && status.hidden.length
                 ? callout(
@@ -2676,7 +2676,7 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
                 h(
                     'li',
                     {},
-                    'Ohne SSF baut at0mic die Website aus der DNA: dein HTML, die Kinder in ihren Plätzen (<div data-slot="name">) oder darunter, alles CSS in style.css, das JS jedes Objekts als eigene Datei – wie die Vorschau.'
+                    'Ohne SSF baut vindelis die Website aus der DNA: dein HTML, die Kinder in ihren Plätzen (<div data-slot="name">) oder darunter, alles CSS in style.css, das JS jedes Objekts als eigene Datei – wie die Vorschau.'
                 ),
                 h(
                     'li',
@@ -2942,7 +2942,7 @@ const pathResolverCard = objects => {
             title: 'Pfad auflösen',
             icon: 'search',
             subtitle:
-                'So findet at0mic ein Objekt über eine Adresse: Domain, dann Schritt für Schritt die identifier aus der DNA.'
+                'So findet vindelis ein Objekt über eine Adresse: Domain, dann Schritt für Schritt die identifier aus der DNA.'
         },
         h(
             'div',
@@ -2995,7 +2995,7 @@ const renderPage = async (root, { params, query }) => {
 
     root.append(
         pageHeader({
-            intro: 'Alles in at0mic ist ein Objekt. Wurzeln sind eigene Domains, darunter hängen Kinder. Klick ein Objekt an, um Details, Baum und Rollen zu sehen.',
+            intro: 'Alles in vindelis ist ein Objekt. Wurzeln sind eigene Domains, darunter hängen Kinder. Klick ein Objekt an, um Details, Baum und Rollen zu sehen.',
             actions: [
                 h(
                     'button',

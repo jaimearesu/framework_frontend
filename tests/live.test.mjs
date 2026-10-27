@@ -661,7 +661,7 @@ describe('Teil 2: at0mic.live im Browser', () => {
     test('id aus "hallo"; publish nur nach listen und erst, wenn das Abo steht; Ticket geht mit', () => {
         const { window, sockets } = makeBrowser();
         const live = window.at0mic.live;
-        assert.throws(() => live.publish('api', 'cursor', { x: 1 }), /zuerst at0mic\.live\.listen/);
+        assert.throws(() => live.publish('api', 'cursor', { x: 1 }), /zuerst vindelis\.live\.listen/);
         const got = [];
         live.listen('api', 'cursor', (daten, info) => got.push({ daten, info }), { ticket: 'lt1.a.b' });
         sockets[0].open();

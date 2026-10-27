@@ -277,7 +277,7 @@ function at0micLiveClient() {
 
     function listen(pfad, kanal, fn, options) {
         if (typeof pfad !== 'string' || typeof kanal !== 'string' || typeof fn !== 'function') {
-            throw new Error('at0mic.live.listen(pfad, kanal, funktion) – z.B. listen("api", "chat", n => …)');
+            throw new Error('vindelis.live.listen(pfad, kanal, funktion) – z.B. listen("api", "chat", n => …)');
         }
         var handler = { fn: fn, options: options || {} };
         var sub = ensureSub(pfad, kanal, handler.options.ticket);
@@ -297,7 +297,7 @@ function at0micLiveClient() {
     function publish(pfad, kanal, daten) {
         var sub = subs[pfad + '|' + kanal];
         if (!sub) {
-            throw new Error('at0mic.live.publish: zuerst at0mic.live.listen("' + pfad + '", "' + kanal + '", …)');
+            throw new Error('vindelis.live.publish: zuerst vindelis.live.listen("' + pfad + '", "' + kanal + '", …)');
         }
         if (!sub.ok || !ws || ws.readyState !== 1) return false; // noch nicht verbunden: weglassen (flüchtig)
         sendJson({ typ: 'senden', pfad: pfad, kanal: kanal, daten: daten });
@@ -308,7 +308,7 @@ function at0micLiveClient() {
     function presence(pfad, kanal, zustand, options) {
         if (typeof pfad !== 'string' || typeof kanal !== 'string') {
             throw new Error(
-                'at0mic.live.presence(pfad, kanal, zustand, { liste }) – z.B. presence("api", "raum", { name: "Anna" })'
+                'vindelis.live.presence(pfad, kanal, zustand, { liste }) – z.B. presence("api", "raum", { name: "Anna" })'
             );
         }
         var opts = options || {};
@@ -333,6 +333,6 @@ function at0micLiveClient() {
 
 const LIVE_SCRIPT_PATH = '/_at0mic/live.js';
 // Ausgeliefert als: (function at0micLiveClient() { … })();
-const LIVE_SCRIPT = `// at0mic Live-Verbindungen – at0mic.live.listen / publish / presence\n(${at0micLiveClient.toString()})();\n`;
+const LIVE_SCRIPT = `// vindelis Live-Verbindungen – vindelis.live.listen / publish / presence (auch als at0mic.live)\n(${at0micLiveClient.toString()})();\n`;
 
 module.exports = { LIVE_SCRIPT, LIVE_SCRIPT_PATH, at0micLiveClient };

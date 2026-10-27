@@ -103,9 +103,10 @@ export const previewAgent = selectedBoxes => {
 };
 
 // Name des Servers in Claude Code und der Windows-Variable mit dem Schlüssel
-//   agent-buchhaltung -> "at0mic-agent-buchhaltung" / "AT0MIC_AGENT_BUCHHALTUNG_TOKEN"
-export const mcpServerName = agentName => `at0mic-${agentName}`;
-export const tokenEnvVar = agentName => `AT0MIC_${String(agentName).toUpperCase().replace(/-/g, '_')}_TOKEN`;
+//   agent-buchhaltung -> "vindelis-agent-buchhaltung" / "VINDELIS_AGENT_BUCHHALTUNG_TOKEN"
+//   (bis 27.10.2026 hiessen sie at0mic-… / AT0MIC_… – bestehende Verbindungen laufen weiter)
+export const mcpServerName = agentName => `vindelis-${agentName}`;
+export const tokenEnvVar = agentName => `VINDELIS_${String(agentName).toUpperCase().replace(/-/g, '_')}_TOKEN`;
 
 /**
  * Verbindungstext für Claude Code (Entscheidung E).

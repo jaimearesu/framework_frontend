@@ -27,7 +27,7 @@
 // ---------------------------------------------------------------------
 const crypto = require('crypto');
 
-const LOGIN_SECONDS = 10 * 60; // so lange darf die Anmeldung bei at0mic dauern
+const LOGIN_SECONDS = 10 * 60; // so lange darf die Anmeldung bei vindelis dauern
 const MAX_RETURN_PATH = 500;
 
 // Namen der Cookies – mit __Host- nur, wo es https gibt
@@ -74,7 +74,13 @@ const serializeCookie = (name, value, { maxAge, isProduction }) =>
  */
 const safeReturnPath = value => {
     if (typeof value !== 'string' || value.length === 0 || value.length > MAX_RETURN_PATH) return '/';
-    if (!value.startsWith('/') || value.startsWith('//') || value.startsWith('/_at0mic/')) return '/';
+    if (
+        !value.startsWith('/') ||
+        value.startsWith('//') ||
+        value.startsWith('/_at0mic/') ||
+        value.startsWith('/_vindelis/')
+    )
+        return '/';
     if (/[\\\u0000-\u001f\u007f]/.test(value)) return '/';
     return value;
 };

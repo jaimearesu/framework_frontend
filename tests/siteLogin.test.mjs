@@ -445,7 +445,7 @@ describe('Kein Zugriff: eigene at0mic-ID (Etappe 6, Entscheidung H)', () => {
         backend.sites.shop = () => reply(403, { error: 'nein', code: 'SITE_NO_ACCESS', besucher: id });
         const r = await request('shop.at0mic.site', '/', { cookie: COOKIE });
         assert.equal(r.status, 403);
-        assert.match(r.body, new RegExp(`Deine at0mic-ID: ${id}`));
+        assert.match(r.body, new RegExp(`Deine vindelis-ID: ${id}`));
 
         backend.sites.shop = () =>
             reply(403, { error: 'nein', code: 'SITE_NO_ACCESS', besucher: '<script>x</script>' });

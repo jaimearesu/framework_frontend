@@ -96,7 +96,7 @@ export const reportText = (checks, results, { mode, at = new Date() } = {}) => {
     const byId = new Map(results.map(r => [r.id, r]));
     const s = summarize(results);
     const mark = { pass: '✅', fail: '❌', skip: '⏭️' };
-    const lines = [`at0mic Systemcheck – ${at.toLocaleString('de-CH')} – ${mode === 'test' ? 'Test-Modus' : 'LIVE'}`];
+    const lines = [`vindelis Systemcheck – ${at.toLocaleString('de-CH')} – ${mode === 'test' ? 'Test-Modus' : 'LIVE'}`];
     lines.push(`${s.pass}/${s.total} bestanden, ${s.fail} fehlgeschlagen, ${s.skip} übersprungen`);
     let group = null;
     for (const c of checks) {

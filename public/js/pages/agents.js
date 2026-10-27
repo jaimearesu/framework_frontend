@@ -501,7 +501,7 @@ export default {
                     ? callout(
                           'info',
                           'Claude-App, claude.ai oder Handy verbinden – ohne Schlüssel: ',
-                          'In Claude unter Einstellungen → Connectors → „Eigenen Connector hinzufügen“ diese Adresse eintragen. Claude öffnet dann eine at0mic-Seite, auf der du den Agenten wählst und „Erlauben“ klickst.',
+                          'In Claude unter Einstellungen → Connectors → „Eigenen Connector hinzufügen“ diese Adresse eintragen. Claude öffnet dann eine vindelis-Seite, auf der du den Agenten wählst und „Erlauben“ klickst.',
                           codeBlock(oauth.mcpUrl, { label: 'Adresse des Connectors' })
                       )
                     : null;

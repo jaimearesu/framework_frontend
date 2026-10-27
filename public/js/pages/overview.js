@@ -7,7 +7,7 @@
 //   1c. Wartet auf dich: neue Uploads von Website-Besuchern (Plan "R2", nur wenn es welche gibt)
 //   1d. Papierkorb: gelöschte Websites mit Sicherung – 30 Tage wiederherstellbar (Plan "R4")
 //   2. Deine Objekte (die neusten)
-//   3. So funktioniert at0mic – die Grundbegriffe in einfachen Worten
+//   3. So funktioniert vindelis – die Grundbegriffe in einfachen Worten
 //   4. Schnellstart – in welcher Reihenfolge man alles ausprobiert
 // ---------------------------------------------------------------------
 import { api } from '../core/api.js';
@@ -376,7 +376,7 @@ export default {
 
         root.append(
             pageHeader({
-                intro: 'Willkommen im Cockpit von at0mic – dem Betriebssystem fürs Web. Hier siehst du alles, was wichtig ist, und kannst jede Funktion ausprobieren.',
+                intro: 'Willkommen im Cockpit von vindelis – dem Betriebssystem fürs Web. Hier siehst du alles, was wichtig ist, und kannst jede Funktion ausprobieren.',
                 actions: busyButton('Aktualisieren', () => refreshSession(), {
                     className: 'btn ghost',
                     iconName: 'refresh'
@@ -401,14 +401,14 @@ export default {
                     {
                         title: 'Schnellstart',
                         icon: 'layers',
-                        subtitle: 'In dieser Reihenfolge lernst du at0mic am schnellsten kennen.'
+                        subtitle: 'In dieser Reihenfolge lernst du vindelis am schnellsten kennen.'
                     },
                     renderQuickstart()
                 )
             ),
             card(
                 {
-                    title: 'So funktioniert at0mic',
+                    title: 'So funktioniert vindelis',
                     icon: 'info',
                     subtitle: 'Die sechs Grundbegriffe – klick für die passende Seite.'
                 },
