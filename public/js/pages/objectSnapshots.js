@@ -5,7 +5,7 @@
 //   - "Wiederherstellen" bei jeder Sicherung (R4c): immer als NEUE Website – nie wird etwas
 //     Bestehendes überschrieben. Nur echte Menschen mit blue (das Backend prüft es).
 //   - Karte "Papierkorb" in der Übersicht (R4c): Sicherungen GELÖSCHTER Websites, 30 Tage lang
-// Nachts sichert at0mic geänderte Websites selbst (R4b). Code-Versionen speichert at0mic ohnehin
+// Nachts sichert vindelis geänderte Websites selbst (R4b). Code-Versionen speichert vindelis ohnehin
 // immer – die Sicherung schützt vor allem Daten, gelöschte Teile und Dateien.
 // Alle Texte vom Backend (Beschriftung, Hinweis, Namen) nur über h()/textContent.
 // ---------------------------------------------------------------------
@@ -116,7 +116,7 @@ export const renderSnapshotsTab = async (box, o) => {
                 title: 'Zeitmaschine',
                 icon: 'history',
                 subtitle:
-                    'Eine Sicherung enthält die ganze Website: alle Teile, den neuesten Code, die Datensätze und die Dateien – nie Tresor-Schlüssel oder Rechte. Nachts sichert at0mic geänderte Websites selbst (7 Nächte + 4 Sonntage bleiben, dazu 10 von Hand).'
+                    'Eine Sicherung enthält die ganze Website: alle Teile, den neuesten Code, die Datensätze und die Dateien – nie Tresor-Schlüssel oder Rechte. Nachts sichert vindelis geänderte Websites selbst (7 Nächte + 4 Sonntage bleiben, dazu 10 von Hand).'
             },
             h(
                 'div',

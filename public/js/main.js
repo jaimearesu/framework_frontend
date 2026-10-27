@@ -214,7 +214,7 @@ const showPage = async () => {
 
     markActiveNav(route.id);
     $('pageTitle').textContent = route.title;
-    document.title = `${route.title} · at0mic Cockpit`;
+    document.title = `${route.title} · vindelis Cockpit`;
 
     const content = $('content');
     mount(content, spinner());

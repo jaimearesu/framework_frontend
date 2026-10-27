@@ -69,12 +69,12 @@ const PREVIEW_TYPES = ['html', 'css', 'javascript'];
 // Vorlagen für leere Reiter – zum schnellen Ausprobieren
 const templates = o => ({
     html:
-        '<main class="hallo">\n    <h1>Hallo at0mic</h1>\n    <p>Dieses HTML gehört zum Objekt „' +
+        '<main class="hallo">\n    <h1>Hallo vindelis</h1>\n    <p>Dieses HTML gehört zum Objekt „' +
         objectLabel(o) +
         '“.</p>\n    <button id="knopf">Klick mich</button>\n</main>\n',
     css: '.hallo {\n    font-family: system-ui, sans-serif;\n    max-width: 480px;\n    margin: 40px auto;\n}\n\n.hallo h1 {\n    color: #6d5dfc;\n}\n',
     javascript:
-        "// Läuft im Browser des Besuchers\ndocument.getElementById('knopf')?.addEventListener('click', () => {\n    alert('Hallo aus dem JavaScript von at0mic!');\n});\n",
+        "// Läuft im Browser des Besuchers\ndocument.getElementById('knopf')?.addEventListener('click', () => {\n    alert('Hallo aus dem JavaScript von vindelis!');\n});\n",
     ssf: "// Server-Funktion: läuft abgeschottet in der Sandbox – mit den Rechten DIESES Objekts.\n// requestContext enthält u.a.: body, query, target, userUuid\nconst { body, target } = requestContext;\n\nreturn {\n    hallo: 'Welt',\n    empfangen: body,\n    ziel: target,\n    zeit: new Date().toISOString()\n};\n",
     syntax: JSON.stringify(
         { type: 'instance', identifier: objectFamily(o), domain: objectFamily(o), source: o.path || ['0'] },

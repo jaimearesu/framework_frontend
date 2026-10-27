@@ -27,7 +27,7 @@ export const ROUTES = [
         title: 'Objekte',
         icon: 'box',
         group: 'Bauen',
-        intro: 'Alles in at0mic ist ein Objekt. Hier legst du sie an, hängst Kinder an und siehst den Baum.',
+        intro: 'Alles in vindelis ist ein Objekt. Hier legst du sie an, hängst Kinder an und siehst den Baum.',
         load: () => import('../pages/objects.js')
     },
     {

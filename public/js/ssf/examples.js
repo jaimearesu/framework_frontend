@@ -286,7 +286,7 @@ return {
             'Jede Frage kostet Geld: Länge begrenzen, auf Websites nur für Angemeldete'
         ],
         tools: ['http.fetch', 'secrets.has', 'secrets.get'],
-        body: { frage: 'Erkläre in zwei Sätzen, was ein Objekt in at0mic ist.' },
+        body: { frage: 'Erkläre in zwei Sätzen, was ein Objekt in vindelis ist.' },
         presets: {
             Kurz: { frage: 'Was ist die Hauptstadt der Schweiz?' },
             Gedicht: { frage: 'Schreib ein Vierzeiler über Berge.' }
@@ -715,7 +715,7 @@ EXAMPLES.push({
         'api.live.send(kanal, nachricht) schickt sofort an alle offenen Seiten, die zuhören',
         'Ohne ziel ist es der Kanal der SSF selbst – dafür braucht sie kein Recht',
         'Kanäle speichern nichts: zuerst in den Daten speichern, dann senden',
-        'Auf der Website: <script src="/_at0mic/live.js"> und at0mic.live.listen(pfad, kanal, …)'
+        'Auf der Website: <script src="/_vindelis/live.js"> und vindelis.live.listen(pfad, kanal, …)'
     ],
     tools: ['data.insert', 'live.send'],
     body: { text: 'Hallo zusammen!' },

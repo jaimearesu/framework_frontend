@@ -90,24 +90,24 @@ describe('Werkzeugkästen und Vorschau', () => {
 describe('Verbindungstext für Claude Code', () => {
     const c = connectText({ agentName: 'agent-buchhaltung', mcpUrl: 'https://api.at0mic.ch/mcp', token: 'at0_GEHEIM' });
     test('Server- und Variablen-Name', () => {
-        assert.equal(mcpServerName('agent-buchhaltung'), 'at0mic-agent-buchhaltung');
-        assert.equal(tokenEnvVar('agent-buchhaltung'), 'AT0MIC_AGENT_BUCHHALTUNG_TOKEN');
+        assert.equal(mcpServerName('agent-buchhaltung'), 'vindelis-agent-buchhaltung');
+        assert.equal(tokenEnvVar('agent-buchhaltung'), 'VINDELIS_AGENT_BUCHHALTUNG_TOKEN');
     });
     test('.mcp.json enthält den Schlüssel NICHT, nur die Variable', () => {
         assert.ok(!c.mcpJson.includes('at0_GEHEIM'));
         const json = JSON.parse(c.mcpJson);
-        const server = json.mcpServers['at0mic-agent-buchhaltung'];
+        const server = json.mcpServers['vindelis-agent-buchhaltung'];
         assert.equal(server.url, 'https://api.at0mic.ch/mcp');
-        assert.equal(server.headers.Authorization, 'Bearer ${AT0MIC_AGENT_BUCHHALTUNG_TOKEN}');
+        assert.equal(server.headers.Authorization, 'Bearer ${VINDELIS_AGENT_BUCHHALTUNG_TOKEN}');
     });
     test('PowerShell-Befehl und Kommandozeile', () => {
         assert.equal(
             c.envCommand,
-            '[Environment]::SetEnvironmentVariable("AT0MIC_AGENT_BUCHHALTUNG_TOKEN", "at0_GEHEIM", "User")'
+            '[Environment]::SetEnvironmentVariable("VINDELIS_AGENT_BUCHHALTUNG_TOKEN", "at0_GEHEIM", "User")'
         );
         assert.match(
             c.cliCommand,
-            /^claude mcp add --transport http at0mic-agent-buchhaltung https:\/\/api\.at0mic\.ch\/mcp /
+            /^claude mcp add --transport http vindelis-agent-buchhaltung https:\/\/api\.at0mic\.ch\/mcp /
         );
         assert.match(c.cliCommand, /"Authorization: Bearer at0_GEHEIM"$/);
     });

@@ -49,7 +49,7 @@ const MESSAGES = {
     loginRequired: {
         status: 401,
         title: 'Diese Website ist privat',
-        text: 'Melde dich mit deinem at0mic-Konto an, um sie zu sehen.'
+        text: 'Melde dich mit deinem vindelis-Konto an, um sie zu sehen.'
     },
     noAccess: {
         status: 403,
@@ -114,7 +114,7 @@ const neutralPage = (kind, { actions = [], note = null } = {}) => {
         `<p>${escapeHtml(text)}</p>`,
         note ? `<p class="note"><code>${escapeHtml(note)}</code></p>` : '',
         buttons,
-        '<small>at0mic</small>',
+        '<small>vindelis</small>',
         '</main>',
         '</body>',
         '</html>'

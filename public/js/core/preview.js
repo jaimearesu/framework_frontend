@@ -299,7 +299,8 @@ export const buildPreviewDocument = ({ html = '', css = [], js = [], body, child
 // dort zeigt /_at0mic/… ins Leere. Darum holt das Cockpit die Dateien selbst (mit
 // deinen Rechten, auch Private) und setzt sie als data:-Adresse ein.
 // ---------------------------------------------------------------------
-const FILE_REF = /\/_at0mic\/datei\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*(?:\.[A-Za-z0-9]{2,5})?)(?:\?v=\d{1,9})?/g;
+const FILE_REF =
+    /\/_(?:at0mic|vindelis)\/datei\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*(?:\.[A-Za-z0-9]{2,5})?)(?:\?v=\d{1,9})?/g;
 export const MAX_PREVIEW_FILES = 30;
 
 // Alle verschiedenen Datei-Pfade in einem Text (reine Funktion, getestet)

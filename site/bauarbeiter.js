@@ -403,7 +403,7 @@ const createBauarbeiter = ({
         if (extra.retryAfter) res.set('Retry-After', String(extra.retryAfter));
         if (kind === 'methodNotAllowed') res.set('Allow', 'GET, HEAD');
         // "Kein Zugriff": die eigene at0mic-ID zeigen (Etappe 6, Entscheidung H)
-        const note = kind === 'noAccess' && extra.visitorId ? `Deine at0mic-ID: ${extra.visitorId}` : null;
+        const note = kind === 'noAccess' && extra.visitorId ? `Deine vindelis-ID: ${extra.visitorId}` : null;
         res.status(MESSAGES[kind].status)
             .type('html')
             .send(neutralPage(kind, { actions: loginActions(kind, extra.returnPath), note }));

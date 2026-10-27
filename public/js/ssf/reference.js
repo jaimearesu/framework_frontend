@@ -30,7 +30,7 @@ export const TOOL_GROUPS = [
     {
         id: 'webhook',
         title: 'Webhooks',
-        text: 'Ein fremder Server (Stripe, GitHub, ein ERP …) ruft die SSF über <website>/_at0mic/hook/<name> auf – prüfen, ob der Aufruf echt ist.'
+        text: 'Ein fremder Server (Stripe, GitHub, ein ERP …) ruft die SSF über <website>/_vindelis/hook/<name> auf – prüfen, ob der Aufruf echt ist.'
     },
     {
         id: 'jobs',
@@ -328,7 +328,7 @@ export const TOOLS = [
         role: 'red',
         budget: 'files (max. 5 pro Ausführung, zusammen 10 MB, je 2 MB)',
         returns: '{ version, kind, mime, bytes, sha256, name, createdAt }',
-        text: "Legt eine Datei als neue Version ab (die neuesten 3 bleiben). Text: type 'csv' | 'ics' | 'json' | 'txt' | 'md' | 'vcf' oder name mit Endung; SVG erkennt at0mic selbst; Bilder/PDFs als base64 mit encoding: 'base64'. Nie HTML. Das Objekt muss es schon geben. Gäste haben keinen Speicher (e.code 'QUOTA_EXCEEDED').",
+        text: "Legt eine Datei als neue Version ab (die neuesten 3 bleiben). Text: type 'csv' | 'ics' | 'json' | 'txt' | 'md' | 'vcf' oder name mit Endung; SVG erkennt vindelis selbst; Bilder/PDFs als base64 mit encoding: 'base64'. Nie HTML. Das Objekt muss es schon geben. Gäste haben keinen Speicher (e.code 'QUOTA_EXCEEDED').",
         snippet: "await api.files.write('shop/export', 'sku;preis\\nA-1;9.90\\n', { type: 'csv' });\n"
     },
     {
@@ -361,7 +361,7 @@ export const TOOLS = [
         snippet: "await api.files.remove('shop/export');\n"
     },
     {
-        // Plan "R2": nur wenn ein Besucher über /_at0mic/upload/<pfad> eine Datei schickt
+        // Plan "R2": nur wenn ein Besucher über /_vindelis/upload/<pfad> eine Datei schickt
         name: 'files.accept',
         group: 'files',
         signature: 'ziel, { types, maxBytes, anonym, name, neu }',
@@ -383,14 +383,14 @@ export const TOOLS = [
         snippet: "const liste = await api.files.readUpload();\nreturn liste.text.split('\\n').length;\n"
     },
     {
-        // Plan "W – Live-Verbindungen": die Website hört mit at0mic.live.listen(pfad, kanal, …) zu
+        // Plan "W – Live-Verbindungen": die Website hört mit vindelis.live.listen(pfad, kanal, …) zu
         name: 'live.send',
         group: 'live',
         signature: 'kanal, nachricht, { ziel }',
         role: 'ohne ziel: keine (eigener Kanal) · mit ziel: red',
         budget: 'live (max. 20 pro Ausführung, je 16 KB)',
         returns: '{ gesendet: true }',
-        text: "Schickt eine Nachricht sofort an alle Besucher, die auf diesem Kanal zuhören (Website: <script src=\"/_at0mic/live.js\"> und at0mic.live.listen('api', 'chat', n => …)). Zuhören darf, wer das Objekt sehen darf – bei einer öffentlichen SSF also jeder. Kanäle speichern nichts: zuerst speichern, dann senden. Zu gross: e.code 'MESSAGE_TOO_LARGE'.",
+        text: "Schickt eine Nachricht sofort an alle Besucher, die auf diesem Kanal zuhören (Website: <script src=\"/_vindelis/live.js\"> und vindelis.live.listen('api', 'chat', n => …)). Zuhören darf, wer das Objekt sehen darf – bei einer öffentlichen SSF also jeder. Kanäle speichern nichts: zuerst speichern, dann senden. Zu gross: e.code 'MESSAGE_TOO_LARGE'.",
         snippet:
             "await api.data.insert(SPEICHER, nachricht);   // zuerst speichern …\nawait api.live.send('chat', nachricht);       // … dann allen zeigen\n"
     },
@@ -402,7 +402,7 @@ export const TOOLS = [
         returns: 'Text, z.B. 43 Zeichen (32 Byte als base64url)',
         text: 'Ein geheimer Zufalls-Text aus dem Zufall des Servers – für Tisch-Tokens, Einladungs-Links oder Bestätigungs-Codes. bytes 16 bis 64. base64url enthält nur Buchstaben, Ziffern, - und _ und passt direkt in eine Adresse.',
         snippet:
-            "const token = await api.crypto.randomToken();\nconst link = 'https://mein-restaurant.at0mic.site/tisch?t=' + token;\n"
+            "const token = await api.crypto.randomToken();\nconst link = 'https://mein-restaurant.vindelis.site/tisch?t=' + token;\n"
     },
     {
         name: 'crypto.randomUuid',
