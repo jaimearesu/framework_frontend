@@ -18,6 +18,7 @@ const express = require('express');
 const path = require('path');
 const { createBauarbeiter } = require('./site/bauarbeiter');
 const { createLive } = require('./site/live');
+const { pickApiUrl } = require('./site/host');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -33,6 +34,13 @@ const hops = parseInt(process.env.TRUST_PROXY_HOPS, 10);
 app.set('trust proxy', Number.isInteger(hops) && hops >= 1 ? hops : 1);
 // Nicht verraten, dass hier Express läuft
 app.disable('x-powered-by');
+
+// Backend-Adresse(n): API_URL darf mehrere haben (Umbenennung 27.10.2026), die erste ist
+// die Hauptadresse. Das Cockpit bekommt die passende (pickApiUrl), alles andere die erste.
+const API_URLS = (process.env.API_URL || 'http://localhost:3000')
+    .split(',')
+    .map(u => u.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
 
 // 1. Kunden-Websites
 //    SITE_DOMAIN      Domain(s) der Websites, Komma-getrennt. Die ERSTE ist die Hauptadresse,
@@ -51,13 +59,13 @@ if (!process.env.BAUARBEITER_KEY) {
     console.warn('[BAUARBEITER] Kein BAUARBEITER_KEY gesetzt – alle Besucher teilen sich eine Bremse im Backend.');
 }
 const bauarbeiter = createBauarbeiter({
-    apiUrl: process.env.SITE_API_URL || process.env.API_URL || 'http://localhost:3000',
+    apiUrl: process.env.SITE_API_URL || API_URLS[0],
     key: process.env.BAUARBEITER_KEY || null,
     siteDomain: SITE_DOMAINS,
     isProduction,
     // Login auf Websites: Hierhin schickt der Bauarbeiter den BROWSER des Besuchers
     // zum Anmelden – darum die öffentliche Adresse (API_URL), nicht SITE_API_URL
-    loginUrl: process.env.API_URL || 'http://localhost:3000',
+    loginUrl: API_URLS[0],
     // Eigene Domains (Plan "SSF-Ausbau", D2): Unter diesen Namen läuft das COCKPIT.
     // Jeder andere fremde Name ist vielleicht die eigene Domain eines Kunden
     // (www.meinladen.ch) – der Bauarbeiter fragt das Backend. IP-Adressen und
@@ -73,7 +81,7 @@ app.use(bauarbeiter);
 //     Sie laufen nicht durch Express, sondern über das "upgrade"-Ereignis des
 //     Servers (unten). Die interne Leitung zum Backend startet sofort.
 const live = createLive({
-    apiUrl: process.env.SITE_API_URL || process.env.API_URL || 'http://localhost:3000',
+    apiUrl: process.env.SITE_API_URL || API_URLS[0],
     key: process.env.BAUARBEITER_KEY || null,
     resolveHost: bauarbeiter.resolveHost,
     isProduction,
@@ -91,7 +99,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 //   siteUrl     = Vorlage für die Adresse einer Website ("{name}" wird ersetzt)
 app.get('/config.json', (req, res) => {
     res.json({
-        apiUrl: process.env.API_URL || 'http://localhost:3000',
+        // passend zur Adresse, unter der das Cockpit geöffnet wurde
+        apiUrl: pickApiUrl(API_URLS, req.headers.host),
         testApiUrl: process.env.TEST_API_URL || (isProduction ? null : 'http://localhost:3100'),
         siteUrl: SITE_URL
     });

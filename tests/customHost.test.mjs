@@ -16,7 +16,7 @@ import { createRequire } from 'node:module';
 import express from 'express';
 
 const require = createRequire(import.meta.url);
-const { classifyHost } = require('../site/host.js');
+const { classifyHost, pickApiUrl } = require('../site/host.js');
 const { createBauarbeiter } = require('../site/bauarbeiter.js');
 
 const KEY = 'k'.repeat(40);
@@ -41,6 +41,18 @@ describe('Adresse einordnen (classifyHost)', () => {
         for (const host of ['www.mein_laden.ch', 'www..ch', '-x.ch']) {
             assert.deepEqual(kind(host), { kind: 'siteNoName' }, host);
         }
+    });
+});
+
+describe('Backend fürs Cockpit (pickApiUrl, Umbenennung zu vindelis)', () => {
+    const both = ['https://api.vindelis.com', 'https://api.at0mic.ch'];
+    test('gleicher Name -> gleiches Backend, sonst das erste', () => {
+        assert.equal(pickApiUrl(both, 'vindelis.com'), 'https://api.vindelis.com');
+        assert.equal(pickApiUrl(both, 'www.vindelis.com'), 'https://api.vindelis.com');
+        assert.equal(pickApiUrl(both, 'at0mic.ch'), 'https://api.at0mic.ch');
+        assert.equal(pickApiUrl(both, 'WWW.at0mic.ch:443'), 'https://api.at0mic.ch');
+        assert.equal(pickApiUrl(both, 'localhost:3001'), 'https://api.vindelis.com');
+        assert.equal(pickApiUrl(['http://localhost:3000'], 'localhost:3001'), 'http://localhost:3000');
     });
 });
 
