@@ -84,4 +84,32 @@ const classifyHost = (hostHeader, siteDomain, cockpitHosts = []) => {
     return { kind: 'custom', hostname: host };
 };
 
-module.exports = { siteNameFromHost, classifyHost };
+// ---------------------------------------------------------------------
+// WELCHES BACKEND FÜR DIESES COCKPIT? (Umbenennung zu vindelis, 27.10.2026)
+// API_URL darf mehrere Adressen haben: https://api.vindelis.com,https://api.at0mic.ch
+// Das Cockpit auf vindelis.com spricht mit api.vindelis.com, das auf at0mic.ch mit
+// api.at0mic.ch – sonst gälte das Login-Cookie nicht (es gehört zu EINER Adresse).
+// Verglichen werden die letzten zwei Teile des Namens (vindelis.com, at0mic.ch).
+// Passt keine (z.B. localhost): die erste Adresse.
+// ---------------------------------------------------------------------
+const baseDomain = host =>
+    String(host || '')
+        .toLowerCase()
+        .replace(/:\d+$/, '')
+        .split('.')
+        .slice(-2)
+        .join('.');
+
+const pickApiUrl = (apiUrls, hostHeader) => {
+    const wanted = baseDomain(hostHeader);
+    const match = apiUrls.find(url => {
+        try {
+            return baseDomain(new URL(url).hostname) === wanted;
+        } catch {
+            return false;
+        }
+    });
+    return match || apiUrls[0];
+};
+
+module.exports = { siteNameFromHost, classifyHost, pickApiUrl };
