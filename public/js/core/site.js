@@ -14,7 +14,7 @@ import { isRoot, descendantsOf, objectLabel } from './objects.js';
 
 // Gleiche Regel wie im Backend (siteService.isSiteName)
 const SITE_NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
-// 'kunden' = CNAME-Ziel für eigene Domains (kunden.at0mic.site) – wie im Backend (siteService)
+// 'kunden' = CNAME-Ziel für eigene Domains (kunden.vindelis.site) – wie im Backend (siteService)
 export const RESERVED_SITE_NAMES = ['www', 'api', 'builder', 'admin', 'mail', 'cockpit', 'status', 'kunden'];
 
 export const isSiteName = name =>
