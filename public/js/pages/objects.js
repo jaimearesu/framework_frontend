@@ -1531,6 +1531,10 @@ const renderCopyTab = (box, o, objects, { onDone }) => {
         });
         mount(cloneOut, resultLine(res));
         if (!res.ok) return;
+        // Härtungs-Runde (28.10.): Hinweise des Backends (Zeitplan pausiert, Verweise aufs Original)
+        for (const hint of Array.isArray(res.data?.hinweise) ? res.data.hinweise : []) {
+            cloneOut.append(callout('warn', 'Hinweis', ` ${String(hint)}`));
+        }
         toast(`Kopie „${domain}“ erstellt.`, 'ok');
         onDone(res.data?.data?.uuid);
     };
@@ -1546,7 +1550,8 @@ const renderCopyTab = (box, o, objects, { onDone }) => {
             'ul',
             { class: 'small muted' },
             h('li', {}, '✅ Code genau der gewählten Version (auch SSF-Code)'),
-            h('li', {}, '✅ Daten nur, wenn du den Haken setzt (höchstens 10’000 Datensätze)'),
+            h('li', {}, '✅ Daten nur, wenn du den Haken setzt (höchstens 10’000 Datensätze, mit Schlüssel)'),
+            h('li', {}, '✅ Datei (neueste Version), Notiz und Zeitplan (pausiert)'),
             h('li', {}, '❌ Nie Tresor-Schlüssel, Rechte oder Relationen'),
             h(
                 'li',

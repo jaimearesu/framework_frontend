@@ -54,6 +54,10 @@ const restoreButton = s =>
             const r = await api.post(`/api/snapshots/${s.uuid}/restore`, { domain: name.trim() });
             if (!r.ok) return toast(r.error || 'Wiederherstellen hat nicht geklappt.', 'error');
             toast(`Wiederhergestellt als „${r.data.data.domain}“.`, 'ok');
+            // Härtungs-Runde (28.10.): ehrliche Hinweise – was pausiert, privat, neu einzutragen ist.
+            // alert() zeigt reinen Text (kein HTML), darum sicher.
+            const hints = Array.isArray(r.data.data.hinweise) ? r.data.data.hinweise : [];
+            if (hints.length) alert(`Bitte beachten:\n\n• ${hints.map(String).join('\n• ')}`);
             invalidateObjects();
             location.hash = href('objekte', r.data.data.uuid);
         },
