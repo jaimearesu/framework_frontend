@@ -26,8 +26,6 @@
 //   GET  /_at0mic/datei/<pfad>[.endung] eine Datei der Website (Bild, PDF, Schrift …) aus
 //                                       Cloudflare R2 (Plan "Dateien mit R2", D3), z.B.
 //                                       <img src="/_at0mic/datei/bilder/logo.png">
-//   GET  /_at0mic/vorschau?code         Screenshot mit Live-Daten (Plan "Screenshots", S2b):
-//                                       Einmal-Code gegen einen 2-Minuten-Ausweis tauschen
 //   GET  /_at0mic/live (WebSocket)      Live-Verbindungen (Plan "W", site/live.js)
 //   GET  /_at0mic/live.js               Skript dazu: at0mic.live.listen(pfad, kanal, fn)
 // Ist jemand angemeldet, schickt der Bauarbeiter seinen Ausweis ans Backend
@@ -497,53 +495,8 @@ const createBauarbeiter = ({
         return res.redirect(303, started.returnPath);
     };
 
-    // GET /_at0mic/vorschau?code=… (Plan "Screenshots in der Vorschau", S2b)
-    // Cloudflare öffnet diese Adresse für einen Screenshot MIT Live-Daten. Der Bauarbeiter
-    // tauscht den Einmal-Code (60 s, nur einmal) beim Backend gegen einen Ausweis mit Zweck
-    // "screenshot" (2 Minuten) und setzt das Cookie SELBST – wie beim normalen Anmelden.
-    // Dann weiter zur Startseite, die Cloudflare fotografiert. Das Backend sperrt den Ausweis
-    // gleich nach dem Bild. Kein Zustand (state) nötig: Der Code ist an Website, Mensch/Agent
-    // und Adresse gebunden und gilt nur einmal.
-    //
-    // Zweites Öffnen derselben Adresse (Plan "F", F-1, 26.10.2026): Bei einer schweren Seite
-    // (3D, 668 KB Bibliothek) wurde die Seite in 20 s nicht "ruhig", und Cloudflare öffnete
-    // /_at0mic/vorschau?code=… nochmals. Der Code galt da schon nicht mehr -> Fehlerseite
-    // "Anmeldung hat nicht geklappt" im Bild. Hat der Browser vom ersten Mal schon ein
-    // Ausweis-Cookie (token), geht es einfach weiter zum Ziel – ohne neuen Ausweis. Ob das
-    // Cookie noch gilt, prüft wie immer die Seite selbst (sonst: normale Anmelde-Seite).
-    const startScreenshot = async (req, res, name, customHost = null, token = null) => {
-        res.set('Cache-Control', 'no-store');
-        res.set('Referrer-Policy', 'no-referrer'); // den Code nirgends weitergeben
-        const code = typeof req.query.code === 'string' ? req.query.code : '';
-        if (!code || !key) return sendPage(res, 'loginFailed');
-
-        let answer;
-        let data = null;
-        try {
-            answer = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/vorschau-ausweis`, {
-                method: 'POST',
-                headers: backendHeaders(visitorIpOf(req), null, { 'content-type': 'application/json' }),
-                body: JSON.stringify({ code, host: customHost || '' }),
-                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-            });
-            data = await answer.json().catch(() => null);
-        } catch (error) {
-            log.warn(`[BAUARBEITER] Backend nicht erreichbar (Screenshot ${name}): ${error.message}`);
-            return sendPage(res, 'unavailable');
-        }
-        const newToken = data && data.data && data.data.token;
-        if (!answer.ok || !login.isTokenShape(newToken)) {
-            if (token) return res.redirect(302, login.safeReturnPath(req.query.ziel));
-            return sendPage(res, 'loginFailed');
-        }
-
-        // So lange wie der Ausweis gilt (höchstens 2 Minuten)
-        const seconds = Math.min(Number(data.data.seconds) || 0, 120);
-        setTokenCookie(res, newToken, seconds > 0 ? seconds : 0);
-        // ziel (Plan "Geo-Monitor", G4): eine Unterseite wie "/#/detail/3" statt der Startseite.
-        // Nur ein Pfad auf DIESER Website (safeReturnPath) – sonst "/", nie eine fremde Adresse.
-        return res.redirect(302, login.safeReturnPath(req.query.ziel));
-    };
+    // (GET /_at0mic/vorschau?code=… – Screenshot per Einmal-Code – ist seit der Härtungs-Runde,
+    //  Punkt 6, abgebaut: Seit F-1b bringt Cloudflare den Ausweis direkt als Cookie mit.)
 
     // GET|POST /_at0mic/logout – im Backend sperren, Cookie löschen
     const logout = async (req, res, name, token) => {
@@ -597,7 +550,7 @@ const createBauarbeiter = ({
     // statt shop.vindelis.site) – dann muss der Rücksprung des Logins auch dorthin
     const handleLoginRoute = async (req, res, name, token, customHost = null, altHost = null) => {
         const action = req.path.slice('/_at0mic/'.length);
-        const methods = { login: ['GET'], callback: ['GET'], logout: ['GET', 'POST'], me: ['GET'], vorschau: ['GET'] };
+        const methods = { login: ['GET'], callback: ['GET'], logout: ['GET', 'POST'], me: ['GET'] };
         if (!Object.prototype.hasOwnProperty.call(methods, action)) return false;
         if (!methods[action].includes(req.method)) {
             res.set('Allow', methods[action].join(', '));
@@ -612,7 +565,6 @@ const createBauarbeiter = ({
         if (action === 'login') startLogin(req, res, name, customHost || altHost);
         else if (action === 'callback') await finishLogin(req, res, name);
         else if (action === 'logout') await logout(req, res, name, token);
-        else if (action === 'vorschau') await startScreenshot(req, res, name, customHost, token);
         else await whoAmI(req, res, name, token);
         return true;
     };
