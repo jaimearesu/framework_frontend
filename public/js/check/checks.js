@@ -1438,6 +1438,21 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             return `${list.length} Websites, Art "${root.art}"`;
         }
     },
+    {
+        // Punkt 5, D3b: Vorschaubild – die Wurzel des Checks ist privat: kein Bild, aufnehmen abgelehnt
+        // (kostet keine Cloudflare-Minuten)
+        id: 'website-thumbnail',
+        group: 'SSF',
+        title: 'Vorschaubild: private Website hat keins und bekommt keins (NOT_PUBLIC)',
+        needs: ['root'],
+        run: async ctx => {
+            const get = await api.get(`/api/websites/${ctx.root}/vorschau`);
+            expectStatus(get, 404, 'Vorschaubild einer privaten Website');
+            const take = await api.post(`/api/websites/${ctx.root}/vorschau`, {});
+            expect(take.status === 409 || take.status === 404, `aufnehmen: Status ${take.status} statt 409`, take);
+            return take.status === 409 ? 'abgelehnt: nicht öffentlich' : 'Migration 030 fehlt?';
+        }
+    },
     // Hintergrund-Aufträge (Plan "SSF-Ausbau", Teil C). Der Auftrag startet erst in einer
     // Stunde (startInSec) und wird gleich abgebrochen – der Arbeiter führt ihn also nie aus.
     {

@@ -15,7 +15,7 @@
 import { api } from '../core/api.js';
 import { on } from '../core/events.js';
 import { href } from '../core/routes.js';
-import { loadOwnerSites } from '../core/objects.js';
+import { loadOwnerSites, loadThumbnail } from '../core/objects.js';
 import { h, mount, card, emptyState, spinner } from '../core/ui.js';
 import { icon } from '../core/icons.js';
 import { timeAgo } from '../core/format.js';
@@ -44,19 +44,24 @@ const siteHref = site => href('website', site.uuid);
 const tile = site => {
     const v = VISIBILITY[site.visibility] || VISIBILITY.private;
     const problems = problemsText(site.problems24h);
+    const shot = h(
+        'div',
+        {
+            class: 'site-shot',
+            // Text statt Objekt: eigene CSS-Variablen gehen nur so (Object.assign kennt sie nicht)
+            style: `--hue: ${placeholderHue(site.name)}`,
+            'aria-hidden': 'true'
+        },
+        h('span', { class: 'site-letter' }, site.name.slice(0, 1).toUpperCase())
+    );
+    // Echtes Vorschaubild (D3b, nur öffentliche Websites): nachladen und den Buchstaben ersetzen
+    loadThumbnail(site).then(url => {
+        if (url) mount(shot, h('img', { src: url, alt: '', loading: 'lazy' }));
+    });
     return h(
         'a',
         { class: 'site-tile', href: siteHref(site) },
-        h(
-            'div',
-            {
-                class: 'site-shot',
-                // Text statt Objekt: eigene CSS-Variablen gehen nur so (Object.assign kennt sie nicht)
-                style: `--hue: ${placeholderHue(site.name)}`,
-                'aria-hidden': 'true'
-            },
-            h('span', { class: 'site-letter' }, site.name.slice(0, 1).toUpperCase())
-        ),
+        shot,
         h(
             'div',
             { class: 'site-meta' },

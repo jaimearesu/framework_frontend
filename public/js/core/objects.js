@@ -330,6 +330,24 @@ export const loadOwnerSites = async () => {
     return { ok: true, sites: mergeSites(websites.data?.data, objects.ok ? objects.data : []) };
 };
 
+// ------------------------------------------------------------------
+// VORSCHAUBILD einer Website (Punkt 5, D3b) als blob:-Adresse fürs <img>.
+// Gemerkt pro Website + Aufnahmezeit (thumbAt): ein neues Bild ersetzt das alte,
+// dessen blob:-Adresse wird freigegeben. null = kein Bild (dann Anfangsbuchstabe).
+// ------------------------------------------------------------------
+const thumbCache = new Map(); // uuid -> { thumbAt, url }
+export const loadThumbnail = async site => {
+    if (!site?.thumbAt) return null;
+    const known = thumbCache.get(site.uuid);
+    if (known && known.thumbAt === site.thumbAt) return known.url;
+    const res = await api.blob(`/api/websites/${encodeURIComponent(site.uuid)}/vorschau`);
+    if (!res.ok || !res.blob) return null;
+    if (known) URL.revokeObjectURL(known.url);
+    const url = URL.createObjectURL(res.blob);
+    thumbCache.set(site.uuid, { thumbAt: site.thumbAt, url });
+    return url;
+};
+
 // Code eines Objekts laden: { html: '…', css: '…', syntax: '{…}', … }
 export const loadCode = async uuid => {
     const res = await api.get(`/api/ast/${encodeURIComponent(uuid)}`);
