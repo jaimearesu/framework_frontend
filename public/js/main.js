@@ -21,37 +21,198 @@ import { refreshSession, getSession, guestHint } from './core/session.js';
 import { initRequestLog } from './core/requestLog.js';
 import { load, save } from './core/storage.js';
 import { initLogo } from './core/intro.js';
+import { setView, isTechView, OWNER_NAV, titleFor, ownerProblemText } from './core/view.js';
+import { loadOwnerSites } from './core/objects.js';
 
 const $ = id => document.getElementById(id);
 
 // ------------------------------------------------------------------
-// MENÜ (links)
+// MENÜ (links) – je nach Ansicht (Punkt 5, D2: Besitzer / Technik)
 // ------------------------------------------------------------------
+const navLink = ({ id, title, icon: iconName, badge }) =>
+    h(
+        'a',
+        { class: 'nav-link', href: href(id), dataset: { route: id } },
+        h('span', { class: 'nav-icon' }, icon(iconName)),
+        h('span', {}, title),
+        badge ? h('span', { class: 'nav-badge', id: `navBadge-${badge}`, hidden: true }) : null
+    );
+
 const renderNav = () => {
-    const groups = GROUPS.map(group => {
-        const items = ROUTES.filter(r => r.group === group);
-        return h(
-            'div',
-            { class: 'nav-group' },
-            h('div', { class: 'nav-group-title' }, group),
-            items.map(r =>
+    if (isTechView()) {
+        // Technik-Ansicht: die bisherigen Gruppen (Seiten ohne Gruppe stehen nicht drin)
+        const groups = GROUPS.map(group =>
+            h(
+                'div',
+                { class: 'nav-group' },
+                h('div', { class: 'nav-group-title' }, group),
+                ROUTES.filter(r => r.group === group).map(r => navLink(r))
+            )
+        );
+        mount($('nav'), groups);
+    } else {
+        // Besitzer-Ansicht: drei Punkte + die eigenen Websites als Baum
+        mount(
+            $('nav'),
+            h('div', { class: 'nav-group' }, OWNER_NAV.map(navLink)),
+            h(
+                'div',
+                { class: 'nav-group' },
+                h('div', { class: 'nav-group-title' }, 'Websites'),
+                h('div', { class: 'site-tree', id: 'siteTree' }, h('span', { class: 'nav-note' }, '…')),
                 h(
                     'a',
-                    { class: 'nav-link', href: href(r.id), dataset: { route: r.id } },
-                    h('span', { class: 'nav-icon' }, icon(r.icon)),
-                    h('span', {}, r.title)
+                    { class: 'nav-link subtle', href: href('objekte') },
+                    h('span', { class: 'nav-plus', 'aria-hidden': 'true' }, '＋'),
+                    h('span', {}, 'Neue Website')
                 )
             )
         );
-    });
-    mount($('nav'), groups);
+        renderSiteTree();
+        renderWaitingBadge();
+    }
+    renderSidebarFoot();
+    markActiveNav();
 };
 
-const markActiveNav = id => {
+// Unten in der Seitenleiste: der Schalter zwischen den Ansichten
+const renderSidebarFoot = () => {
+    const tech = isTechView();
+    mount(
+        $('sidebarFoot'),
+        tech
+            ? h(
+                  'a',
+                  { class: 'nav-link subtle', href: href('systemcheck'), dataset: { route: 'systemcheck' } },
+                  h('span', { class: 'nav-icon' }, icon('check')),
+                  h('span', {}, 'Teste alles')
+              )
+            : null,
+        h(
+            'button',
+            {
+                type: 'button',
+                class: 'nav-link subtle view-switch',
+                'aria-pressed': String(tech),
+                title: tech ? 'Zurück zur einfachen Ansicht' : 'Alle technischen Seiten zeigen',
+                onclick: () => setView(tech ? 'besitzer' : 'technik')
+            },
+            h('span', { class: 'nav-icon' }, icon('code')),
+            h('span', {}, 'Technik-Ansicht'),
+            h('span', { class: `switch${tech ? ' on' : ''}`, 'aria-hidden': 'true' })
+        )
+    );
+};
+
+// Die eigenen Websites als Baum (aufklappbar). Agenten stehen unter "KI-Helfer" (N2).
+const VISIBILITY_TEXT = { public: 'Öffentlich', members: 'Nur Angemeldete', private: 'Privat' };
+const openSites = new Set(load('openSites', []));
+
+const renderSiteTree = async () => {
+    const box = $('siteTree');
+    if (!box) return;
+    const s = getSession();
+    if (s.loading) return;
+    if (!s.online || s.identity.kind === 'anon') {
+        return mount(
+            box,
+            h('span', { class: 'nav-note' }, s.online ? 'Melde dich an, um deine Websites zu sehen.' : '–')
+        );
+    }
+    const { ok, sites } = await loadOwnerSites(s);
+    if (box !== $('siteTree')) return; // inzwischen neu gezeichnet oder auf Technik umgeschaltet
+    if (!ok) return mount(box, h('span', { class: 'nav-note' }, 'Konnte die Websites nicht laden.'));
+    if (!sites.length) return mount(box, h('span', { class: 'nav-note' }, 'Noch keine Website.'));
+
+    const toggle = uuid => {
+        if (openSites.has(uuid)) openSites.delete(uuid);
+        else openSites.add(uuid);
+        save('openSites', [...openSites]);
+        renderSiteTree();
+    };
+    // Bis D4 führt ein Klick auf die bestehende Objekt-Seite, Reiter "Website" (N3)
+    const siteHref = uuid => href('objekte', uuid) + '?tab=website';
+    mount(
+        box,
+        sites.map(site => {
+            const open = openSites.has(site.uuid);
+            return h(
+                'div',
+                { class: 'tree-site' },
+                h(
+                    'div',
+                    { class: 'nav-link tree-row', dataset: { object: site.uuid } },
+                    h(
+                        'button',
+                        {
+                            type: 'button',
+                            class: 'tree-twist',
+                            'aria-label': open ? 'Zuklappen' : 'Aufklappen',
+                            'aria-expanded': String(open),
+                            disabled: !site.children.length,
+                            onclick: () => toggle(site.uuid)
+                        },
+                        site.children.length ? (open ? '▾' : '▸') : ''
+                    ),
+                    h(
+                        'a',
+                        { href: siteHref(site.uuid), class: 'tree-label' },
+                        h('span', { class: `tree-dot ${site.visibility}`, title: VISIBILITY_TEXT[site.visibility] }),
+                        h('span', { class: 'tree-name' }, site.name)
+                    )
+                ),
+                open
+                    ? site.children.map(c =>
+                          h(
+                              'a',
+                              {
+                                  class: 'nav-link tree-child',
+                                  href: href('objekte', c.uuid),
+                                  dataset: { object: c.uuid }
+                              },
+                              h('span', { class: 'mono' }, c.name)
+                          )
+                      )
+                    : null
+            );
+        })
+    );
+    markActiveNav();
+};
+
+// Zahl bei "Wartet auf mich": offene Freigaben + neue Besucher-Uploads
+const countOf = res => (res.ok && Array.isArray(res.data?.data) ? res.data.data.length : 0);
+const renderWaitingBadge = async () => {
+    const s = getSession();
+    if (s.loading || !s.online || s.identity.kind === 'anon' || isTechView()) return;
+    const [requests, uploads] = await Promise.all([
+        api.get('/api/publish-requests/pending'),
+        api.get('/api/uploads/pending')
+    ]);
+    const el = $('navBadge-waiting');
+    if (!el) return;
+    const count = countOf(requests) + countOf(uploads);
+    el.hidden = count === 0;
+    el.textContent = String(count);
+};
+
+const markActiveNav = () => {
+    const { id, params } = parseHash(location.hash);
+    const current = findRoute(id) ? id : '';
     for (const a of document.querySelectorAll('.nav-link[data-route]')) {
-        a.classList.toggle('active', a.dataset.route === id);
-        if (a.dataset.route === id) a.setAttribute('aria-current', 'page');
+        const active = a.dataset.route === current;
+        a.classList.toggle('active', active);
+        if (active) a.setAttribute('aria-current', 'page');
         else a.removeAttribute('aria-current');
+    }
+    // Website (oder Teil) im Baum markieren, wenn ihre Objekt-Seite offen ist
+    const open = current === 'objekte' ? params[0] : null;
+    for (const el of document.querySelectorAll('.nav-link[data-object]')) {
+        el.classList.toggle('active', Boolean(open) && el.dataset.object === open);
+    }
+    // Auf einer Website-Seite ist nicht gleichzeitig "Objekte" o.ä. aktiv
+    if (open && !isTechView()) {
+        for (const a of document.querySelectorAll('.nav-link[data-route].active')) a.classList.remove('active');
     }
 };
 
@@ -139,9 +300,18 @@ const renderBanner = () => {
     const s = getSession();
     const banner = $('modeBanner');
     const test = getMode() === 'test';
+    const tech = isTechView();
     let content = null;
 
-    if (!s.loading && !s.online) {
+    // Besitzer-Ansicht (D2): Probleme in Alltagssprache, ohne Befehle; kein Test-Hinweis
+    // (dort zeigt nur das Schild "Test" oben, dass es die Test-Datenbank ist)
+    if (!tech && !s.loading && !s.online) {
+        content = callout('error', ownerProblemText('offline'));
+    } else if (!tech && !s.loading && s.health && s.health.database !== 'ok') {
+        content = callout('error', ownerProblemText('database'));
+    } else if (!tech) {
+        content = null;
+    } else if (!s.loading && !s.online) {
         content = test
             ? callout(
                   'error',
@@ -213,15 +383,18 @@ const showPage = async () => {
 
     runCleanup();
 
-    markActiveNav(route.id);
-    $('pageTitle').textContent = route.title;
-    document.title = `${route.title} · vindelis Cockpit`;
+    markActiveNav();
+    const title = titleFor(route, isTechView() ? 'technik' : 'besitzer');
+    $('pageTitle').textContent = title;
+    document.title = `${title} · vindelis Cockpit`;
 
     const content = $('content');
     mount(content, spinner());
 
     try {
-        const page = (await route.load()).default;
+        // Besitzer-Ansicht: manche Seiten haben eine eigene, einfache Fassung (ownerLoad)
+        const loader = !isTechView() && route.ownerLoad ? route.ownerLoad : route.load;
+        const page = (await loader()).default;
         if (token !== renderToken) return; // inzwischen woanders hingeklickt
         const root = h('div', { class: 'page' });
         mount(content, root);
@@ -247,6 +420,8 @@ const showPage = async () => {
 const start = async () => {
     // Logo "vindelis" + Auftritt beim ersten Öffnen (läuft nebenher, das Cockpit lädt währenddessen)
     initLogo();
+    // Ansicht (Besitzer / Technik) so früh wie möglich setzen – das CSS blendet danach aus
+    document.body.dataset.view = isTechView() ? 'technik' : 'besitzer';
     hydrateIcons();
     initTheme();
     initMobileMenu();
@@ -261,6 +436,16 @@ const start = async () => {
     on('session', () => {
         renderIdentity();
         renderBanner();
+        // Websites-Baum und Zahl bei "Wartet auf mich" mit frischen Daten
+        renderSiteTree();
+        renderWaitingBadge();
+    });
+
+    // Umschalten Besitzer <-> Technik: Menü, Hinweise und Seite neu zeichnen
+    on('view', () => {
+        renderNav();
+        renderBanner();
+        showPage();
     });
 
     // Umschalten Live <-> Test: alles neu laden, denn es ist ein anderes Backend
@@ -273,7 +458,11 @@ const start = async () => {
         showPage();
     });
 
-    window.addEventListener('hashchange', showPage);
+    window.addEventListener('hashchange', () => {
+        showPage();
+        // Neue Website angelegt? Der Baum holt die Liste aus dem Zwischenspeicher (billig)
+        renderSiteTree();
+    });
 
     await refreshSession();
     showPage();

@@ -392,20 +392,20 @@ body.intro-leaving .intro-veil {
 }
 .nav-group-title {
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.02em;
     color: var(--faint);
-    font-weight: 500;
-    padding: 0 10px 4px;
+    font-weight: 400;
+    padding: 4px 10px 6px;
 }
 .nav-link {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
+    gap: 9px;
+    padding: 6px 10px;
     border-radius: var(--radius-s);
     color: var(--muted);
-    font-weight: 500;
+    font-weight: 400;
+    white-space: nowrap;
     text-decoration: none !important;
     transition:
         background 0.12s,
@@ -417,7 +417,10 @@ body.intro-leaving .intro-veil {
 }
 .nav-link.active {
     background: var(--accent-soft);
-    color: var(--accent-strong);
+    color: var(--text);
+}
+.nav-link.active .nav-icon {
+    color: var(--accent);
 }
 .nav-link.subtle {
     font-size: 13px;
@@ -437,6 +440,134 @@ body.intro-leaving .intro-veil {
     border-top: 1px solid var(--border);
     padding-top: 10px;
     margin-top: 10px;
+}
+
+/* --- Besitzer-Ansicht (Punkt 5, D2) --- */
+/* Zahl bei "Wartet auf mich" */
+.nav-badge {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--accent-strong);
+}
+.nav-note {
+    display: block;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--faint);
+}
+.nav-plus {
+    width: 16px;
+    text-align: center;
+}
+/* Websites als Baum */
+.tree-row {
+    padding: 0 6px 0 2px;
+    gap: 2px;
+}
+.tree-twist {
+    width: 18px;
+    height: 26px;
+    border: 0;
+    background: none;
+    color: var(--faint);
+    font-size: 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+}
+.tree-twist:disabled {
+    cursor: default;
+}
+.tree-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    padding: 5px 4px;
+    color: inherit;
+    text-decoration: none !important;
+}
+.tree-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* Punkt: grün = öffentlich, blau = nur Angemeldete, grau = privat */
+.tree-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--faint);
+}
+.tree-dot.public {
+    background: var(--ok);
+}
+.tree-dot.members {
+    background: var(--accent);
+}
+.tree-child {
+    padding: 4px 10px 4px 46px;
+    font-size: 12px;
+}
+.tree-child .mono {
+    color: var(--faint);
+}
+/* Schalter Besitzer / Technik */
+.view-switch {
+    width: 100%;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+}
+.switch {
+    margin-left: auto;
+    width: 26px;
+    height: 15px;
+    border-radius: 99px;
+    background: var(--surface-3);
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+.switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.15s;
+}
+.switch.on {
+    background: var(--accent);
+}
+.switch.on::after {
+    transform: translateX(11px);
+}
+/* In der Besitzer-Ansicht keine Technik oben rechts (N4) */
+body[data-view='besitzer'] #modeSwitch,
+body[data-view='besitzer'] #logBtn {
+    display: none !important;
+}
+.test-tag {
+    display: none;
+    font-size: 11px;
+    color: var(--test);
+    background: var(--test-soft);
+    border-radius: 4px;
+    padding: 1px 7px;
+}
+body[data-view='besitzer'][data-mode='test'] .test-tag {
+    display: inline-block;
+}
+body[data-view='besitzer'][data-mode='test'] .topbar {
+    border-bottom: 1px solid var(--border);
 }
 .sidebar-backdrop {
     display: none;
