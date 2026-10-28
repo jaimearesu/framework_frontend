@@ -2404,6 +2404,121 @@ const renderCustomDomainCard = async (box, o) => {
 };
 
 // ------------------------------------------------------------------
+// KARTE "PROBLEME DER LETZTEN 24 STUNDEN" (Härtungs-Runde Punkt 3, 28.10.2026)
+// Was bei BESUCHERN schiefging – gezählt pro Art und Teil, mit "Was tun?".
+// Nur Zahlen, nie wer. Sehen kann es, wer red auf die Website hat (sonst Hinweis).
+// Alle Texte vom Backend über h()/textContent.
+// ------------------------------------------------------------------
+const renderProblemsCard = async (box, o) => {
+    const body = h('div');
+    let hours = 24;
+    const load = async () => {
+        mount(body, spinner('Lade Probleme …'));
+        const res = await api.get(`/api/objects/${o.uuid}/problems?hours=${hours}`);
+        if (!res.ok) {
+            return mount(
+                body,
+                res.status === 403 || res.status === 404
+                    ? h(
+                          'p',
+                          { class: 'small muted' },
+                          'Die Probleme sehen nur Menschen und KIs mit red auf dieser Website.'
+                      )
+                    : resultLine(res)
+            );
+        }
+        const { problems, total } = res.data.data;
+        const switcher = h(
+            'div',
+            { class: 'row gap-s wrap' },
+            [24, 168].map(n =>
+                h(
+                    'button',
+                    {
+                        class: n === hours ? 'btn small primary' : 'btn small',
+                        type: 'button',
+                        onclick: () => {
+                            hours = n;
+                            load();
+                        }
+                    },
+                    n === 24 ? '24 Stunden' : '7 Tage'
+                )
+            )
+        );
+        if (!problems.length) {
+            return mount(
+                body,
+                switcher,
+                h('p', {}, 'Keine Probleme 🎉 – Besucher hatten in dieser Zeit keine Fehler.')
+            );
+        }
+        return mount(
+            body,
+            switcher,
+            h(
+                'p',
+                { class: 'small muted' },
+                `${formatNumber(total)} Mal ging etwas schief (neue Fehler kommen nach höchstens einer Minute dazu).`
+            ),
+            h(
+                'div',
+                { class: 'table-wrap' },
+                h(
+                    'table',
+                    { class: 'data-table' },
+                    h(
+                        'thead',
+                        {},
+                        h(
+                            'tr',
+                            {},
+                            ['Art', 'Teil', 'Anzahl', 'Zuletzt', 'Letzte Meldung / Was tun?'].map(c => h('th', {}, c))
+                        )
+                    ),
+                    h(
+                        'tbody',
+                        {},
+                        problems.map(p =>
+                            h(
+                                'tr',
+                                {},
+                                h(
+                                    'td',
+                                    {},
+                                    String(p.kind).replace(/_/g, ' '),
+                                    p.code ? h('div', { class: 'muted small mono' }, p.code) : null
+                                ),
+                                h('td', { class: 'mono small' }, p.part || '–'),
+                                h('td', { class: 'num' }, formatNumber(p.count)),
+                                h('td', { class: 'small nowrap' }, p.lastAt ? timeAgo(p.lastAt) : '–'),
+                                h(
+                                    'td',
+                                    { class: 'small' },
+                                    p.lastMessage ? h('div', { class: 'mono' }, p.lastMessage) : null,
+                                    p.hint ? h('div', { class: 'muted' }, p.hint) : null
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        );
+    };
+    mount(
+        box,
+        card(
+            {
+                title: 'Probleme der letzten 24 Stunden',
+                icon: 'alert',
+                subtitle: 'Was bei Besuchern schiefging – nur Zahlen, nie wer. Auch deine KI sieht das (site_problems).'
+            },
+            body
+        )
+    );
+    return load();
+};
+
 // KARTE "CODE-BAUM" (Plan "F", F-2d, Entscheidungen O1, D3, D4)
 // vindelis speichert Code als Text. Den Syntax-Baum (AST) kann eine Website
 // zusätzlich speichern – er braucht Platz und ist die Grundlage für spätere
@@ -2664,6 +2779,9 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
     // Code-Baum (Plan "F", F-2d)
     const treeBox = h('div');
     renderCodeTreeCard(treeBox, o);
+    // Probleme der letzten 24 Stunden (Härtungs-Runde Punkt 3) – ganz oben unter der Website-Karte
+    const problemsBox = h('div');
+    renderProblemsCard(problemsBox, o);
     // Screenshot (Plan "Screenshots in der Vorschau", S3)
     const screenshotBox = h('div');
     renderScreenshotCard(screenshotBox, status.name);
@@ -2755,6 +2873,7 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
                 )
             )
         ),
+        problemsBox,
         screenshotBox,
         domainBox,
         treeBox

@@ -1403,6 +1403,23 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             return `${r.data.data.calls.length} Aufrufe`;
         }
     },
+    {
+        // Härtungs-Runde Punkt 3: Probleme der Website (nur an der Wurzel, mit red)
+        id: 'site-problems',
+        group: 'SSF',
+        title: 'Probleme der letzten 24 Stunden lesbar (Wurzel ja, Kind nein)',
+        needs: ['root', 'funktion'],
+        run: async ctx => {
+            const r = await api.get(`/api/objects/${ctx.root}/problems?hours=24`);
+            expectStatus(r, 200, 'Probleme der Website');
+            expect(Array.isArray(r.data?.data?.problems), 'problems fehlt', r);
+            const kind = await api.get(`/api/objects/${ctx.funktion}/problems`);
+            expectStatus(kind, 400, 'Probleme an einem Kind');
+            const falsch = await api.get(`/api/objects/${ctx.root}/problems?hours=999`);
+            expectStatus(falsch, 400, 'hours zu gross');
+            return `${r.data.data.total} Probleme in 24 h`;
+        }
+    },
     // Hintergrund-Aufträge (Plan "SSF-Ausbau", Teil C). Der Auftrag startet erst in einer
     // Stunde (startInSec) und wird gleich abgebrochen – der Arbeiter führt ihn also nie aus.
     {
