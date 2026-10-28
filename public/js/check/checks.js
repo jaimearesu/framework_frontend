@@ -464,6 +464,19 @@ export const CHECKS = [
         }
     },
     {
+        // Härtungs-Runde (28.10.2026): Warnung vor dem Löschen benutzter Teile
+        id: 'object-usage',
+        group: 'Code',
+        title: 'Wird ein Objekt noch im Code erwähnt? (vor dem Löschen)',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.get(`/api/objects/${ctx.root}/usage`);
+            expectStatus(r, 200, 'Benutzung abfragen');
+            expect(Number.isInteger(r.data?.data?.codeMentions), 'keine Zahl codeMentions', r);
+            return `${r.data.data.codeMentions} Erwähnung(en) im Code anderer SSFs/Bibliotheken`;
+        }
+    },
+    {
         id: 'code-syntax-error',
         group: 'Code',
         title: 'Syntaxfehler wird erkannt (422)',

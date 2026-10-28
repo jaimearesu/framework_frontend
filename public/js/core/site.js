@@ -144,6 +144,38 @@ export const screenshotSource = shot => {
 // data = Antwort von GET /api/objects/:uuid/live -> { verbindungen, kanaele, stand }
 // verbindungen null = unbekannt (der Bauarbeiter hat sich länger nicht gemeldet)
 // ---------------------------------------------------------------------
+// LIVE-REGELN LESBAR MACHEN (Härtungs-Runde, 28.10.2026)
+// Die Regeln stehen in der DNA eines Objekts unter "live.kanaele" (Plan "F", F-3) –
+// bisher sah der Besitzer sie nur als rohes JSON. Diese reine Funktion macht daraus
+// eine Zeile pro Kanal in Alltagssprache. Standardwerte wie im Backend (liveRules.js).
+// syntax: die DNA als Text oder Objekt -> [{ kanal, browser, wer, takt, felder, extras }]
+export const liveRulesRows = syntax => {
+    let dna = syntax;
+    if (typeof syntax === 'string') {
+        try {
+            dna = JSON.parse(syntax);
+        } catch {
+            return [];
+        }
+    }
+    const kanaele = dna && typeof dna === 'object' ? dna.live?.kanaele : null;
+    if (!kanaele || typeof kanaele !== 'object') return [];
+    return Object.entries(kanaele).map(([name, r]) => {
+        const rule = r && typeof r === 'object' ? r : {};
+        const extras = [];
+        if (rule.presence) extras.push('Anwesenheit');
+        if (rule.ticket) extras.push('nur mit Ticket');
+        return {
+            kanal: name.endsWith('*') ? `${name} (alle, die so beginnen)` : name,
+            browser: rule.browser ? 'ja, direkt (flüchtig)' : 'nein, nur über die SSF',
+            wer: rule.wer === 'angemeldet' ? 'nur Angemeldete' : 'alle',
+            takt: rule.browser ? `${rule.proSekunde || 10}/s, max. ${rule.maxBytes || 512} Bytes` : '–',
+            felder: Array.isArray(rule.felder) && rule.felder.length ? rule.felder.join(', ') : 'alle',
+            extras: extras.join(', ') || '–'
+        };
+    });
+};
+
 export const liveCountText = data => {
     if (!data || data.verbindungen === null || data.verbindungen === undefined) {
         return 'unbekannt (der Bauarbeiter meldet sich alle 30 s)';

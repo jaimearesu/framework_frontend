@@ -19,7 +19,16 @@ export const tableColumns = (records, max = 12) => {
     }
     const own = [...seen.keys()].filter(k => !k.startsWith('_sys_'));
     const sys = [...seen.keys()].filter(k => k.startsWith('_sys_') && k !== '_sys_object_uuid');
-    return { columns: own.slice(0, max), hidden: Math.max(own.length - max, 0), sys };
+    // Härtungs-Runde (28.10.2026): Schlüssel (_sys_key) und Version (_sys_version) bekommen
+    // eigene Spalten – vorher sah man sie nur im ganzen Datensatz (Klick auf die Zeile).
+    // Den Schlüssel nur, wenn ihn wenigstens ein Datensatz hat.
+    return {
+        columns: own.slice(0, max),
+        hidden: Math.max(own.length - max, 0),
+        sys,
+        withKey: [...(records || [])].some(r => r?._sys_key !== undefined && r?._sys_key !== null),
+        withVersion: seen.has('_sys_version')
+    };
 };
 
 // Einen Wert kurz anzeigen (reine Funktion, getestet)
@@ -42,11 +51,11 @@ export const cellText = value => {
 };
 
 export const recordsTable = (records, { onDelete } = {}) => {
-    const { columns, hidden, sys } = tableColumns(records);
+    const { columns, hidden, sys, withKey, withVersion } = tableColumns(records);
     const detailRow = (record, colspan) =>
         h('tr', { class: 'row-detail' }, h('td', { colspan }, jsonView(record, { maxHeight: '300px' })));
 
-    const colCount = columns.length + 2 + (onDelete ? 1 : 0);
+    const colCount = columns.length + 2 + (withKey ? 1 : 0) + (withVersion ? 1 : 0) + (onDelete ? 1 : 0);
     const body = h('tbody');
     for (const r of records) {
         const tr = h(
@@ -61,6 +70,8 @@ export const recordsTable = (records, { onDelete } = {}) => {
                     cellText(r[c])
                 )
             ),
+            withKey ? h('td', { class: 'mono small' }, r._sys_key ?? '') : null,
+            withVersion ? h('td', { class: 'num muted small' }, r._sys_version ?? '') : null,
             h('td', { class: 'mono muted small', title: r._sys_id }, shortUuid(r._sys_id)),
             h('td', { class: 'muted small nowrap' }, r._sys_created_at ? formatDate(r._sys_created_at) : ''),
             onDelete
@@ -105,6 +116,10 @@ export const recordsTable = (records, { onDelete } = {}) => {
                     'tr',
                     {},
                     columns.map(c => h('th', {}, c)),
+                    withKey ? h('th', { title: '_sys_key – eindeutig pro Speicher' }, 'Schlüssel') : null,
+                    withVersion
+                        ? h('th', { title: '_sys_version – zählt jede Änderung (Konfliktschutz ifVersion)' }, 'Version')
+                        : null,
                     h('th', { title: sys.join(', ') }, '_sys_id'),
                     h('th', {}, 'erstellt'),
                     onDelete ? h('th', {}) : null

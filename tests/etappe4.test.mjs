@@ -32,6 +32,18 @@ describe('Tabelle', () => {
         assert.deepEqual(tableColumns([]).columns, []);
         assert.deepEqual(tableColumns(null).columns, []);
     });
+    // Härtungs-Runde (28.10.2026): Schlüssel und Version als eigene Spalten
+    test('Schlüssel-Spalte nur, wenn ein Datensatz einen hat; Version, wenn es sie gibt', () => {
+        const ohne = tableColumns([{ _sys_id: 'a', _sys_key: null, _sys_version: 1, x: 1 }]);
+        assert.equal(ohne.withKey, false);
+        assert.equal(ohne.withVersion, true);
+        const mit = tableColumns([
+            { _sys_id: 'a', x: 1 },
+            { _sys_id: 'b', _sys_key: 'kunde-1', x: 2 }
+        ]);
+        assert.equal(mit.withKey, true);
+        assert.equal(mit.withVersion, false);
+    });
     test('cellText: Werte kurz und lesbar', () => {
         assert.equal(cellText(undefined), '');
         assert.equal(cellText(null), 'null');
