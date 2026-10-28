@@ -1383,3 +1383,378 @@ details.raw summary {
     /* Karomuster: so sieht man auch durchsichtige Bilder (PNG, SVG) */
     background: repeating-conic-gradient(#8881 0% 25%, transparent 0% 50%) 50% / 16px 16px;
 }
+
+/* =====================================================================
+   Übersicht der Besitzer-Ansicht (Punkt 5, D2 – pages/home.js)
+   ===================================================================== */
+.home-head {
+    padding: 8px 0 4px;
+}
+.home-title {
+    font-size: 21px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+.home-lead {
+    color: var(--muted);
+    margin-top: 4px;
+}
+.home-waiting {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--accent-soft);
+    color: var(--text);
+    text-decoration: none !important;
+}
+.home-waiting .nav-icon {
+    color: var(--accent);
+}
+.home-waiting-go {
+    margin-left: auto;
+    color: var(--accent-strong);
+}
+.sec {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+}
+.sec h2 {
+    font-size: 13px;
+    font-weight: 500;
+}
+.rows {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+}
+.row-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 16px;
+    border-top: 1px solid var(--border);
+    color: var(--text);
+    text-decoration: none !important;
+}
+.row-item:first-child {
+    border-top: 0;
+}
+.row-item:hover {
+    background: var(--surface-2);
+}
+.row-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+.row-title {
+    font-weight: 500;
+}
+.row-sub {
+    color: var(--faint);
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.row-meta {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* Kacheln "Deine Websites" (Punkt 5, D3) */
+.site-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+}
+.site-tile {
+    display: block;
+    color: var(--text);
+    text-decoration: none !important;
+}
+/* Bild-Fläche: vorerst Anfangsbuchstabe auf ruhiger Farbe aus dem Namen (W3) */
+.site-shot {
+    height: 140px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    display: grid;
+    place-items: center;
+    background:
+        radial-gradient(circle at 80% 20%, hsl(var(--hue) 45% 60% / 0.35), transparent 55%),
+        linear-gradient(135deg, hsl(var(--hue) 30% 26%), hsl(calc(var(--hue) + 40) 25% 18%));
+    transition:
+        border-color 0.15s,
+        transform 0.15s;
+}
+:root[data-theme='light'] .site-shot {
+    background:
+        radial-gradient(circle at 80% 20%, hsl(var(--hue) 70% 85% / 0.7), transparent 55%),
+        linear-gradient(135deg, hsl(var(--hue) 45% 92%), hsl(calc(var(--hue) + 40) 40% 86%));
+}
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']) .site-shot {
+        background:
+            radial-gradient(circle at 80% 20%, hsl(var(--hue) 70% 85% / 0.7), transparent 55%),
+            linear-gradient(135deg, hsl(var(--hue) 45% 92%), hsl(calc(var(--hue) + 40) 40% 86%));
+    }
+}
+.site-letter {
+    font-size: 40px;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--text) 75%, transparent);
+}
+.site-tile:hover .site-shot {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+}
+.site-meta {
+    padding: 10px 2px 0;
+}
+.site-name {
+    font-weight: 500;
+}
+.site-addr {
+    color: var(--faint);
+    font-size: 11.5px;
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.site-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+.site-status .tree-dot {
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: 1px;
+}
+.site-status .is-warn {
+    color: var(--warn);
+}
+.home-others {
+    margin-top: 6px;
+}
+.home-others summary {
+    cursor: pointer;
+    color: var(--muted);
+    padding: 6px 0 10px;
+}
+
+/* =====================================================================
+   Website-Seite (Punkt 5, D4 – pages/site.js), Aufbau wie Notion
+   ===================================================================== */
+.site-cover {
+    height: 170px;
+    margin: -22px -24px 0;
+    position: relative;
+    background:
+        radial-gradient(circle at 18% 35%, hsl(var(--hue) 50% 70% / 0.25) 0 40px, transparent 41px),
+        radial-gradient(circle at 72% 62%, hsl(var(--hue) 50% 70% / 0.18) 0 70px, transparent 71px),
+        linear-gradient(120deg, hsl(var(--hue) 35% 24%), hsl(calc(var(--hue) + 40) 30% 32%));
+}
+.site-icon {
+    position: absolute;
+    left: 48px;
+    bottom: -28px;
+    width: 58px;
+    height: 58px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: grid;
+    place-items: center;
+    font-size: 26px;
+    font-weight: 500;
+    color: hsl(var(--hue) 45% 55%);
+}
+.site-page {
+    max-width: 1080px;
+    padding: 46px 24px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.site-title {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+.site-props {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 10px 16px;
+    margin: 0;
+}
+.site-props dt {
+    color: var(--faint);
+}
+.site-props dd {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.site-props .tree-dot,
+.kv .tree-dot {
+    display: inline-block;
+    margin-right: 6px;
+}
+.tree-dot.warn {
+    background: var(--warn);
+}
+.prop-link {
+    margin-left: 6px;
+}
+.is-warn {
+    color: var(--warn);
+}
+.site-note {
+    border-left: 2px solid var(--border-strong);
+    padding: 2px 0 2px 14px;
+    color: var(--muted);
+    cursor: text;
+    white-space: pre-wrap;
+}
+.site-note.is-empty {
+    color: var(--faint);
+}
+.site-note-edit {
+    width: 100%;
+    margin-bottom: 8px;
+}
+.site-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+.site-col {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.site-box {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.site-box-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+}
+.site-box-head h2 {
+    font-size: 13px;
+    font-weight: 500;
+}
+.site-box-body {
+    padding: 8px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.kv-list {
+    display: flex;
+    flex-direction: column;
+}
+.kv {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 9px 0;
+    border-top: 1px solid var(--border);
+}
+.kv:first-child {
+    border-top: 0;
+}
+.kv-link {
+    color: var(--text);
+    text-decoration: none !important;
+}
+.kv-link:hover .mono {
+    color: var(--accent-strong);
+}
+.kv-hint {
+    margin-top: 2px;
+}
+.site-ok {
+    color: var(--muted);
+}
+/* kleiner Umschalter 24 Std. / 7 Tage */
+.seg {
+    display: inline-flex;
+    align-self: flex-start;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    overflow: hidden;
+}
+.seg button {
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 12px;
+    padding: 3px 10px;
+    color: var(--muted);
+    cursor: pointer;
+}
+.seg button.on {
+    background: var(--accent-soft);
+    color: var(--text);
+}
+.avatar {
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 9px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #fff;
+    background: hsl(var(--hue) 45% 45%);
+    vertical-align: middle;
+}
+.invite-link {
+    word-break: break-all;
+}
+.site-tech {
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+}
+@media (max-width: 820px) {
+    .site-cover {
+        margin: -16px -12px 0;
+        height: 130px;
+    }
+    .site-icon {
+        left: 16px;
+    }
+    .site-page {
+        padding: 44px 4px 32px;
+    }
+    .site-cols {
+        grid-template-columns: 1fr;
+    }
+    .site-props {
+        grid-template-columns: 112px 1fr;
+    }
+}

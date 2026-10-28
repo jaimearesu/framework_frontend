@@ -16,6 +16,7 @@
 // ---------------------------------------------------------------------
 import { api } from './api.js';
 import { apiBase } from './config.js';
+import { mergeSites } from './view.js';
 
 // Zu welcher Familie (Domain) gehört das Objekt?
 export const objectFamily = o => o?.domain || o?.domain_ref || '';
@@ -315,6 +316,18 @@ export const loadObjects = async ({ fresh = false } = {}) => {
 // Nach dem Anlegen/Ändern: nächstes Laden holt frische Daten
 export const invalidateObjects = () => {
     cache = null;
+};
+
+// ------------------------------------------------------------------
+// MEINE WEBSITES (Besitzer-Ansicht, Punkt 5, D2/D3)
+// Seit D3 aus GET /api/websites (Art, Zustand, Probleme – ohne Benutzer-Objekt
+// und Agenten); die Teile für den Baum kommen aus der Objekt-Liste.
+// Rückgabe: { ok, sites } – sites wie mergeSites() in view.js.
+// ------------------------------------------------------------------
+export const loadOwnerSites = async () => {
+    const [websites, objects] = await Promise.all([api.get('/api/websites'), loadObjects()]);
+    if (!websites.ok) return { ok: false, sites: [] };
+    return { ok: true, sites: mergeSites(websites.data?.data, objects.ok ? objects.data : []) };
 };
 
 // Code eines Objekts laden: { html: '…', css: '…', syntax: '{…}', … }

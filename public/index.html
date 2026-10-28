@@ -46,12 +46,8 @@
                     <span class="brand-sub">Cockpit</span>
                 </a>
                 <nav class="nav" id="nav"></nav>
-                <div class="sidebar-foot">
-                    <a class="nav-link subtle" href="#/systemcheck">
-                        <span class="nav-icon" data-icon="check"></span>
-                        <span>Teste alles</span>
-                    </a>
-                </div>
+                <!-- Schalter Besitzer-/Technik-Ansicht (+ "Teste alles" in der Technik-Ansicht), siehe main.js -->
+                <div class="sidebar-foot" id="sidebarFoot"></div>
             </aside>
             <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
@@ -64,6 +60,8 @@
                         <h1 id="pageTitle">…</h1>
                     </div>
                     <div class="topbar-actions">
+                        <!-- Besitzer-Ansicht im Test-Modus: nur dieses kleine Schild (Umschalter ist in der Technik-Ansicht) -->
+                        <span class="test-tag" title="Du arbeitest mit der Test-Datenbank">Test</span>
                         <div class="mode-switch" id="modeSwitch" role="group" aria-label="Datenbank wählen" hidden>
                             <button type="button" data-mode="live">Live</button>
                             <button type="button" data-mode="test">Test</button>

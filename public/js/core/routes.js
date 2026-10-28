@@ -9,6 +9,11 @@
 //   group        -> Menü-Gruppe
 //   intro        -> ein Satz, worum es geht (wird oben auf der Seite gezeigt)
 //   load         -> lädt den Code der Seite erst, wenn man sie öffnet
+//   ownerLoad    -> (freiwillig) andere Seite in der Besitzer-Ansicht (Punkt 5, D2)
+//   group null   -> steht nur im Menü der Besitzer-Ansicht
+//
+// Welches Menü gezeigt wird, entscheidet js/core/view.js (Besitzer / Technik).
+// Alle Seiten bleiben in beiden Ansichten über ihre Adresse erreichbar.
 // ---------------------------------------------------------------------
 
 export const GROUPS = ['Start', 'Bauen', 'Daten', 'Sicherheit', 'Prüfen'];
@@ -20,7 +25,25 @@ export const ROUTES = [
         icon: 'home',
         group: 'Start',
         intro: 'Wie geht es dem System, wer bist du, und was gibt es hier?',
-        load: () => import('../pages/overview.js')
+        load: () => import('../pages/overview.js'),
+        // Besitzer-Ansicht: schlanke Startseite ohne Technik (D2; D3 bringt die Kacheln)
+        ownerLoad: () => import('../pages/home.js')
+    },
+    {
+        id: 'website',
+        title: 'Website',
+        icon: 'layers',
+        group: null, // nur Besitzer-Ansicht: /#/website/<uuid> (Punkt 5, D4)
+        intro: 'Eine deiner Websites: Zustand, Adresse, Zugriff, Sicherungen und Speicher.',
+        load: () => import('../pages/site.js')
+    },
+    {
+        id: 'wartet',
+        title: 'Wartet auf mich',
+        icon: 'bell',
+        group: null, // nur im Menü der Besitzer-Ansicht
+        intro: 'Was du entscheiden musst: Freigaben für deine KI-Helfer und neue Uploads von Besuchern.',
+        load: () => import('../pages/waiting.js')
     },
     {
         id: 'objekte',

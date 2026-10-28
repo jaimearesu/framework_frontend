@@ -118,7 +118,8 @@ describe('routes', () => {
             assert.ok(!ids.has(r.id), `doppelte Seite: ${r.id}`);
             ids.add(r.id);
             assert.ok(r.title && r.icon && r.intro, r.id);
-            assert.ok(GROUPS.includes(r.group), `unbekannte Gruppe bei ${r.id}`);
+            // group null = nur im Menü der Besitzer-Ansicht (Punkt 5, D2), sonst eine bekannte Gruppe
+            assert.ok(r.group === null || GROUPS.includes(r.group), `unbekannte Gruppe bei ${r.id}`);
             assert.equal(typeof r.load, 'function');
         }
         assert.equal(findRoute('gibtsnicht'), null);
