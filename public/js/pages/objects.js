@@ -78,7 +78,8 @@ import {
     customDomainStatusText,
     dnsNameHint,
     customDomainInputProblem,
-    liveCountText
+    liveCountText,
+    liveRulesRows
 } from '../core/site.js';
 import { addChildToDna, removeChildFromDna } from '../core/dna.js';
 import {
@@ -321,12 +322,59 @@ const noteEditor = o => {
     return box;
 };
 
+// LIVE-REGELN LESBAR (Härtungs-Runde, 28.10.2026): was der Browser in den Kanälen
+// dieses Objekts DIREKT darf (ohne dass eine SSF dazwischen prüft). Nur Anzeige –
+// geändert wird über die DNA (Code & DNA). Alle Texte über h() (kein innerHTML).
+const renderLiveRules = (box, syntax) => {
+    const rows = liveRulesRows(syntax);
+    if (!rows.length) return mount(box);
+    const cols = ['Kanal', 'Browser sendet', 'Wer', 'Takt', 'Felder', 'Extras'];
+    return mount(
+        box,
+        h('h3', { class: 'sub-title' }, `Live-Regeln (${rows.length})`),
+        h(
+            'p',
+            { class: 'muted small' },
+            'Aus der DNA dieses Objekts. „Browser sendet: ja“ heisst: Besucher schicken flüchtige Nachrichten (z.B. Cursor) direkt an alle Zuhörer – nie gespeichert, ohne SSF dazwischen.'
+        ),
+        h(
+            'div',
+            { class: 'table-wrap' },
+            h(
+                'table',
+                { class: 'data-table' },
+                h(
+                    'thead',
+                    {},
+                    h(
+                        'tr',
+                        {},
+                        cols.map(c => h('th', {}, c))
+                    )
+                ),
+                h(
+                    'tbody',
+                    {},
+                    rows.map(r =>
+                        h(
+                            'tr',
+                            {},
+                            [r.kanal, r.browser, r.wer, r.takt, r.felder, r.extras].map(v => h('td', {}, v))
+                        )
+                    )
+                )
+            )
+        )
+    );
+};
+
 // --- Reiter "Übersicht" ---
 const renderInfoTab = async (box, o, objects) => {
     const parent = findParent(objects, o);
     const children = objects.filter(c => findParent(objects, c)?.uuid === o.uuid);
     const versions = Array.isArray(o.path_directory) ? [...o.path_directory].reverse() : [];
     const codeBox = h('div', {}, spinner('Lade Code-Arten …'));
+    const liveRulesBox = h('div'); // Live-Regeln aus der DNA, lesbar (nur wenn es welche gibt)
 
     mount(
         box,
@@ -374,6 +422,7 @@ const renderInfoTab = async (box, o, objects) => {
             ['Zuletzt geändert', o.updated_at ? `${formatDate(o.updated_at)} (${timeAgo(o.updated_at)})` : '–'],
             ['Code-Arten', codeBox]
         ]),
+        liveRulesBox,
         h(
             'div',
             {},
@@ -405,6 +454,7 @@ const renderInfoTab = async (box, o, objects) => {
 
     const code = await loadCode(o.uuid);
     if (!code.ok) return mount(codeBox, h('span', { class: 'muted' }, code.error));
+    renderLiveRules(liveRulesBox, code.code.syntax);
     const types = Object.keys(code.code);
     mount(
         codeBox,
@@ -2714,7 +2764,7 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
 // --- Reiter "Löschen" ---
 // DELETE /api/objects/:uuid  -> endgültig weg (Plan "Objekte löschen" in Notion)
 // Deutliche Rückfrage: Man muss den Namen abtippen UND nochmals bestätigen.
-const renderDeleteTab = (box, o, objects, { onDeleted }) => {
+const renderDeleteTab = async (box, o, objects, { onDeleted }) => {
     const label = objectLabel(o);
     const check = deleteCheck(o, objects);
     const parent = isRoot(o) ? null : findParent(objects, o);
@@ -2754,12 +2804,16 @@ const renderDeleteTab = (box, o, objects, { onDeleted }) => {
     const confirmInput = h('input', { class: 'input', placeholder: label, autocomplete: 'off' });
     const fromDna = h('input', { type: 'checkbox', checked: true });
     const stepsLog = h('div', { class: 'steps-log' });
+    const usageBox = h('div'); // Warnung "wird noch benutzt" (wird unten nachgeladen)
+    let usedBy = 0;
 
     const doDelete = async () => {
         if (confirmInput.value.trim() !== label) {
             return toast(`Bitte zuerst „${label}“ ins Feld tippen.`, 'error');
         }
-        if (!confirm(`„${label}“ wirklich endgültig löschen?\n\nDas kann nicht rückgängig gemacht werden.`)) return;
+        const usedText = usedBy ? `\n\nAchtung: Der Code von ${usedBy} anderen Objekt(en) erwähnt es noch.` : '';
+        if (!confirm(`„${label}“ wirklich endgültig löschen?${usedText}\n\nDas kann nicht rückgängig gemacht werden.`))
+            return;
         mount(stepsLog);
 
         // Schritt 1: löschen
@@ -2833,11 +2887,27 @@ const renderDeleteTab = (box, o, objects, { onDeleted }) => {
                       h('span', {}, `Auch aus der DNA von „${objectLabel(parent)}“ entfernen (empfohlen)`)
                   )
                 : null,
+            usageBox,
             field('Zur Sicherheit: Namen abtippen', confirmInput, `Tippe „${label}“, um das Löschen freizugeben.`),
             h('div', {}, busyButton('Endgültig löschen', doDelete, { className: 'btn danger', iconName: 'trash' })),
             stepsLog
         )
     );
+
+    // Härtungs-Runde (28.10.): Wird das Objekt noch im Code anderer SSFs/Bibliotheken
+    // erwähnt (z.B. eine Bibliothek oder ein Werkzeug)? Nur eine Zahl – Löschen geht trotzdem.
+    const usage = await api.get(`/api/objects/${o.uuid}/usage`);
+    usedBy = usage.ok ? usage.data?.data?.codeMentions || 0 : 0;
+    if (usedBy > 0) {
+        mount(
+            usageBox,
+            callout(
+                'warn',
+                `Wird noch benutzt: `,
+                `Der Code von ${usedBy} anderen SSF${usedBy === 1 ? '' : 's'}/Bibliothek${usedBy === 1 ? '' : 'en'} erwähnt dieses Objekt. Nach dem Löschen finden sie es nicht mehr (Fehler erst beim nächsten Aufruf).`
+            )
+        );
+    }
 };
 
 // Eine Zeile im Schritt-Protokoll: Überschrift + Ergebnis
