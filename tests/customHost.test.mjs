@@ -171,6 +171,24 @@ describe('Eigene Domain im Bauarbeiter', () => {
         assert.equal((await request('www.neu.ch', '/')).status, 200, 'beim nächsten Mal wird wieder gefragt');
     });
 
+    // Härtungs-Runde Punkt 4b: Backend länger als 60 s weg -> die bekannte Zuordnung gilt weiter,
+    // die Website liefert ihre zwischengespeicherte Seite (wie unter *.vindelis.site)
+    test('Backend weg nach Ablauf der 60 s: bekannte eigene Domain zeigt weiter die Seite', async () => {
+        const realNow = Date.now;
+        try {
+            Date.now = () => realNow() + 2 * 60 * 1000; // 2 Minuten später
+            backend.down = true;
+            const r = await request('www.neu.ch', '/');
+            assert.equal(r.status, 200, 'nicht "Gerade nicht erreichbar"');
+            assert.match(r.body, /Neu/);
+            Date.now = () => realNow() + 2 * 60 * 60 * 1000; // 2 Stunden später: nicht mehr
+            assert.equal((await request('www.neu.ch', '/')).status, 503);
+        } finally {
+            Date.now = realNow;
+            backend.down = false;
+        }
+    });
+
     test('Anmelden auf der eigenen Domain: das Backend bekommt die Domain mit (host)', async () => {
         const r = await request('www.meinladen.ch', '/_at0mic/login?zurueck=/konto');
         assert.equal(r.status, 302);

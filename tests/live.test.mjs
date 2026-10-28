@@ -639,6 +639,29 @@ describe('Teil 2: at0mic.live im Browser', () => {
         assert.deepEqual(fehler, ['Kein Zugriff']);
     });
 
+    // Härtungs-Runde Punkt 4b: Backend kurz weg -> Abo nicht für immer tot
+    test('Abo-Fehler NICHT_ERREICHBAR: später nochmals abonnieren; KEIN_ZUGRIFF nicht', () => {
+        const { window, sockets, timers } = makeBrowser();
+        window.at0mic.live.listen('api', 'chat', () => {});
+        window.at0mic.live.listen('api', 'privat', () => {});
+        sockets[0].open();
+        sockets[0].sent = [];
+        sockets[0].receive({ typ: 'abo-fehler', code: 'NICHT_ERREICHBAR', pfad: 'api', kanal: 'chat', fehler: 'weg' });
+        sockets[0].receive({ typ: 'abo-fehler', code: 'KEIN_ZUGRIFF', pfad: 'api', kanal: 'privat', fehler: 'nein' });
+        const retries = timers.filter(t => t.ms === 2000);
+        assert.equal(retries.length, 1, 'nur das nicht erreichbare Abo wird wiederholt');
+        retries[0].fn();
+        assert.deepEqual(sockets[0].sent, [{ typ: 'abo', pfad: 'api', kanal: 'chat' }]);
+        // zweiter Fehlschlag: längere Pause
+        sockets[0].receive({ typ: 'abo-fehler', code: 'NICHT_ERREICHBAR', pfad: 'api', kanal: 'chat', fehler: 'weg' });
+        assert.ok(timers.some(t => t.ms === 5000));
+        // klappt es, wird nicht mehr nachgefragt
+        sockets[0].receive({ typ: 'abo-ok', pfad: 'api', kanal: 'chat' });
+        sockets[0].sent = [];
+        timers.find(t => t.ms === 5000).fn();
+        assert.deepEqual(sockets[0].sent, []);
+    });
+
     test('nach einer Unterbrechung: neu verbinden, neu abonnieren, wiederDa aufrufen', () => {
         const { window, sockets, timers } = makeBrowser();
         let wiederDa = 0;
