@@ -36,7 +36,8 @@ const backend = {
     tokenInvalid: false,
     regeln: {}, // F-3b: Live-Regeln pro Pfad (wie aus der DNA)
     angemeldet: false,
-    streams: [] // offene interne Leitungen (Controller zum Hineinschreiben)
+    streams: [], // offene interne Leitungen (Controller zum Hineinschreiben)
+    reports: [] // 30-s-Berichte an das Backend
 };
 const resetBackend = () => {
     backend.calls = [];
@@ -80,6 +81,11 @@ const fakeFetch = async (url, init = {}) => {
             }
         });
         return new Response(body, { status: 200 });
+    }
+    // 30-s-Bericht (W4b) – seit der Härtungs-Runde mit "probleme" (Abweisungen)
+    if (u.pathname === '/api/sites/_live/zahlen') {
+        backend.reports.push(JSON.parse(init.body));
+        return new Response('{"success":true}', { status: 200 });
     }
     const m = /^\/api\/sites\/([^/]+)\/live\/zutritt$/.exec(u.pathname);
     if (m) {
@@ -249,6 +255,12 @@ describe('Teil 1: die WebSocket-Tür', () => {
         assert.ok(await until(() => b.closed));
         assert.equal(b.closed.code, CLOSE.VOLL);
         assert.equal(lastOf(b, 'fehler').code, 'VOLL');
+        // Härtungs-Runde Punkt 3: die Abweisung geht mit dem nächsten Bericht ans Backend
+        backend.reports = [];
+        await live.reportCounts();
+        assert.equal(backend.reports[0].probleme.shop.VOLL, 1);
+        await live.reportCounts();
+        assert.deepEqual(backend.reports[1].probleme, {}, 'danach wird von vorne gezählt');
         // Eine andere Website eines anderen Kontos ist nicht betroffen
         const z = await connect('zwei');
         assert.equal((await abo(z)).typ, 'abo-ok');

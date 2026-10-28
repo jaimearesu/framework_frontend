@@ -295,6 +295,7 @@ const createLive = ({
             const { konto, maxVerbindungen } = answer.data;
             const used = konto ? perKonto.get(konto) || 0 : 0;
             if (!konto || !Number.isInteger(maxVerbindungen) || used + 1 > maxVerbindungen) {
+                noteRefusal(conn.site, 'VOLL');
                 send(conn, {
                     typ: 'fehler',
                     code: 'VOLL',
@@ -309,6 +310,7 @@ const createLive = ({
         const uuid = answer.data.erlaubt[pfad];
         if (typeof uuid !== 'string' || !UUID.test(uuid)) {
             // "gibt es nicht" und "darfst du nicht" sehen gleich aus
+            noteRefusal(conn.site, 'KEIN_ZUGRIFF');
             return send(conn, {
                 typ: 'abo-fehler',
                 code: 'KEIN_ZUGRIFF',
@@ -321,6 +323,7 @@ const createLive = ({
         conn.angemeldet = answer.data.angemeldet === true;
         const rule = ruleFor(answer.data.regeln && answer.data.regeln[pfad], kanal);
         if (rule && rule.ticket && !verifyTicket({ ticket, objectUuid: uuid, kanal, baseKey: key })) {
+            noteRefusal(conn.site, 'TICKET');
             return send(conn, {
                 typ: 'abo-fehler',
                 code: 'TICKET',
@@ -789,6 +792,22 @@ const createLive = ({
     // Gezählt werden Verbindungen mit mindestens einem Abo (die anderen wissen noch
     // nicht, wohin sie gehören, und werden nach einer Minute ohnehin getrennt).
     // ---------------------------------------------------------------------
+    // ABWEISUNGEN ZÄHLEN (Härtungs-Runde Punkt 3, 28.10.2026): "voll", kein Zugriff,
+    // Ticket fehlt – pro Website und Code, nur Zahlen (nie wer). Gehen mit dem
+    // 30-s-Bericht ans Backend, das sie unter "Probleme der letzten 24 h" zeigt.
+    // Höchstens 500 Websites pro Bericht (mehr wäre ein Angriff – dann zählen wir nicht).
+    const refusals = new Map(); // site -> { VOLL: n, KEIN_ZUGRIFF: n, TICKET: n }
+    const noteRefusal = (site, code) => {
+        if (!site) return;
+        let entry = refusals.get(site);
+        if (!entry) {
+            if (refusals.size >= 500) return;
+            entry = {};
+            refusals.set(site, entry);
+        }
+        entry[code] = (entry[code] || 0) + 1;
+    };
+
     const countsPerSite = () => {
         const sites = {};
         for (const conn of connections) {
@@ -803,11 +822,14 @@ const createLive = ({
         return out;
     };
     const reportCounts = async () => {
+        // Abweisungen seit dem letzten Bericht mitschicken – danach von vorne zählen
+        const probleme = Object.fromEntries(refusals);
+        refusals.clear();
         try {
             const res = await fetchImpl(`${apiUrl}/api/sites/_live/zahlen`, {
                 method: 'POST',
                 headers: { 'x-bauarbeiter-key': key, 'content-type': 'application/json' },
-                body: JSON.stringify({ websites: countsPerSite() }),
+                body: JSON.stringify({ websites: countsPerSite(), probleme }),
                 signal: AbortSignal.timeout(limits.accessTimeoutMs)
             });
             if (!res.ok) log.warn(`[LIVE] Zahlen melden: Backend antwortet ${res.status}`);
