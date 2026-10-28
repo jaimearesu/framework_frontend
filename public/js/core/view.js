@@ -50,8 +50,8 @@ export const titleFor = (route, view) => (view === 'besitzer' && OWNER_TITLES[ro
 //   direktes Kind:           domain_ref = 'shop', path = ['0', '3']  (zwei Stufen)
 //
 // Weggelassen werden (Entscheidung N2): das eigene Benutzer-Objekt und die
-// Agenten (die stehen unter "KI-Helfer"). Reine Speicher und Werkzeugkästen
-// erscheinen vorerst mit – erst die Route aus D3 erkennt sie sauber.
+// Agenten (die stehen unter "KI-Helfer"). Seit D3 kommen Art, Zustand usw.
+// aus GET /api/websites (mergeSites unten); dieser Baum liefert nur noch die Teile.
 // Rückgabe: [{ uuid, name, visibility, children: [{ uuid, name }] }], nach Namen sortiert.
 // ------------------------------------------------------------------
 const byName = (a, b) => a.name.localeCompare(b.name, 'de');
@@ -98,3 +98,54 @@ export const siteAddress = (template, name) => {
         .replace(/^https?:\/\//, '')
         .replace(/\/+$/, '');
 };
+
+// ------------------------------------------------------------------
+// MEINE WEBSITES (D3): Liste aus GET /api/websites + die Teile aus dem Baum
+// -> [{ uuid, name, art, visibility, address, customHost, lastChange,
+//       problems24h, liveNow, rights, children }], nach Namen sortiert.
+// Die Route lässt Benutzer-Objekte und Agenten schon weg.
+// ------------------------------------------------------------------
+export const mergeSites = (websites, objects) => {
+    const children = new Map(websiteTree(objects).map(t => [t.uuid, t.children]));
+    return (Array.isArray(websites) ? websites : [])
+        .filter(w => w && w.uuid && w.name)
+        .map(w => ({
+            ...w,
+            name: String(w.name),
+            art: w.art || 'website',
+            visibility: w.visibility || 'private',
+            children: children.get(w.uuid) || []
+        }))
+        .sort(byName);
+};
+
+// Echte Websites zuerst, Speicher und Werkzeugkästen unter "Weitere" (Entscheidung W2)
+export const splitByArt = sites => ({
+    websites: sites.filter(s => s.art === 'website'),
+    others: sites.filter(s => s.art !== 'website')
+});
+
+// Platzhalter-Bild der Kachel (W3): ruhige Farbe aus dem Namen berechnet, immer gleich
+export const placeholderHue = name => {
+    let hash = 0;
+    for (const ch of String(name || '')) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+    return hash % 360;
+};
+
+// Adresse auf der Kachel: eigene Domain zuerst, sonst *.vindelis.site – ohne https://
+export const displayAddress = site =>
+    String(site?.customHost || site?.address || '')
+        .replace(/^https?:\/\//, '')
+        .replace(/\/+$/, '');
+
+// Zeile "Probleme" auf der Kachel: null = darfst du nicht sehen -> nichts zeigen
+export const problemsText = count =>
+    count === null || count === undefined
+        ? null
+        : count === 0
+          ? 'Keine Probleme'
+          : count === 1
+            ? '1 Problem heute'
+            : `${count} Probleme heute`;
+
+export const ART_TEXT = { website: 'Website', speicher: 'Speicher', werkzeugkasten: 'Werkzeugkasten' };

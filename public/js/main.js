@@ -21,7 +21,7 @@ import { refreshSession, getSession, guestHint } from './core/session.js';
 import { initRequestLog } from './core/requestLog.js';
 import { load, save } from './core/storage.js';
 import { initLogo } from './core/intro.js';
-import { setView, isTechView, OWNER_NAV, titleFor, ownerProblemText } from './core/view.js';
+import { setView, isTechView, OWNER_NAV, titleFor, ownerProblemText, splitByArt } from './core/view.js';
 import { loadOwnerSites } from './core/objects.js';
 
 const $ = id => document.getElementById(id);
@@ -119,10 +119,11 @@ const renderSiteTree = async () => {
             h('span', { class: 'nav-note' }, s.online ? 'Melde dich an, um deine Websites zu sehen.' : '–')
         );
     }
-    const { ok, sites } = await loadOwnerSites(s);
+    const { ok, sites } = await loadOwnerSites();
     if (box !== $('siteTree')) return; // inzwischen neu gezeichnet oder auf Technik umgeschaltet
     if (!ok) return mount(box, h('span', { class: 'nav-note' }, 'Konnte die Websites nicht laden.'));
-    if (!sites.length) return mount(box, h('span', { class: 'nav-note' }, 'Noch keine Website.'));
+    // Echte Websites im Baum, Speicher und Werkzeugkästen eingeklappt unter "Weitere" (D3, W2)
+    const { websites, others } = splitByArt(sites);
 
     const toggle = uuid => {
         if (openSites.has(uuid)) openSites.delete(uuid);
@@ -132,50 +133,73 @@ const renderSiteTree = async () => {
     };
     // Bis D4 führt ein Klick auf die bestehende Objekt-Seite, Reiter "Website" (N3)
     const siteHref = uuid => href('objekte', uuid) + '?tab=website';
+    const siteRow = site => {
+        const open = openSites.has(site.uuid);
+        return h(
+            'div',
+            { class: 'tree-site' },
+            h(
+                'div',
+                { class: 'nav-link tree-row', dataset: { object: site.uuid } },
+                h(
+                    'button',
+                    {
+                        type: 'button',
+                        class: 'tree-twist',
+                        'aria-label': open ? 'Zuklappen' : 'Aufklappen',
+                        'aria-expanded': String(open),
+                        disabled: !site.children.length,
+                        onclick: () => toggle(site.uuid)
+                    },
+                    site.children.length ? (open ? '▾' : '▸') : ''
+                ),
+                h(
+                    'a',
+                    { href: siteHref(site.uuid), class: 'tree-label' },
+                    h('span', { class: `tree-dot ${site.visibility}`, title: VISIBILITY_TEXT[site.visibility] }),
+                    h('span', { class: 'tree-name' }, site.name)
+                )
+            ),
+            open
+                ? site.children.map(c =>
+                      h(
+                          'a',
+                          {
+                              class: 'nav-link tree-child',
+                              href: href('objekte', c.uuid),
+                              dataset: { object: c.uuid }
+                          },
+                          h('span', { class: 'mono' }, c.name)
+                      )
+                  )
+                : null
+        );
+    };
+
+    // "Weitere" ist ein eigener Zweig mit Merk-Schlüssel (wie eine Website)
+    const OTHERS_KEY = '__weitere__';
+    const othersOpen = openSites.has(OTHERS_KEY);
     mount(
         box,
-        sites.map(site => {
-            const open = openSites.has(site.uuid);
-            return h(
-                'div',
-                { class: 'tree-site' },
-                h(
-                    'div',
-                    { class: 'nav-link tree-row', dataset: { object: site.uuid } },
-                    h(
-                        'button',
-                        {
-                            type: 'button',
-                            class: 'tree-twist',
-                            'aria-label': open ? 'Zuklappen' : 'Aufklappen',
-                            'aria-expanded': String(open),
-                            disabled: !site.children.length,
-                            onclick: () => toggle(site.uuid)
-                        },
-                        site.children.length ? (open ? '▾' : '▸') : ''
-                    ),
-                    h(
-                        'a',
-                        { href: siteHref(site.uuid), class: 'tree-label' },
-                        h('span', { class: `tree-dot ${site.visibility}`, title: VISIBILITY_TEXT[site.visibility] }),
-                        h('span', { class: 'tree-name' }, site.name)
-                    )
-                ),
-                open
-                    ? site.children.map(c =>
-                          h(
-                              'a',
-                              {
-                                  class: 'nav-link tree-child',
-                                  href: href('objekte', c.uuid),
-                                  dataset: { object: c.uuid }
-                              },
-                              h('span', { class: 'mono' }, c.name)
-                          )
-                      )
-                    : null
-            );
-        })
+        websites.length ? websites.map(siteRow) : h('span', { class: 'nav-note' }, 'Noch keine Website.'),
+        others.length
+            ? h(
+                  'div',
+                  { class: 'tree-site' },
+                  h(
+                      'button',
+                      {
+                          type: 'button',
+                          class: 'nav-link tree-row tree-others',
+                          'aria-expanded': String(othersOpen),
+                          onclick: () => toggle(OTHERS_KEY)
+                      },
+                      h('span', { class: 'tree-twist' }, othersOpen ? '▾' : '▸'),
+                      h('span', { class: 'tree-name' }, `Weitere (${others.length})`)
+                  ),
+                  othersOpen ? others.map(siteRow) : null
+              )
+            : null
     );
     markActiveNav();
 };

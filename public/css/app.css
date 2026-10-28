@@ -1560,3 +1560,18 @@ pre {
 .block {
     display: block;
 }
+/* "Weitere (n)": Speicher und Werkzeugkästen eingeklappt (Punkt 5, D3) */
+.tree-others {
+    width: 100%;
+    border: 0;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+    color: var(--faint);
+}
+.tree-others .tree-twist {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}

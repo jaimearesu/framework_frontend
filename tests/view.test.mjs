@@ -13,7 +13,12 @@ import {
     ownerProblemText,
     greetingFor,
     siteAddress,
-    OWNER_NAV
+    OWNER_NAV,
+    mergeSites,
+    splitByArt,
+    placeholderHue,
+    displayAddress,
+    problemsText
 } from '../public/js/core/view.js';
 import { ROUTES } from '../public/js/core/routes.js';
 
@@ -104,5 +109,69 @@ describe('Texte für Besitzer', () => {
         assert.equal(siteAddress('https://{name}.vindelis.site', 'cafe'), 'cafe.vindelis.site');
         assert.equal(siteAddress('http://{name}.site.localhost:3001/', 'x'), 'x.site.localhost:3001');
         assert.equal(siteAddress('', 'x'), '');
+    });
+});
+
+describe('Meine Websites (D3)', () => {
+    const websites = [
+        { uuid: 'u-z', name: 'zoo', art: 'website', visibility: 'public', problems24h: 2 },
+        { uuid: 'u-l', name: 'lager', art: 'speicher' },
+        { uuid: 'u-a', name: 'atelier', art: 'website', customHost: 'www.atelier.ch' },
+        { uuid: 'kaputt' }
+    ];
+    const objects = [
+        { uuid: 'u-z', domain: 'zoo', path: ['0'] },
+        { uuid: 'u-k', domain: null, domain_ref: 'zoo', path: ['0', '1,1'], identifier: 'kasse' }
+    ];
+
+    test('mergeSites: sortiert, Teile aus der Objekt-Liste, Unvollständiges fällt weg', () => {
+        const sites = mergeSites(websites, objects);
+        assert.deepEqual(
+            sites.map(s => s.name),
+            ['atelier', 'lager', 'zoo']
+        );
+        assert.deepEqual(
+            sites.find(s => s.name === 'zoo').children.map(c => c.name),
+            ['kasse']
+        );
+        assert.equal(sites.find(s => s.name === 'lager').visibility, 'private');
+        assert.deepEqual(mergeSites(null, null), []);
+    });
+
+    test('splitByArt: Websites vorne, Speicher/Werkzeugkästen unter "Weitere"', () => {
+        const { websites: w, others } = splitByArt(mergeSites(websites, objects));
+        assert.deepEqual(
+            w.map(s => s.name),
+            ['atelier', 'zoo']
+        );
+        assert.deepEqual(
+            others.map(s => s.name),
+            ['lager']
+        );
+    });
+
+    test('Platzhalter-Farbe: immer gleich für denselben Namen, 0–359', () => {
+        assert.equal(placeholderHue('cafe'), placeholderHue('cafe'));
+        assert.notEqual(placeholderHue('cafe'), placeholderHue('verein'));
+        for (const n of ['', 'a', 'Ünïcödé 🎯']) {
+            const hue = placeholderHue(n);
+            assert.ok(hue >= 0 && hue < 360, String(hue));
+        }
+    });
+
+    test('Adresse: eigene Domain zuerst, ohne https://', () => {
+        assert.equal(
+            displayAddress({ customHost: 'www.atelier.ch', address: 'https://a.vindelis.site' }),
+            'www.atelier.ch'
+        );
+        assert.equal(displayAddress({ address: 'https://zoo.vindelis.site/' }), 'zoo.vindelis.site');
+        assert.equal(displayAddress({}), '');
+    });
+
+    test('Probleme: null = nicht sichtbar (nichts zeigen)', () => {
+        assert.equal(problemsText(null), null);
+        assert.equal(problemsText(0), 'Keine Probleme');
+        assert.equal(problemsText(1), '1 Problem heute');
+        assert.equal(problemsText(5), '5 Probleme heute');
     });
 });

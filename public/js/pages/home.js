@@ -1,27 +1,29 @@
 // js/pages/home.js
 // ---------------------------------------------------------------------
-// ÜBERSICHT IN DER BESITZER-ANSICHT (Punkt 5, D2 – vorläufig)
+// ÜBERSICHT IN DER BESITZER-ANSICHT (Punkt 5, D2 + D3)
 //
 //   Begrüssung + eine Zeile, wie es steht
 //   Wartet auf dich (nur wenn etwas wartet)
-//   Deine Websites (Liste; D3 macht daraus Kacheln mit Vorschau)
+//   Deine Websites als Kacheln (GET /api/websites, D3): Zustand, Probleme
+//     heute, zuletzt geändert. Bild-Fläche vorerst mit Anfangsbuchstabe (W3).
+//   Weitere: Speicher und Werkzeugkästen (eingeklappt)
 //   Papierkorb (nur wenn es gelöschte Websites mit Sicherung gibt)
 //
 // Statuskarten, Schnellstart und Grundbegriffe stehen nur in der
 // Technik-Übersicht (pages/overview.js).
 // ---------------------------------------------------------------------
 import { api } from '../core/api.js';
-import { siteUrlTemplate } from '../core/config.js';
 import { on } from '../core/events.js';
 import { href } from '../core/routes.js';
 import { loadOwnerSites } from '../core/objects.js';
 import { h, mount, card, emptyState, spinner } from '../core/ui.js';
 import { icon } from '../core/icons.js';
-import { greetingFor, siteAddress } from '../core/view.js';
+import { timeAgo } from '../core/format.js';
+import { greetingFor, splitByArt, placeholderHue, displayAddress, problemsText, ART_TEXT } from '../core/view.js';
 import { renderDeletedSites } from './objectSnapshots.js';
 
 const VISIBILITY = {
-    public: { text: 'Öffentlich', tone: 'public' },
+    public: { text: 'Online', tone: 'public' },
     members: { text: 'Nur Angemeldete', tone: 'members' },
     private: { text: 'Privat', tone: 'private' }
 };
@@ -35,11 +37,58 @@ const firstName = identity => {
     return label.split(/\s+/)[0];
 };
 
+// Bis D4 führt ein Klick auf die bestehende Objekt-Seite, Reiter "Website"
+const siteHref = site => href('objekte', site.uuid) + '?tab=website';
+
+// Eine Kachel: Bild-Fläche, Name, Adresse, Zustand
+const tile = site => {
+    const v = VISIBILITY[site.visibility] || VISIBILITY.private;
+    const problems = problemsText(site.problems24h);
+    return h(
+        'a',
+        { class: 'site-tile', href: siteHref(site) },
+        h(
+            'div',
+            {
+                class: 'site-shot',
+                // Text statt Objekt: eigene CSS-Variablen gehen nur so (Object.assign kennt sie nicht)
+                style: `--hue: ${placeholderHue(site.name)}`,
+                'aria-hidden': 'true'
+            },
+            h('span', { class: 'site-letter' }, site.name.slice(0, 1).toUpperCase())
+        ),
+        h(
+            'div',
+            { class: 'site-meta' },
+            h('div', { class: 'site-name' }, site.name),
+            h('div', { class: 'site-addr mono' }, displayAddress(site)),
+            h(
+                'div',
+                { class: 'site-status' },
+                h('span', {}, h('span', { class: `tree-dot ${v.tone}` }), v.text),
+                problems ? h('span', { class: site.problems24h > 0 ? 'is-warn' : '' }, problems) : null,
+                site.lastChange ? h('span', {}, `geändert ${timeAgo(site.lastChange)}`) : null
+            )
+        )
+    );
+};
+
+// Zeile für Speicher / Werkzeugkasten (unter "Weitere")
+const otherRow = site =>
+    h(
+        'a',
+        { class: 'row-item', href: siteHref(site) },
+        h('span', { class: `tree-dot ${site.visibility}` }),
+        h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, site.name)),
+        h('span', { class: 'row-meta' }, ART_TEXT[site.art] || site.art)
+    );
+
 export default {
     render(root, { session }) {
         const head = h('div', { class: 'home-head' });
         const waitingBox = h('div');
         const sitesBox = h('div', {}, spinner('Lade deine Websites …'));
+        const othersBox = h('div');
         const deletedBox = h('div');
         const deletedCard = card(
             {
@@ -57,6 +106,7 @@ export default {
             if (!s.online || s.identity.kind === 'anon') {
                 mount(head, h('h1', { class: 'home-title' }, hello));
                 mount(waitingBox);
+                mount(othersBox);
                 return mount(
                     sitesBox,
                     emptyState({
@@ -69,18 +119,20 @@ export default {
                 );
             }
 
-            const [objects, requests, uploads] = await Promise.all([
-                loadOwnerSites(s),
+            const [loaded, requests, uploads] = await Promise.all([
+                loadOwnerSites(),
                 api.get('/api/publish-requests/pending'),
                 api.get('/api/uploads/pending')
             ]);
-            const sites = objects.sites;
+            const { websites, others } = splitByArt(loaded.sites);
             const waiting = countOf(requests) + countOf(uploads);
+            const problems = websites.reduce((sum, w) => sum + (w.problems24h || 0), 0);
 
             // Kopf: Begrüssung + eine Zeile
             const parts = [
-                sites.length === 1 ? '1 Website' : `${sites.length} Websites`,
-                waiting ? (waiting === 1 ? '1 Sache wartet auf dich' : `${waiting} Dinge warten auf dich`) : null
+                websites.length === 1 ? '1 Website' : `${websites.length} Websites`,
+                waiting ? (waiting === 1 ? '1 Sache wartet auf dich' : `${waiting} Dinge warten auf dich`) : null,
+                problems ? (problems === 1 ? '1 Problem heute' : `${problems} Probleme heute`) : null
             ].filter(Boolean);
             mount(head, h('h1', { class: 'home-title' }, hello), h('p', { class: 'home-lead' }, parts.join(' · ')));
 
@@ -104,8 +156,8 @@ export default {
                     : null
             );
 
-            // Websites
-            if (!objects.ok) {
+            // Websites als Kacheln
+            if (!loaded.ok) {
                 mount(
                     sitesBox,
                     emptyState({
@@ -114,7 +166,7 @@ export default {
                         text: 'Versuch es in einer Minute nochmals.'
                     })
                 );
-            } else if (!sites.length) {
+            } else if (!websites.length) {
                 mount(
                     sitesBox,
                     emptyState({
@@ -125,34 +177,32 @@ export default {
                     })
                 );
             } else {
-                const template = siteUrlTemplate();
-                mount(
-                    sitesBox,
-                    h(
-                        'div',
-                        { class: 'rows' },
-                        sites.map(site => {
-                            const v = VISIBILITY[site.visibility] || VISIBILITY.private;
-                            return h(
-                                'a',
-                                { class: 'row-item', href: href('objekte', site.uuid) + '?tab=website' },
-                                h('span', { class: `tree-dot ${v.tone}` }),
-                                h(
-                                    'span',
-                                    { class: 'row-main' },
-                                    h('span', { class: 'row-title' }, site.name),
-                                    h('span', { class: 'row-sub mono' }, siteAddress(template, site.name))
-                                ),
-                                h('span', { class: 'row-meta' }, v.text)
-                            );
-                        })
-                    )
-                );
+                mount(sitesBox, h('div', { class: 'site-tiles' }, websites.map(tile)));
             }
+
+            // Weitere: Speicher und Werkzeugkästen – eingeklappt
+            mount(
+                othersBox,
+                others.length
+                    ? h(
+                          'details',
+                          { class: 'home-others' },
+                          h('summary', {}, `Weitere: Speicher & Werkzeugkästen (${others.length})`),
+                          h('div', { class: 'rows' }, others.map(otherRow))
+                      )
+                    : null
+            );
             renderDeletedSites(deletedBox, deletedCard, s);
         };
 
-        root.append(head, waitingBox, h('div', { class: 'sec' }, h('h2', {}, 'Deine Websites')), sitesBox, deletedCard);
+        root.append(
+            head,
+            waitingBox,
+            h('div', { class: 'sec' }, h('h2', {}, 'Deine Websites')),
+            sitesBox,
+            othersBox,
+            deletedCard
+        );
         fill(session);
         return on('session', fill);
     }

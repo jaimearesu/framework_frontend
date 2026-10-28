@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------
 import { api } from './api.js';
 import { apiBase } from './config.js';
-import { websiteTree } from './view.js';
+import { mergeSites } from './view.js';
 
 // Zu welcher Familie (Domain) gehört das Objekt?
 export const objectFamily = o => o?.domain || o?.domain_ref || '';
@@ -319,33 +319,15 @@ export const invalidateObjects = () => {
 };
 
 // ------------------------------------------------------------------
-// MEINE WEBSITES (Besitzer-Ansicht, Punkt 5, D2)
-// Eigene Domains ohne mein Benutzer-Objekt und ohne meine Agenten.
-// Mein Benutzer-Objekt hat auch eine Domain (12 Zufallszeichen) – seine
-// UUID kommt aus GET /api/objects/me (nur für mich selbst sichtbar).
-// Rückgabe: { ok, sites } – sites wie websiteTree() in view.js.
+// MEINE WEBSITES (Besitzer-Ansicht, Punkt 5, D2/D3)
+// Seit D3 aus GET /api/websites (Art, Zustand, Probleme – ohne Benutzer-Objekt
+// und Agenten); die Teile für den Baum kommen aus der Objekt-Liste.
+// Rückgabe: { ok, sites } – sites wie mergeSites() in view.js.
 // ------------------------------------------------------------------
-let myUuidCache = null; // { base, key, uuid }
-const loadMyUuid = async session => {
-    const key = session?.identity?.id || '';
-    if (myUuidCache && myUuidCache.base === apiBase() && myUuidCache.key === key) return myUuidCache.uuid;
-    const res = await api.get('/api/objects/me');
-    const uuid = res.ok ? res.data?.data?.uuid || null : null;
-    if (res.ok) myUuidCache = { base: apiBase(), key, uuid };
-    return uuid;
-};
-
-export const loadOwnerSites = async session => {
-    const isUser = session?.identity?.kind === 'user';
-    const [objects, myUuid, agents] = await Promise.all([
-        loadObjects(),
-        loadMyUuid(session),
-        // Agenten gibt es nur für eingeloggte Menschen (GET /api/agents)
-        isUser ? api.get('/api/agents', { query: { days: 1 } }) : Promise.resolve(null)
-    ]);
-    if (!objects.ok) return { ok: false, sites: [] };
-    const agentUuids = agents?.ok && Array.isArray(agents.data?.data) ? agents.data.data.map(a => a.uuid) : [];
-    return { ok: true, sites: websiteTree(objects.data, { excludeUuids: [myUuid, ...agentUuids] }) };
+export const loadOwnerSites = async () => {
+    const [websites, objects] = await Promise.all([api.get('/api/websites'), loadObjects()]);
+    if (!websites.ok) return { ok: false, sites: [] };
+    return { ok: true, sites: mergeSites(websites.data?.data, objects.ok ? objects.data : []) };
 };
 
 // Code eines Objekts laden: { html: '…', css: '…', syntax: '{…}', … }

@@ -1420,6 +1420,24 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             return `${r.data.data.total} Probleme in 24 h`;
         }
     },
+    {
+        // Punkt 5, D3: "Meine Websites" – die Wurzel des Checks steht drin, ihr Kind nicht
+        id: 'websites-list',
+        group: 'SSF',
+        title: 'Meine Websites: Wurzel mit Art und Rechten, keine Kinder',
+        needs: ['root', 'funktion'],
+        run: async ctx => {
+            const r = await api.get('/api/websites');
+            expectStatus(r, 200, 'Meine Websites');
+            const list = Array.isArray(r.data?.data) ? r.data.data : [];
+            const root = list.find(s => s.uuid === ctx.root);
+            expect(root, 'die Wurzel des Checks fehlt in der Liste', r);
+            expect(['website', 'speicher', 'werkzeugkasten'].includes(root.art), `unbekannte Art "${root.art}"`, r);
+            expect(root.rights && root.rights.write === true, 'red auf die eigene Wurzel fehlt', r);
+            expect(!list.some(s => s.uuid === ctx.funktion), 'ein Kind darf nie als Website erscheinen', r);
+            return `${list.length} Websites, Art "${root.art}"`;
+        }
+    },
     // Hintergrund-Aufträge (Plan "SSF-Ausbau", Teil C). Der Auftrag startet erst in einer
     // Stunde (startInSec) und wird gleich abgebrochen – der Arbeiter führt ihn also nie aus.
     {

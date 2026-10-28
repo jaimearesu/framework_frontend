@@ -1469,3 +1469,88 @@ details.raw summary {
     font-size: 12px;
     white-space: nowrap;
 }
+
+/* Kacheln "Deine Websites" (Punkt 5, D3) */
+.site-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+}
+.site-tile {
+    display: block;
+    color: var(--text);
+    text-decoration: none !important;
+}
+/* Bild-Fläche: vorerst Anfangsbuchstabe auf ruhiger Farbe aus dem Namen (W3) */
+.site-shot {
+    height: 140px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    display: grid;
+    place-items: center;
+    background:
+        radial-gradient(circle at 80% 20%, hsl(var(--hue) 45% 60% / 0.35), transparent 55%),
+        linear-gradient(135deg, hsl(var(--hue) 30% 26%), hsl(calc(var(--hue) + 40) 25% 18%));
+    transition:
+        border-color 0.15s,
+        transform 0.15s;
+}
+:root[data-theme='light'] .site-shot {
+    background:
+        radial-gradient(circle at 80% 20%, hsl(var(--hue) 70% 85% / 0.7), transparent 55%),
+        linear-gradient(135deg, hsl(var(--hue) 45% 92%), hsl(calc(var(--hue) + 40) 40% 86%));
+}
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']) .site-shot {
+        background:
+            radial-gradient(circle at 80% 20%, hsl(var(--hue) 70% 85% / 0.7), transparent 55%),
+            linear-gradient(135deg, hsl(var(--hue) 45% 92%), hsl(calc(var(--hue) + 40) 40% 86%));
+    }
+}
+.site-letter {
+    font-size: 40px;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--text) 75%, transparent);
+}
+.site-tile:hover .site-shot {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+}
+.site-meta {
+    padding: 10px 2px 0;
+}
+.site-name {
+    font-weight: 500;
+}
+.site-addr {
+    color: var(--faint);
+    font-size: 11.5px;
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.site-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+.site-status .tree-dot {
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: 1px;
+}
+.site-status .is-warn {
+    color: var(--warn);
+}
+.home-others {
+    margin-top: 6px;
+}
+.home-others summary {
+    cursor: pointer;
+    color: var(--muted);
+    padding: 6px 0 10px;
+}
