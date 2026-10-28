@@ -33,7 +33,7 @@
     background: var(--surface);
     color: var(--text);
     font: inherit;
-    font-size: 14px;
+    font-size: 13px;
 }
 .input:focus {
     outline: none;
@@ -60,7 +60,7 @@ select.input {
 }
 .field-label {
     font-size: 12.5px;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--muted);
 }
 .field-hint {
@@ -84,7 +84,7 @@ select.input {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13.5px;
+    font-size: 12.5px;
     cursor: pointer;
 }
 .check input {
@@ -93,7 +93,7 @@ select.input {
     accent-color: var(--accent);
 }
 .sub-title {
-    font-size: 13.5px;
+    font-size: 12.5px;
     margin: 6px 0 4px;
 }
 
@@ -111,8 +111,8 @@ select.input {
     background: transparent;
     color: var(--muted);
     font: inherit;
-    font-size: 13.5px;
-    font-weight: 550;
+    font-size: 12.5px;
+    font-weight: 500;
     padding: 9px 14px;
     cursor: pointer;
     white-space: nowrap;
@@ -162,7 +162,7 @@ select.input {
     grid-template-columns: max-content minmax(0, 1fr);
     gap: 8px 16px;
     margin: 0;
-    font-size: 13.5px;
+    font-size: 12.5px;
 }
 .info-list dt {
     color: var(--muted);
@@ -253,7 +253,7 @@ details.raw summary {
     padding: 6px 10px;
     border-radius: var(--radius-s);
     color: var(--text);
-    font-size: 13.5px;
+    font-size: 12.5px;
     text-decoration: none !important;
 }
 .obj-item:hover {
@@ -262,7 +262,7 @@ details.raw summary {
 .obj-item.active {
     background: var(--accent-soft);
     color: var(--accent-strong);
-    font-weight: 600;
+    font-weight: 500;
 }
 .obj-item-label {
     flex: 1;
@@ -342,7 +342,7 @@ details.raw summary {
     gap: 6px;
 }
 .detail-title h2 {
-    font-size: 19px;
+    font-size: 17.5px;
     word-break: break-word;
 }
 .role-group {
@@ -420,7 +420,7 @@ details.raw summary {
     background: var(--surface-2);
 }
 .tree-id {
-    font-weight: 600;
+    font-weight: 500;
 }
 .tree-source {
     font-size: 11.5px;
@@ -495,7 +495,7 @@ details.raw summary {
     justify-content: space-between;
 }
 .side-head h3 {
-    font-size: 15px;
+    font-size: 14px;
 }
 .preview-frame {
     width: 100%;
@@ -688,7 +688,7 @@ details.raw summary {
     font-family: var(--font);
 }
 .pc-kind {
-    font-weight: 700;
+    font-weight: 600;
     flex-shrink: 0;
 }
 
@@ -779,7 +779,7 @@ details.raw summary {
     background: var(--accent-soft);
     color: var(--accent-strong);
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 600;
     flex-shrink: 0;
 }
 .example details summary {
@@ -815,7 +815,7 @@ details.raw summary {
     flex-wrap: wrap;
 }
 .tool-name {
-    font-weight: 600;
+    font-weight: 500;
     background: none !important;
     border: 0 !important;
     padding: 0 !important;
@@ -904,7 +904,7 @@ details.raw summary {
 }
 .data-table th {
     text-align: left;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--muted);
     background: var(--surface-2);
     padding: 7px 10px;
@@ -1012,7 +1012,7 @@ details.raw summary {
     color: var(--muted);
 }
 .triplet-list li a {
-    font-weight: 600;
+    font-weight: 500;
 }
 .role-removable {
     display: inline-flex;
@@ -1024,7 +1024,7 @@ details.raw summary {
     background: transparent;
     color: inherit;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1;
     padding: 0 0 0 3px;
     opacity: 0.55;
@@ -1046,7 +1046,7 @@ details.raw summary {
     gap: 10px;
     padding: 6px 10px;
     border-radius: var(--radius-s);
-    font-size: 13.5px;
+    font-size: 12.5px;
 }
 .check-list li.pass .icon {
     color: var(--ok);
@@ -1075,7 +1075,7 @@ details.raw summary {
 }
 .btn.big {
     padding: 11px 22px;
-    font-size: 15px;
+    font-size: 14px;
 }
 .progress-bar {
     height: 8px;
@@ -1105,7 +1105,7 @@ details.raw summary {
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
-    font-weight: 600;
+    font-weight: 500;
 }
 .sum {
     display: inline-flex;
@@ -1132,13 +1132,13 @@ details.raw summary {
 }
 .check-group {
     padding: 12px 12px 8px;
-    border-top: 3px solid var(--border-strong);
 }
+/* Ergebnis der Gruppe: feine farbige Linie links statt dickem Balken oben */
 .check-group.pass {
-    border-top-color: var(--ok);
+    box-shadow: inset 2px 0 0 var(--ok);
 }
 .check-group.fail {
-    border-top-color: var(--error);
+    box-shadow: inset 2px 0 0 var(--error);
 }
 .check-group-head {
     display: flex;
@@ -1147,7 +1147,7 @@ details.raw summary {
     padding: 0 4px 6px;
 }
 .check-group-head h2 {
-    font-size: 14.5px;
+    font-size: 13.5px;
 }
 .check-row summary {
     display: flex;
@@ -1157,7 +1157,7 @@ details.raw summary {
     border-radius: var(--radius-s);
     cursor: pointer;
     list-style: none;
-    font-size: 13.5px;
+    font-size: 12.5px;
 }
 .check-row summary::-webkit-details-marker {
     display: none;
@@ -1287,7 +1287,7 @@ details.raw summary {
     gap: 6px;
 }
 .request-what {
-    font-size: 15px;
+    font-size: 14px;
 }
 .request-reason {
     margin: 2px 0 0;
