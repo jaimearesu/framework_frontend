@@ -20,6 +20,7 @@ import { icon, hydrateIcons } from './core/icons.js';
 import { refreshSession, getSession, guestHint } from './core/session.js';
 import { initRequestLog } from './core/requestLog.js';
 import { load, save } from './core/storage.js';
+import { initLogo } from './core/intro.js';
 
 const $ = id => document.getElementById(id);
 
@@ -244,6 +245,8 @@ const showPage = async () => {
 // START
 // ------------------------------------------------------------------
 const start = async () => {
+    // Logo "vindelis" + Auftritt beim ersten Öffnen (läuft nebenher, das Cockpit lädt währenddessen)
+    initLogo();
     hydrateIcons();
     initTheme();
     initMobileMenu();
@@ -292,4 +295,5 @@ start();
 
 // Für die Browser-Konsole (F12): dort kannst du selbst Anfragen ausprobieren, z.B.
 //   await at0mic.api.get('/api/objects')
-window.at0mic = { api, getSession, refreshSession };
+//   await at0mic.intro()   – den Auftritt des Logos nochmals ansehen
+window.at0mic = { api, getSession, refreshSession, intro: () => initLogo({ force: true }) };
