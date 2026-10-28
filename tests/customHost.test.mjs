@@ -77,6 +77,8 @@ const fakeFetch = async (url, options = {}) => {
             : reply(404, { error: 'Keine aktive eigene Domain.' });
     }
     // Screenshot mit Live-Daten (Plan "Screenshots", S2b): Code gegen 2-Minuten-Ausweis
+    // Die alte Screenshot-Tür (abgebaut): würde der Bauarbeiter sie noch fragen, gäbe es hier
+    // einen Ausweis – der Test "Screenshot-Link … (abgebaut)" würde den Aufruf dann sehen
     if (rest.endsWith('/vorschau-ausweis')) {
         return reply(200, { success: true, data: { token: 'at0s_' + 'V'.repeat(43), seconds: 120 } });
     }
@@ -213,15 +215,15 @@ describe('Umleitung name.at0mic.site -> eigene Domain', () => {
     });
 });
 
-// Plan "Screenshots in der Vorschau", S2b: Screenshot über die eigene Domain
-describe('Screenshot-Link auf der eigenen Domain', () => {
-    test('der Bauarbeiter schickt die eigene Domain als host mit (das Backend vergleicht sie mit dem Code)', async () => {
+// Härtungs-Runde Punkt 6: der alte Screenshot-Link per Einmal-Code ist abgebaut –
+// auch auf der eigenen Domain fragt der Bauarbeiter nie mehr nach einem Ausweis
+describe('Screenshot-Link auf der eigenen Domain (abgebaut)', () => {
+    test('kein Tausch beim Backend', async () => {
         backend.hosts['www.meinladen.ch'] = 'meinladen';
-        const r = await request('www.meinladen.ch', `/_at0mic/vorschau?code=${'s'.repeat(43)}`);
-        assert.equal(r.status, 302);
-        assert.equal(r.headers.location, '/');
-        const call = backend.calls.find(c => c.url.endsWith('/vorschau-ausweis'));
-        assert.equal(call.url, 'http://backend.test/api/sites/meinladen/vorschau-ausweis');
-        assert.deepEqual(call.body, { code: 's'.repeat(43), host: 'www.meinladen.ch' });
+        await request('www.meinladen.ch', `/_at0mic/vorschau?code=${'s'.repeat(43)}`);
+        assert.equal(
+            backend.calls.some(c => c.url.endsWith('/vorschau-ausweis')),
+            false
+        );
     });
 });
