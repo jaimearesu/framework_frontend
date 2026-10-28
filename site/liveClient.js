@@ -107,6 +107,22 @@ function at0micLiveClient() {
         return msg;
     }
 
+    // Abo später nochmals schicken (nur wenn es noch gewünscht ist und die Verbindung steht)
+    var ABO_RETRY_MS = [2000, 5000, 10000, 20000, 30000];
+    function retrySubscribe(sub) {
+        var n = sub.aboRetry || 0;
+        sub.aboRetry = n + 1;
+        var socketThen = ws;
+        setTimeout(
+            function () {
+                if (ws !== socketThen || !ws || sub.ok) return; // neu verbunden: dort wird ohnehin neu abonniert
+                if (subs[sub.pfad + '|' + sub.kanal] !== sub) return; // inzwischen abgemeldet
+                sendJson(aboMessage(sub));
+            },
+            ABO_RETRY_MS[Math.min(n, ABO_RETRY_MS.length - 1)]
+        );
+    }
+
     // Presence: die ganze Liste (ohne mich) an liste() geben
     function presenceList(sub) {
         var p = sub.presence;
@@ -174,11 +190,16 @@ function at0micLiveClient() {
                 each(sub, 'nachricht', msg.daten, msg.von ? { von: msg.von, fluechtig: msg.fluechtig === true } : {});
             } else if (msg.typ === 'abo-ok' && sub) {
                 sub.ok = true;
+                sub.aboRetry = 0;
                 // Anwesend sein (auch nach dem Neuverbinden): erst, wenn das Abo steht
                 if (sub.presence)
                     sendJson({ typ: 'da', pfad: sub.pfad, kanal: sub.kanal, zustand: sub.presence.zustand });
             } else if (msg.typ === 'abo-fehler' && sub) {
                 each(sub, 'fehler', msg.fehler, msg.code || null);
+                // Härtungs-Runde Punkt 4b (28.10.2026): War das Backend nur kurz nicht erreichbar,
+                // blieb das Abo bisher für immer tot (bis die Seite neu geladen wurde). Jetzt:
+                // nochmals versuchen nach 2, 5, 10, 20, dann alle 30 s – solange die Verbindung steht.
+                if (msg.code === 'NICHT_ERREICHBAR') retrySubscribe(sub);
             } else if (msg.typ === 'fehler' && sub) {
                 each(sub, 'fehler', msg.fehler, msg.code || null);
             } else if (msg.typ === 'pong') {

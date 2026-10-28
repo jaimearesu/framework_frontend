@@ -233,6 +233,12 @@ const createBauarbeiter = ({
     const HOST_CACHE_MAX = 5000;
     const SITE_NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
     const hostCache = new Map(); // hostname -> { name | null, until }
+    // Härtungs-Runde Punkt 4b (28.10.2026): Ist das Backend kurz weg, gilt eine schon
+    // bekannte Zuordnung weiter (höchstens 1 Stunde alt) – so liefert eine Website auf
+    // ihrer eigenen Domain ihre zwischengespeicherte Seite wie unter *.vindelis.site,
+    // statt nach 60 s auf "Gerade nicht erreichbar" zu fallen. Nur GEFUNDENE Namen.
+    const HOST_STALE_MS = 60 * 60 * 1000;
+    const staleHost = hit => (hit && hit.name && hit.until + HOST_STALE_MS > Date.now() ? hit.name : undefined);
     const lookupCustomHost = async hostname => {
         const hit = hostCache.get(hostname);
         if (hit && hit.until > Date.now()) return hit.name;
@@ -249,11 +255,11 @@ const createBauarbeiter = ({
             } else if (res.status !== 404) {
                 // Backend weg oder Schlüssel falsch: nicht merken, beim nächsten Mal nochmals fragen
                 log.warn(`[BAUARBEITER] Eigene Domain ${hostname}: Backend antwortet ${res.status}`);
-                return undefined;
+                return staleHost(hit);
             }
         } catch (error) {
             log.warn(`[BAUARBEITER] Eigene Domain ${hostname}: Backend nicht erreichbar (${error.message})`);
-            return undefined;
+            return staleHost(hit);
         }
         if (hostCache.size >= HOST_CACHE_MAX) hostCache.clear(); // einfach und sicher: ganz leeren
         hostCache.set(hostname, { name, until: Date.now() + (name ? HOST_FOUND_MS : HOST_MISSING_MS) });
