@@ -37,8 +37,8 @@ const firstName = identity => {
     return label.split(/\s+/)[0];
 };
 
-// Bis D4 führt ein Klick auf die bestehende Objekt-Seite, Reiter "Website"
-const siteHref = site => href('objekte', site.uuid) + '?tab=website';
+// Klick auf eine Kachel: die Website-Seite (D4)
+const siteHref = site => href('website', site.uuid);
 
 // Eine Kachel: Bild-Fläche, Name, Adresse, Zustand
 const tile = site => {

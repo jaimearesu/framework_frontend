@@ -18,7 +18,12 @@ import {
     splitByArt,
     placeholderHue,
     displayAddress,
-    problemsText
+    problemsText,
+    roleText,
+    memberText,
+    partKind,
+    problemKindText,
+    repairPrompt
 } from '../public/js/core/view.js';
 import { ROUTES } from '../public/js/core/routes.js';
 
@@ -173,5 +178,43 @@ describe('Meine Websites (D3)', () => {
         assert.equal(problemsText(0), 'Keine Probleme');
         assert.equal(problemsText(1), '1 Problem heute');
         assert.equal(problemsText(5), '5 Probleme heute');
+    });
+});
+
+describe('Website-Seite (D4)', () => {
+    test('Rechte in Worten: das höchste zählt', () => {
+        assert.equal(roleText(['black', 'red', 'blue']), 'verwaltet');
+        assert.equal(roleText(['black', 'red']), 'darf bauen');
+        assert.equal(roleText(['black']), 'darf ansehen');
+        assert.equal(roleText(null), '–');
+    });
+
+    test('Mitglieder: ich = Du, andere Menschen ohne Namen (S3), KI mit Namen', () => {
+        assert.equal(memberText({ uuid: 'ich', kind: 'mensch' }, 'ich'), 'Du');
+        assert.equal(memberText({ uuid: 'x', kind: 'mensch', name: null }, 'ich'), 'Eine weitere Person');
+        assert.equal(memberText({ uuid: 'k', kind: 'objekt', name: 'agent-claude' }, 'ich'), 'agent-claude');
+        assert.equal(memberText({ uuid: 'f', kind: 'objekt', name: 'shop', identifier: 'api' }, 'ich'), 'shop/api');
+    });
+
+    test('Art eines Teils', () => {
+        assert.equal(partKind({ types: ['ssf', 'werkzeug'] }), 'Werkzeug');
+        assert.equal(partKind({ types: ['ssf'] }), 'Funktion');
+        assert.equal(partKind({ types: [], hasFile: true }), 'Datei');
+        assert.equal(partKind({ types: ['html', 'css'] }), 'Inhalt');
+        assert.equal(partKind({ types: [], dataRows: 3 }), 'Daten');
+        assert.equal(partKind({}), 'Leer');
+    });
+
+    test('Problem-Arten in Worten, Unbekanntes lesbar', () => {
+        assert.equal(problemKindText('datei_fehlt'), 'Bild oder Datei fehlt');
+        assert.equal(problemKindText('neu_art'), 'neu art');
+    });
+
+    test('Satz für die KI nennt Website, Zeitraum und site_problems', () => {
+        const text = repairPrompt('cafe', 168);
+        assert.match(text, /«cafe»/);
+        assert.match(text, /7 Tage/);
+        assert.match(text, /site_problems/);
+        assert.match(repairPrompt('x'), /24 Stunden/);
     });
 });

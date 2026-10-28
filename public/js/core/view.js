@@ -149,3 +149,69 @@ export const problemsText = count =>
             : `${count} Probleme heute`;
 
 export const ART_TEXT = { website: 'Website', speicher: 'Speicher', werkzeugkasten: 'Werkzeugkasten' };
+
+// ------------------------------------------------------------------
+// WEBSITE-SEITE (D4) – Texte in Alltagssprache
+// ------------------------------------------------------------------
+
+// Sichtbarkeit als Satz ("Sichtbar für")
+export const VISIBILITY_SENTENCE = {
+    public: 'Alle – die Website ist online',
+    members: 'Nur Angemeldete (mit vindelis-Konto)',
+    private: 'Nur du und wer Zugriff hat'
+};
+
+// Höchstes Recht eines Mitglieds in Worten (blue > red > black)
+export const roleText = roles => {
+    const list = Array.isArray(roles) ? roles : [];
+    if (list.includes('blue')) return 'verwaltet';
+    if (list.includes('red')) return 'darf bauen';
+    if (list.includes('black')) return 'darf ansehen';
+    return '–';
+};
+
+// Wer ist das? Ich = "Du", andere Menschen ohne Namen (S3), Objekte/KI mit Namen
+export const memberText = (member, myUuid) => {
+    if (!member) return '–';
+    if (myUuid && member.uuid === myUuid) return 'Du';
+    if (member.kind === 'mensch') return 'Eine weitere Person';
+    if (member.identifier) return `${member.name}/${member.identifier}`;
+    return member.name || 'Ein Objekt';
+};
+
+// Was ist ein Teil? Aus seinen Code-Arten, Datei und Datensätzen
+export const partKind = part => {
+    const types = Array.isArray(part?.types) ? part.types : [];
+    if (types.includes('werkzeug')) return 'Werkzeug';
+    if (types.includes('ssf')) return 'Funktion';
+    if (types.includes('library')) return 'Bibliothek';
+    if (part?.hasFile) return 'Datei';
+    if (types.some(t => ['html', 'css', 'javascript'].includes(t))) return 'Inhalt';
+    if (part?.dataRows > 0) return 'Daten';
+    return 'Leer';
+};
+
+// Art eines Problems in Worten (Arten aus dem Backend, problemService.KINDS)
+const PROBLEM_TEXT = {
+    ssf_fehler: 'Fehler in einer Funktion',
+    nicht_gefunden: 'Teil nicht gefunden',
+    server_voll: 'Server kurz ausgelastet',
+    bremse: 'Zu viele Aufrufe',
+    anfrage_ungueltig: 'Ungültige Anfrage',
+    upload_abgelehnt: 'Upload abgelehnt',
+    datei_fehlt: 'Bild oder Datei fehlt',
+    dienst_weg: 'Dienst kurz weg',
+    webhook_fehler: 'Fehler bei einem Webhook',
+    live_abgewiesen: 'Live-Verbindung abgewiesen',
+    auftrag_fehlgeschlagen: 'Hintergrund-Auftrag fehlgeschlagen',
+    zeitplan: 'Termin im Zeitplan ausgefallen',
+    eigene_domain: 'Eigene Domain nicht aktiv'
+};
+export const problemKindText = kind => PROBLEM_TEXT[kind] || String(kind || '').replace(/_/g, ' ');
+
+// "KI bitten, es zu reparieren" (E5): fertiger Satz für den KI-Helfer – nur Name und Zeitraum,
+// keine Fehlermeldungen (die liest die KI selbst mit site_problems, mit ihren eigenen Rechten)
+export const repairPrompt = (siteName, hours = 24) =>
+    `Bitte schau dir mit dem Werkzeug site_problems die Probleme der Website «${siteName}» der letzten ` +
+    `${hours === 24 ? '24 Stunden' : `${Math.round(hours / 24)} Tage`} an, finde die Ursachen und behebe sie. ` +
+    'Teste danach mit test_site und erkläre mir kurz, was du geändert hast.';

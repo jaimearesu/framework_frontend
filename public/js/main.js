@@ -131,8 +131,8 @@ const renderSiteTree = async () => {
         save('openSites', [...openSites]);
         renderSiteTree();
     };
-    // Bis D4 führt ein Klick auf die bestehende Objekt-Seite, Reiter "Website" (N3)
-    const siteHref = uuid => href('objekte', uuid) + '?tab=website';
+    // Klick auf eine Website: die Website-Seite (D4); Teile weiter auf die Objekt-Seite
+    const siteHref = uuid => href('website', uuid);
     const siteRow = site => {
         const open = openSites.has(site.uuid);
         return h(
@@ -229,8 +229,8 @@ const markActiveNav = () => {
         if (active) a.setAttribute('aria-current', 'page');
         else a.removeAttribute('aria-current');
     }
-    // Website (oder Teil) im Baum markieren, wenn ihre Objekt-Seite offen ist
-    const open = current === 'objekte' ? params[0] : null;
+    // Website (oder Teil) im Baum markieren, wenn ihre Seite offen ist
+    const open = current === 'objekte' || current === 'website' ? params[0] : null;
     for (const el of document.querySelectorAll('.nav-link[data-object]')) {
         el.classList.toggle('active', Boolean(open) && el.dataset.object === open);
     }

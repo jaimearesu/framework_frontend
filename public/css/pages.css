@@ -1554,3 +1554,207 @@ details.raw summary {
     color: var(--muted);
     padding: 6px 0 10px;
 }
+
+/* =====================================================================
+   Website-Seite (Punkt 5, D4 – pages/site.js), Aufbau wie Notion
+   ===================================================================== */
+.site-cover {
+    height: 170px;
+    margin: -22px -24px 0;
+    position: relative;
+    background:
+        radial-gradient(circle at 18% 35%, hsl(var(--hue) 50% 70% / 0.25) 0 40px, transparent 41px),
+        radial-gradient(circle at 72% 62%, hsl(var(--hue) 50% 70% / 0.18) 0 70px, transparent 71px),
+        linear-gradient(120deg, hsl(var(--hue) 35% 24%), hsl(calc(var(--hue) + 40) 30% 32%));
+}
+.site-icon {
+    position: absolute;
+    left: 48px;
+    bottom: -28px;
+    width: 58px;
+    height: 58px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: grid;
+    place-items: center;
+    font-size: 26px;
+    font-weight: 500;
+    color: hsl(var(--hue) 45% 55%);
+}
+.site-page {
+    max-width: 1080px;
+    padding: 46px 24px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.site-title {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+.site-props {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 10px 16px;
+    margin: 0;
+}
+.site-props dt {
+    color: var(--faint);
+}
+.site-props dd {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.site-props .tree-dot,
+.kv .tree-dot {
+    display: inline-block;
+    margin-right: 6px;
+}
+.tree-dot.warn {
+    background: var(--warn);
+}
+.prop-link {
+    margin-left: 6px;
+}
+.is-warn {
+    color: var(--warn);
+}
+.site-note {
+    border-left: 2px solid var(--border-strong);
+    padding: 2px 0 2px 14px;
+    color: var(--muted);
+    cursor: text;
+    white-space: pre-wrap;
+}
+.site-note.is-empty {
+    color: var(--faint);
+}
+.site-note-edit {
+    width: 100%;
+    margin-bottom: 8px;
+}
+.site-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+.site-col {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.site-box {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.site-box-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+}
+.site-box-head h2 {
+    font-size: 13px;
+    font-weight: 500;
+}
+.site-box-body {
+    padding: 8px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.kv-list {
+    display: flex;
+    flex-direction: column;
+}
+.kv {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 9px 0;
+    border-top: 1px solid var(--border);
+}
+.kv:first-child {
+    border-top: 0;
+}
+.kv-link {
+    color: var(--text);
+    text-decoration: none !important;
+}
+.kv-link:hover .mono {
+    color: var(--accent-strong);
+}
+.kv-hint {
+    margin-top: 2px;
+}
+.site-ok {
+    color: var(--muted);
+}
+/* kleiner Umschalter 24 Std. / 7 Tage */
+.seg {
+    display: inline-flex;
+    align-self: flex-start;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    overflow: hidden;
+}
+.seg button {
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 12px;
+    padding: 3px 10px;
+    color: var(--muted);
+    cursor: pointer;
+}
+.seg button.on {
+    background: var(--accent-soft);
+    color: var(--text);
+}
+.avatar {
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 9px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #fff;
+    background: hsl(var(--hue) 45% 45%);
+    vertical-align: middle;
+}
+.invite-link {
+    word-break: break-all;
+}
+.site-tech {
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+}
+@media (max-width: 820px) {
+    .site-cover {
+        margin: -16px -12px 0;
+        height: 130px;
+    }
+    .site-icon {
+        left: 16px;
+    }
+    .site-page {
+        padding: 44px 4px 32px;
+    }
+    .site-cols {
+        grid-template-columns: 1fr;
+    }
+    .site-props {
+        grid-template-columns: 112px 1fr;
+    }
+}

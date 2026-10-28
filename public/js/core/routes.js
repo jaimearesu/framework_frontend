@@ -30,6 +30,14 @@ export const ROUTES = [
         ownerLoad: () => import('../pages/home.js')
     },
     {
+        id: 'website',
+        title: 'Website',
+        icon: 'layers',
+        group: null, // nur Besitzer-Ansicht: /#/website/<uuid> (Punkt 5, D4)
+        intro: 'Eine deiner Websites: Zustand, Adresse, Zugriff, Sicherungen und Speicher.',
+        load: () => import('../pages/site.js')
+    },
+    {
         id: 'wartet',
         title: 'Wartet auf mich',
         icon: 'bell',
