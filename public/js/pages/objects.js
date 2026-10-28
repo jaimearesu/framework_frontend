@@ -1610,6 +1610,16 @@ const renderCopyTab = (box, o, objects, { onDone }) => {
                 moveLog.append(
                     callout('warn', `${lost} Mitglied${lost === 1 ? '' : 'er'}`, ' hat/haben dabei Rechte verloren.')
                 );
+            // Offene Einladungs-Links schliesst das Zügeln (Härtungs-Runde 28.10.)
+            const closedInv = res.data?.closedInvitations || 0;
+            if (closedInv)
+                moveLog.append(
+                    callout(
+                        'warn',
+                        `${closedInv} offene Einladung${closedInv === 1 ? '' : 'en'}`,
+                        ' wurde(n) geschlossen – bei Bedarf am neuen Platz neu erstellen.'
+                    )
+                );
 
             // Schritt 2 (optional): in die DNA des neuen Eltern-Objekts eintragen
             if (addToDna.checked && moved) {
