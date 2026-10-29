@@ -32,6 +32,7 @@ import {
     repairPrompt
 } from '../core/view.js';
 import { renderSnapshotsTab } from './objectSnapshots.js';
+import { loadThumbnail } from '../core/objects.js';
 
 const STATE = {
     public: { text: 'Online', tone: 'public' },
@@ -316,6 +317,38 @@ export default {
         const address = displayAddress(site);
         const url = site.customHost ? `https://${site.customHost}` : site.address;
 
+        // Titelbild: berechnete Fläche, mit Vorschaubild (D3b) darüber, sobald geladen
+        const cover = h(
+            'div',
+            { class: 'site-cover', style: `--hue: ${placeholderHue(site.name)}` },
+            h('div', { class: 'site-icon' }, site.name.slice(0, 1).toUpperCase())
+        );
+        const showThumb = url => {
+            if (!url) return;
+            cover.classList.add('has-shot');
+            cover.prepend(h('img', { class: 'site-cover-img', src: url, alt: '' }));
+        };
+        loadThumbnail(site).then(showThumb);
+        // "Vorschau jetzt aufnehmen" (T3): nur wer bauen darf, nur öffentliche Websites
+        const thumbButton =
+            site.rights.write && site.visibility === 'public'
+                ? busyButton(
+                      site.thumbAt ? 'Vorschau neu aufnehmen' : 'Vorschau aufnehmen',
+                      async () => {
+                          const r = await api.post(`/api/websites/${site.uuid}/vorschau`, {});
+                          if (!r.ok) return toast(r.error || 'Kein Bild möglich.', 'error');
+                          toast('Vorschaubild aufgenommen.', 'ok');
+                          const fresh = await api.get(`/api/websites/${site.uuid}`);
+                          if (fresh.ok) {
+                              cover.querySelector('.site-cover-img')?.remove();
+                              showThumb(await loadThumbnail(fresh.data.data));
+                          }
+                      },
+                      { className: 'btn small cover-btn' }
+                  )
+                : null;
+        if (thumbButton) cover.append(thumbButton);
+
         const noteEl = h('div');
         const problemsEl = h('div');
         const accessEl = h('div');
@@ -323,11 +356,7 @@ export default {
 
         mount(
             root,
-            h(
-                'div',
-                { class: 'site-cover', style: `--hue: ${placeholderHue(site.name)}` },
-                h('div', { class: 'site-icon' }, site.name.slice(0, 1).toUpperCase())
-            ),
+            cover,
             h(
                 'div',
                 { class: 'site-page' },

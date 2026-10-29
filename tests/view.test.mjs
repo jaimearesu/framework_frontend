@@ -23,7 +23,13 @@ import {
     memberText,
     partKind,
     problemKindText,
-    repairPrompt
+    repairPrompt,
+    clientLabel,
+    helperStatus,
+    helperWork,
+    normalizeSearch,
+    searchItems,
+    askAiPrompt
 } from '../public/js/core/view.js';
 import { ROUTES } from '../public/js/core/routes.js';
 
@@ -216,5 +222,90 @@ describe('Website-Seite (D4)', () => {
         assert.match(text, /7 Tage/);
         assert.match(text, /site_problems/);
         assert.match(repairPrompt('x'), /24 Stunden/);
+    });
+});
+
+describe('KI-Helfer (D4b)', () => {
+    test('Verbindung: Claude / ChatGPT statt Adressen', () => {
+        assert.equal(clientLabel({ clientHost: 'claude.ai' }), 'Claude');
+        assert.equal(clientLabel({ clientHost: 'chatgpt.com' }), 'ChatGPT');
+        assert.equal(clientLabel({ clientHost: 'beispiel.dev', clientName: 'Mein Bot' }), 'Mein Bot');
+        assert.equal(clientLabel({}), 'einer KI');
+    });
+
+    test('Zustand: aktive Verbindung, sonst Schlüssel, sonst nicht verbunden', () => {
+        assert.deepEqual(
+            helperStatus({
+                connections: [
+                    { status: 'active', clientHost: 'claude.ai' },
+                    { status: 'revoked', clientHost: 'chatgpt.com' }
+                ]
+            }),
+            { tone: 'ok', text: 'Verbunden mit Claude' }
+        );
+        assert.equal(helperStatus({ connections: [], tokens: { active: 1 } }).text, 'Verbunden mit einem Schlüssel');
+        assert.deepEqual(helperStatus({ connections: [], tokens: { active: 0 } }), {
+            tone: 'off',
+            text: 'Nicht verbunden'
+        });
+    });
+
+    test('Woran er arbeitet: Websites mit Recht in Worten, Kästen nur gezählt', () => {
+        const work = helperWork({
+            rights: [
+                { domain: 'zoo', rootUuid: 'z', roles: ['black', 'red'], toolbox: false },
+                { domain: 'kasten', rootUuid: 'k', roles: ['black'], toolbox: true },
+                { domain: 'atelier', rootUuid: 'a', roles: ['black'], toolbox: false }
+            ],
+            hiddenRights: 2
+        });
+        assert.deepEqual(
+            work.sites.map(s => `${s.name}:${s.role}`),
+            ['atelier:darf ansehen', 'zoo:darf bauen']
+        );
+        assert.equal(work.toolboxes, 1);
+        assert.equal(work.hidden, 2);
+    });
+});
+
+describe('Suche Strg K (D5)', () => {
+    const items = [
+        { kind: 'website', title: 'brotzeit-bern', sub: 'Website' },
+        { kind: 'website', title: 'praxis-seiler', sub: 'Website' },
+        { kind: 'seite', title: 'Übersicht', sub: 'Seite' },
+        { kind: 'seite', title: 'Wartet auf mich', sub: 'Seite' },
+        { kind: 'aktion', title: 'Neue Website', sub: 'Aktion' }
+    ];
+
+    test('Umlaute und Gross/Klein spielen keine Rolle', () => {
+        assert.equal(normalizeSearch('Übersicht'), 'uebersicht');
+        assert.deepEqual(
+            searchItems(items, 'uber').map(i => i.title),
+            ['Übersicht']
+        );
+        assert.deepEqual(
+            searchItems(items, 'ÜBER').map(i => i.title),
+            ['Übersicht']
+        );
+    });
+
+    test('Anfang vor Wortanfang vor irgendwo', () => {
+        assert.deepEqual(
+            searchItems(items, 'bern').map(i => i.title),
+            ['brotzeit-bern']
+        );
+        const web = searchItems(items, 'web').map(i => i.title);
+        assert.equal(web[0], 'Neue Website'); // Wortanfang "Website"
+        assert.ok(web.includes('brotzeit-bern')); // nur im Untertitel "Website"
+    });
+
+    test('leere Suche: die ersten Einträge; Grenze max', () => {
+        assert.equal(searchItems(items, '', 3).length, 3);
+        assert.deepEqual(searchItems(items, 'gibtsnicht'), []);
+        assert.deepEqual(searchItems(null, 'x'), []);
+    });
+
+    test('KI fragen: Frage mit Zusammenhang', () => {
+        assert.match(askAiPrompt('  Wie mache ich ein Formular? '), /vindelis.*Wie mache ich ein Formular\?$/);
     });
 });

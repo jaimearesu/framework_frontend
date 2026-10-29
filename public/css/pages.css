@@ -1758,3 +1758,81 @@ details.raw summary {
         grid-template-columns: 112px 1fr;
     }
 }
+
+/* Vorschaubilder (Punkt 5, D3b): echtes Bild statt Anfangsbuchstabe */
+.site-shot {
+    overflow: hidden;
+}
+.site-shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+}
+.site-cover-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+}
+/* mit Bild: unten leicht abdunkeln, damit das Symbol gut sichtbar bleibt */
+.site-cover.has-shot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 55%, color-mix(in srgb, var(--bg) 45%, transparent));
+    pointer-events: none;
+}
+.site-icon {
+    z-index: 1;
+}
+.cover-btn {
+    position: absolute;
+    right: 16px;
+    bottom: 12px;
+    z-index: 1;
+    background: color-mix(in srgb, var(--surface) 85%, transparent);
+}
+
+/* KI-Helfer (Punkt 5, D4b – pages/helpers.js) */
+.helper-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 860px;
+}
+.helper-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.helper-title .avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
+}
+.helper-title .tree-dot {
+    display: inline-block;
+    margin-right: 6px;
+}
+.helper-steps {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.helper-steps code {
+    word-break: break-all;
+}
+.linklike {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: var(--accent-strong);
+    cursor: pointer;
+}

@@ -107,7 +107,9 @@ export const ROUTES = [
         icon: 'robot',
         group: 'Sicherheit',
         intro: 'Deine Agenten im Griff: was sie dürfen, wann sie gearbeitet haben und welche Werkzeuge sie wie oft benutzen.',
-        load: () => import('../pages/agents.js') // Plan "Agenten im Griff" (18.10.2026)
+        load: () => import('../pages/agents.js'), // Plan "Agenten im Griff" (18.10.2026)
+        // Besitzer-Ansicht: einfache Fassung "KI-Helfer" (Punkt 5, D4b)
+        ownerLoad: () => import('../pages/helpers.js')
     },
     {
         id: 'ki',

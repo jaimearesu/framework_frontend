@@ -215,3 +215,92 @@ export const repairPrompt = (siteName, hours = 24) =>
     `Bitte schau dir mit dem Werkzeug site_problems die Probleme der Website «${siteName}» der letzten ` +
     `${hours === 24 ? '24 Stunden' : `${Math.round(hours / 24)} Tage`} an, finde die Ursachen und behebe sie. ` +
     'Teste danach mit test_site und erkläre mir kurz, was du geändert hast.';
+
+// ------------------------------------------------------------------
+// KI-HELFER (D4b) – einfache Fassung der Agenten-Seite
+// Daten aus GET /api/agents (agentService): connections, tokens, rights, lastActivityAt
+// ------------------------------------------------------------------
+
+// Mit wem ist die Verbindung? claude.ai / chatgpt.com statt technischer Namen
+export const clientLabel = conn => {
+    const host = String(conn?.clientHost || '').toLowerCase();
+    if (host === 'claude.ai' || host.endsWith('.claude.ai')) return 'Claude';
+    if (host === 'chatgpt.com' || host.endsWith('.chatgpt.com')) return 'ChatGPT';
+    return conn?.clientName || host || 'einer KI';
+};
+
+// Zustand eines KI-Helfers in einem Satz
+// -> { tone: 'ok' | 'warn' | 'off', text }
+export const helperStatus = agent => {
+    const active = (agent?.connections || []).filter(c => c.status === 'active');
+    if (active.length) {
+        const names = [...new Set(active.map(clientLabel))];
+        return { tone: 'ok', text: `Verbunden mit ${names.join(' und ')}` };
+    }
+    if (agent?.tokens?.active > 0) return { tone: 'ok', text: 'Verbunden mit einem Schlüssel' };
+    return { tone: 'off', text: 'Nicht verbunden' };
+};
+
+// Woran arbeitet er? Websites mit Recht in Worten, Werkzeugkästen nur gezählt
+export const helperWork = agent => {
+    const rights = Array.isArray(agent?.rights) ? agent.rights : [];
+    return {
+        sites: rights
+            .filter(r => !r.toolbox)
+            .map(r => ({ name: String(r.domain), rootUuid: r.rootUuid, role: roleText(r.roles) }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'de')),
+        toolboxes: rights.filter(r => r.toolbox).length,
+        // Rechte auf Websites, die du selbst nicht siehst (nur die Zahl, nie welche)
+        hidden: Number(agent?.hiddenRights) || 0
+    };
+};
+
+// ------------------------------------------------------------------
+// SUCHE «Strg K» (Punkt 5, D5) – reine Funktionen
+// Einträge: { kind: 'website' | 'seite' | 'aktion', title, sub?, href?, action? }
+// ------------------------------------------------------------------
+
+// Für den Vergleich: klein, ohne Akzente/Umlaute-Punkte ("Übersicht" findet "uebersicht" und "ubersicht")
+export const normalizeSearch = text =>
+    String(text || '')
+        .toLowerCase()
+        .replace(/ä/g, 'ae')
+        .replace(/ö/g, 'oe')
+        .replace(/ü/g, 'ue')
+        .replace(/ß/g, 'ss')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+// Trefferliste: Anfang des Titels vor Wortanfang vor irgendwo; höchstens "max" Einträge.
+// Leere Suche: die ersten Einträge in ihrer Reihenfolge (Websites zuerst).
+export const searchItems = (items, query, max = 8) => {
+    const list = Array.isArray(items) ? items : [];
+    const q = normalizeSearch(query).trim();
+    if (!q) return list.slice(0, max);
+    const variants = [q, q.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u')];
+    const score = item => {
+        const title = normalizeSearch(item.title);
+        const plain = title.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u');
+        const sub = normalizeSearch(item.sub);
+        let best = 0;
+        for (const v of variants) {
+            for (const t of [title, plain]) {
+                if (t.startsWith(v)) best = Math.max(best, 3);
+                else if (t.split(/[\s\-_/.]+/).some(w => w.startsWith(v))) best = Math.max(best, 2);
+                else if (t.includes(v)) best = Math.max(best, 1);
+            }
+            if (!best && sub.includes(v)) best = 0.5;
+        }
+        return best;
+    };
+    return list
+        .map((item, index) => ({ item, index, s: score(item) }))
+        .filter(x => x.s > 0)
+        .sort((a, b) => b.s - a.s || a.index - b.index)
+        .slice(0, max)
+        .map(x => x.item);
+};
+
+// Satz für "KI fragen": die Frage, damit der KI-Helfer weiss, dass es um vindelis geht
+export const askAiPrompt = question =>
+    `Ich arbeite mit vindelis (meine Websites). Bitte hilf mir: ${String(question || '').trim()}`;
