@@ -107,6 +107,7 @@ import {
 import { renderDnaTree } from '../core/tree.js';
 import { load, save } from '../core/storage.js'; // aufgeklappte Domains, Sortierung, Filter
 import { renderSnapshotsTab } from './objectSnapshots.js'; // Zeitmaschine (Plan "R4")
+import { renderVectorsTab } from './objectVectors.js'; // Vektoren (Plan "V")
 import {
     buildPreviewDocument,
     createPreviewFrame,
@@ -3046,6 +3047,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         { id: 'sichtbar', label: 'Sichtbarkeit' },
         { id: 'website', label: 'Website' },
         { id: 'auftraege', label: 'Aufträge' },
+        { id: 'vektoren', label: 'Vektoren' }, // Plan "V": Text nach Bedeutung durchsuchen
         // Zeitmaschine (Plan "R4"): gesichert wird immer eine ganze Website -> nur bei der Wurzel
         ...(isRoot(o) ? [{ id: 'zeit', label: 'Zeitmaschine' }] : []),
         { id: 'loeschen', label: 'Löschen' }
@@ -3066,6 +3068,7 @@ const renderDetail = (box, o, objects, { tab, onTab, reload }) => {
         else if (id === 'website') renderSiteTab(body, o, objects, { onTab: next => bar.select(next) });
         else if (id === 'auftraege') renderJobsTab(body, o);
         else if (id === 'zeit') renderSnapshotsTab(body, o);
+        else if (id === 'vektoren') renderVectorsTab(body, o);
         else if (id === 'loeschen')
             renderDeleteTab(body, o, objects, {
                 // Nach dem Löschen: zum Eltern-Objekt (bei einem Kind) oder zur Liste

@@ -1439,6 +1439,36 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
         }
     },
     {
+        // Plan "V": Vektoren – Übersicht immer; speichern + suchen nur, wenn eingeschaltet
+        // (kostet ein paar Tokens bei euRouter, Bruchteile eines Rappens), danach wieder löschen
+        id: 'vectors',
+        group: 'SSF',
+        title: 'Vektoren: speichern, nach Bedeutung suchen, löschen',
+        needs: ['root'],
+        run: async ctx => {
+            const info = await api.get(`/api/objects/${ctx.root}/vectors`);
+            expectStatus(info, 200, 'Vektoren-Übersicht');
+            if (!info.data?.data?.enabled) return 'übersprungen: Vektoren auf diesem Server nicht eingeschaltet';
+            const add = await api.post(`/api/objects/${ctx.root}/vectors`, {
+                name: 'systemcheck',
+                text: '# Lieferung\n\nWir liefern in zwei Tagen.\n\n# Rückgabe\n\nBestellungen kann man 30 Tage lang zurückgeben.',
+                chunk: { tokens: 50, overlap: 0 }
+            });
+            expectStatus(add, 200, 'Text speichern');
+            const hit = await api.post(`/api/objects/${ctx.root}/vectors/search`, {
+                query: 'Kann ich etwas zurückschicken?',
+                name: 'systemcheck',
+                limit: 1
+            });
+            expectStatus(hit, 200, 'Suche');
+            const first = hit.data?.data?.[0];
+            expect(first, 'keine Treffer', hit);
+            const del = await api.del(`/api/objects/${ctx.root}/vectors?name=systemcheck`);
+            expectStatus(del, 200, 'Löschen');
+            return `${add.data.data.chunks} Stücke · bester Treffer «${first.heading}» (${first.similarity})`;
+        }
+    },
+    {
         // Punkt 5, D3b: Vorschaubild – die Wurzel des Checks ist privat: kein Bild, aufnehmen abgelehnt
         // (kostet keine Cloudflare-Minuten)
         id: 'website-thumbnail',
