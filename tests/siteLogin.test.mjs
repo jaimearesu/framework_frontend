@@ -566,3 +566,49 @@ describe('Screenshot mit Live-Daten: /_at0mic/vorschau', () => {
         );
     });
 });
+
+// Nachzügler N-B (29.10.2026): Backend kurz weg -> angemeldete Besucher bekommen IHRE letzte Seite
+describe('Angemeldet und Backend kurz weg (N-B)', () => {
+    const down = () => {
+        throw new Error('connect ECONNREFUSED');
+    };
+
+    test('eigene letzte Seite als Ersatz (höchstens 1 Stunde alt)', async () => {
+        backend.sites.shop = () => plan({ 'index.html': 'Hallo Kunde' }, true);
+        assert.equal((await request('shop.at0mic.site', '/', { cookie: COOKIE })).body, 'Hallo Kunde');
+        backend.sites.shop = down;
+        now += 10 * 60 * 1000; // 10 Minuten später, Backend weg
+        const r = await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        assert.equal(r.status, 200);
+        assert.equal(r.body, 'Hallo Kunde');
+        assert.match(r.headers['cache-control'], /private, no-store/);
+        now += 51 * 60 * 1000; // über 1 Stunde seit dem Merken: kein Ersatz mehr
+        assert.equal((await request('shop.at0mic.site', '/', { cookie: COOKIE })).status, 503);
+    });
+
+    test('nie die Seite eines anderen Ausweises, nie die öffentliche Fassung', async () => {
+        backend.sites.shop = token =>
+            token ? plan({ 'index.html': 'Seite A' }, true) : plan({ 'index.html': 'Öffentlich' });
+        await request('shop.at0mic.site', '/', { cookie: COOKIE }); // A gemerkt
+        await request('shop.at0mic.site', '/'); // öffentliche Fassung im gemeinsamen Speicher
+        backend.sites.shop = down;
+        now += 60 * 1000;
+        const other = await request('shop.at0mic.site', '/', { cookie: `__Host-at0mic_ausweis=${OTHER_TOKEN}` });
+        assert.equal(other.status, 503, 'B hat nichts gemerkt -> freundliche Fehlerseite, nicht A, nicht öffentlich');
+        assert.equal(other.body.includes('Seite A'), false);
+        assert.equal(other.body.includes('Öffentlich'), false);
+    });
+
+    test('Backend sagt "kein Zugriff": gemerkte Seite sofort vergessen, kein Ersatz danach', async () => {
+        backend.sites.shop = () => plan({ 'index.html': 'Geheim' }, true);
+        await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        now += 31 * 1000;
+        backend.sites.shop = () => reply(403, { error: 'kein Zugriff', code: 'SITE_NO_ACCESS' });
+        assert.equal((await request('shop.at0mic.site', '/', { cookie: COOKIE })).status, 403);
+        assert.equal(personalCache.size, 0);
+        backend.sites.shop = down;
+        const r = await request('shop.at0mic.site', '/', { cookie: COOKIE });
+        assert.equal(r.status, 503);
+        assert.equal(r.body.includes('Geheim'), false);
+    });
+});
