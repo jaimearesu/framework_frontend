@@ -37,9 +37,15 @@ class BauplanCache {
         return !!entry && this.now() < entry.freshUntil;
     }
 
+    // Ist ein (abgelaufener) Eintrag noch jung genug als Ersatz? (maxAgeMs ab dem Merken)
+    isUsableStale(entry, maxAgeMs) {
+        return !!entry && entry.kind === 'site' && this.now() - (entry.savedAt || 0) <= maxAgeMs;
+    }
+
     setSite(name, bauplan) {
         const seconds = Number.isInteger(bauplan.cache) ? bauplan.cache : 60;
-        this._put(name, { kind: 'site', bauplan, freshUntil: this.now() + seconds * 1000 });
+        // savedAt: wann gemerkt (für "höchstens 1 Stunde alter Ersatz", Nachzügler N-B)
+        this._put(name, { kind: 'site', bauplan, savedAt: this.now(), freshUntil: this.now() + seconds * 1000 });
     }
 
     setMissing(name) {

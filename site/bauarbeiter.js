@@ -63,6 +63,10 @@ const RUN_TIMEOUT_MS = 95000;
 // Kurz, weil sich seine Rechte ändern können: Wird ihm ein Recht entzogen, sieht er
 // den alten Stand höchstens noch so lange (Abmelden löscht ihn sofort).
 const PERSONAL_SECONDS = 30;
+// Ist das Backend kurz weg, bekommt ein angemeldeter Besucher SEINE letzte Seite als Ersatz –
+// höchstens so alt (Nachzügler N-B, 29.10.2026, Entscheidung NB1). Nie die Seite eines
+// anderen und nie die öffentliche Fassung (NB2).
+const PERSONAL_STALE_MS = 60 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Seit der Umbenennung zu vindelis (27.10.2026) gilt /_vindelis/… gleich wie /_at0mic/…:
@@ -362,6 +366,18 @@ const createBauarbeiter = ({
                 // Der Ausweis galt nicht: Die Antwort ist die eines Anonymen. Ist sie
                 // wirklich öffentlich (nicht persönlich), darf sie in den gemeinsamen Speicher.
                 cache.setSite(name, result.bauplan);
+                personalCache.delete(pKey);
+            } else if (result.closed || result.tokenInvalid || result.kind === 'missing') {
+                // Kein Zugriff (mehr), bitte anmelden, Ausweis ungültig, Website weg:
+                // die gemerkte Seite sofort vergessen – entzogene Rechte gelten sofort
+                personalCache.delete(pKey);
+            } else if (
+                result.kind === 'error' &&
+                result.page === 'unavailable' &&
+                personalCache.isUsableStale(entry, PERSONAL_STALE_MS)
+            ) {
+                // Backend gerade weg (N-B): SEINE letzte Seite statt einer Fehlerseite
+                return { kind: 'site', bauplan: entry.bauplan, personal: true, stale: true };
             }
             return result;
         }
