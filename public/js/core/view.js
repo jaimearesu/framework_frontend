@@ -254,3 +254,53 @@ export const helperWork = agent => {
         hidden: Number(agent?.hiddenRights) || 0
     };
 };
+
+// ------------------------------------------------------------------
+// SUCHE «Strg K» (Punkt 5, D5) – reine Funktionen
+// Einträge: { kind: 'website' | 'seite' | 'aktion', title, sub?, href?, action? }
+// ------------------------------------------------------------------
+
+// Für den Vergleich: klein, ohne Akzente/Umlaute-Punkte ("Übersicht" findet "uebersicht" und "ubersicht")
+export const normalizeSearch = text =>
+    String(text || '')
+        .toLowerCase()
+        .replace(/ä/g, 'ae')
+        .replace(/ö/g, 'oe')
+        .replace(/ü/g, 'ue')
+        .replace(/ß/g, 'ss')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+// Trefferliste: Anfang des Titels vor Wortanfang vor irgendwo; höchstens "max" Einträge.
+// Leere Suche: die ersten Einträge in ihrer Reihenfolge (Websites zuerst).
+export const searchItems = (items, query, max = 8) => {
+    const list = Array.isArray(items) ? items : [];
+    const q = normalizeSearch(query).trim();
+    if (!q) return list.slice(0, max);
+    const variants = [q, q.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u')];
+    const score = item => {
+        const title = normalizeSearch(item.title);
+        const plain = title.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u');
+        const sub = normalizeSearch(item.sub);
+        let best = 0;
+        for (const v of variants) {
+            for (const t of [title, plain]) {
+                if (t.startsWith(v)) best = Math.max(best, 3);
+                else if (t.split(/[\s\-_/.]+/).some(w => w.startsWith(v))) best = Math.max(best, 2);
+                else if (t.includes(v)) best = Math.max(best, 1);
+            }
+            if (!best && sub.includes(v)) best = 0.5;
+        }
+        return best;
+    };
+    return list
+        .map((item, index) => ({ item, index, s: score(item) }))
+        .filter(x => x.s > 0)
+        .sort((a, b) => b.s - a.s || a.index - b.index)
+        .slice(0, max)
+        .map(x => x.item);
+};
+
+// Satz für "KI fragen": die Frage, damit der KI-Helfer weiss, dass es um vindelis geht
+export const askAiPrompt = question =>
+    `Ich arbeite mit vindelis (meine Websites). Bitte hilf mir: ${String(question || '').trim()}`;

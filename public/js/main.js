@@ -21,6 +21,7 @@ import { refreshSession, getSession, guestHint } from './core/session.js';
 import { initRequestLog } from './core/requestLog.js';
 import { load, save } from './core/storage.js';
 import { initLogo } from './core/intro.js';
+import { initSearch } from './core/search.js';
 import { setView, isTechView, OWNER_NAV, titleFor, ownerProblemText, splitByArt } from './core/view.js';
 import { loadOwnerSites } from './core/objects.js';
 
@@ -448,6 +449,8 @@ const start = async () => {
     document.body.dataset.view = isTechView() ? 'technik' : 'besitzer';
     hydrateIcons();
     initTheme();
+    // Suchen oder KI fragen (Strg K, Punkt 5 D5)
+    initSearch();
     initMobileMenu();
     initRequestLog();
     renderNav();
