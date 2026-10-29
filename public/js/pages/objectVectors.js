@@ -6,6 +6,7 @@
 //   - Text hinzufügen (Quelle + Text) – vindelis schneidet und rechnet (euRouter, EU)
 //   - Probe-Suche: Frage -> die passendsten Stücke mit Ähnlichkeit
 //   - Quelle löschen
+//   - V4: Regel "diese Felder der Datensätze vektorisieren", wartende Stücke, pausiert, sofort abgleichen
 // Routen: GET/POST /api/objects/:uuid/vectors, POST …/vectors/search, DELETE …/vectors?name=
 // Rechte prüft das Backend (black suchen, red schreiben). Texte vom Backend nur über h().
 // ---------------------------------------------------------------------
@@ -173,7 +174,90 @@ export const renderVectorsTab = async (box, o) => {
             },
             overview
         ),
+        info.enabled ? ruleCard(o, info, reload) : null,
         info.enabled ? addCard : null,
         info.enabled && info.chunks ? searchCard : null
+    );
+};
+
+// V4: Datensätze automatisch – Regel setzen/entfernen, Zustand, sofort abgleichen
+const ruleCard = (o, info, reload) => {
+    const fields = h('input', {
+        class: 'input',
+        placeholder: 'Felder, mit Komma getrennt, z.B. titel, beschreibung, adresse.ort',
+        value: info.rule ? info.rule.felder.join(', ') : ''
+    });
+    const out = h('div');
+    const records = info.sources.find(s => s.name === 'datensaetze');
+    const state = [
+        info.rule ? `Regel: ${info.rule.felder.join(', ')}` : 'Keine Regel – Datensätze werden nicht vektorisiert.',
+        records ? `${formatNumber(records.records)} Datensätze, ${formatNumber(records.chunks)} Stücke` : null,
+        info.pending ? `${formatNumber(info.pending)} Stücke warten auf ihren Vektor` : null
+    ]
+        .filter(Boolean)
+        .join(' · ');
+    return card(
+        {
+            title: 'Datensätze automatisch',
+            icon: 'database',
+            subtitle:
+                'Diese Felder jedes Datensatzes werden als Vektoren gehalten – neue, geänderte und gelöschte gleicht vindelis innert ~1 Minute ab.'
+        },
+        info.paused
+            ? callout(
+                  'warn',
+                  'Pausiert:',
+                  ' Das Vektor-Kontingent dieses Monats ist aufgebraucht – nächsten Monat geht es weiter.'
+              )
+            : null,
+        h('p', { class: 'small muted' }, state),
+        h('div', { class: 'row gap-s wrap' }, fields),
+        h(
+            'div',
+            { class: 'row gap-s wrap' },
+            busyButton(
+                'Regel speichern',
+                async () => {
+                    const felder = fields.value
+                        .split(',')
+                        .map(f => f.trim())
+                        .filter(Boolean);
+                    const r = await api.put(`/api/objects/${o.uuid}/vectors/rule`, { felder });
+                    if (!r.ok) return mount(out, resultLine(r));
+                    toast('Regel gespeichert – der Abgleich läuft innert einer Minute.', 'ok');
+                    reload();
+                },
+                { className: 'btn primary' }
+            ),
+            info.rule
+                ? busyButton(
+                      'Jetzt abgleichen',
+                      async () => {
+                          const r = await api.post(`/api/objects/${o.uuid}/vectors/sync`, {});
+                          if (!r.ok) return mount(out, resultLine(r));
+                          const d = r.data.data;
+                          toast(
+                              `${d.records} Datensätze, ${d.embedded} Stücke neu, ${d.deleted} gelöscht${d.more ? ' – der Rest folgt im Hintergrund' : ''}.`,
+                              'ok'
+                          );
+                          reload();
+                      },
+                      { className: 'btn' }
+                  )
+                : null,
+            info.rule
+                ? busyButton(
+                      'Regel entfernen',
+                      async () => {
+                          if (!confirm('Regel entfernen? Die Vektoren der Datensätze werden gelöscht.')) return;
+                          const r = await api.del(`/api/objects/${o.uuid}/vectors/rule`);
+                          if (!r.ok) return mount(out, resultLine(r));
+                          reload();
+                      },
+                      { className: 'btn danger' }
+                  )
+                : null
+        ),
+        out
     );
 };
