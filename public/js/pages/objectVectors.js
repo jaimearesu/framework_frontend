@@ -115,6 +115,14 @@ export const renderVectorsTab = async (box, o) => {
 
     // --- Probe-Suche ---
     const queryInput = h('input', { class: 'input', placeholder: 'Frage, z.B. «Wie storniere ich?»', maxlength: 2000 });
+    // V5: hybrid (Bedeutung + genaue Wörter), nur Bedeutung, nur Wörter (gratis)
+    const modeSelect = h(
+        'select',
+        { class: 'input' },
+        h('option', { value: 'hybrid' }, 'Bedeutung + Wörter'),
+        h('option', { value: 'vector' }, 'nur Bedeutung'),
+        h('option', { value: 'text' }, 'nur Wörter (gratis)')
+    );
     const hits = h('div');
     const searchCard = card(
         { title: 'Probe-Suche', icon: 'search', subtitle: 'Findet Stücke nach Bedeutung – auch ohne gleiche Wörter.' },
@@ -122,12 +130,14 @@ export const renderVectorsTab = async (box, o) => {
             'div',
             { class: 'row gap-s' },
             queryInput,
+            modeSelect,
             busyButton(
                 'Suchen',
                 async () => {
                     const r = await api.post(`/api/objects/${o.uuid}/vectors/search`, {
                         query: queryInput.value,
-                        limit: 5
+                        limit: 5,
+                        mode: modeSelect.value
                     });
                     if (!r.ok) return mount(hits, resultLine(r));
                     const list = r.data.data || [];
@@ -145,7 +155,14 @@ export const renderVectorsTab = async (box, o) => {
                                           h('div', { class: 'small muted' }, `${t.source} · Stück ${t.chunk}`),
                                           h('div', { class: 'small' }, t.content.slice(0, 400))
                                       ),
-                                      h('span', { class: 'mono small' }, t.similarity.toFixed(3))
+                                      h(
+                                          'span',
+                                          {
+                                              class: 'mono small',
+                                              title: 'warum gefunden: vektor = Bedeutung, text = genaue Wörter'
+                                          },
+                                          `${t.similarity === null ? '–' : t.similarity.toFixed(3)} · ${(t.match || []).join('+')}`
+                                      )
                                   )
                               )
                             : h('p', { class: 'muted small' }, 'Keine Treffer.')
