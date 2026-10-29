@@ -23,7 +23,10 @@ import {
     memberText,
     partKind,
     problemKindText,
-    repairPrompt
+    repairPrompt,
+    clientLabel,
+    helperStatus,
+    helperWork
 } from '../public/js/core/view.js';
 import { ROUTES } from '../public/js/core/routes.js';
 
@@ -216,5 +219,48 @@ describe('Website-Seite (D4)', () => {
         assert.match(text, /7 Tage/);
         assert.match(text, /site_problems/);
         assert.match(repairPrompt('x'), /24 Stunden/);
+    });
+});
+
+describe('KI-Helfer (D4b)', () => {
+    test('Verbindung: Claude / ChatGPT statt Adressen', () => {
+        assert.equal(clientLabel({ clientHost: 'claude.ai' }), 'Claude');
+        assert.equal(clientLabel({ clientHost: 'chatgpt.com' }), 'ChatGPT');
+        assert.equal(clientLabel({ clientHost: 'beispiel.dev', clientName: 'Mein Bot' }), 'Mein Bot');
+        assert.equal(clientLabel({}), 'einer KI');
+    });
+
+    test('Zustand: aktive Verbindung, sonst Schlüssel, sonst nicht verbunden', () => {
+        assert.deepEqual(
+            helperStatus({
+                connections: [
+                    { status: 'active', clientHost: 'claude.ai' },
+                    { status: 'revoked', clientHost: 'chatgpt.com' }
+                ]
+            }),
+            { tone: 'ok', text: 'Verbunden mit Claude' }
+        );
+        assert.equal(helperStatus({ connections: [], tokens: { active: 1 } }).text, 'Verbunden mit einem Schlüssel');
+        assert.deepEqual(helperStatus({ connections: [], tokens: { active: 0 } }), {
+            tone: 'off',
+            text: 'Nicht verbunden'
+        });
+    });
+
+    test('Woran er arbeitet: Websites mit Recht in Worten, Kästen nur gezählt', () => {
+        const work = helperWork({
+            rights: [
+                { domain: 'zoo', rootUuid: 'z', roles: ['black', 'red'], toolbox: false },
+                { domain: 'kasten', rootUuid: 'k', roles: ['black'], toolbox: true },
+                { domain: 'atelier', rootUuid: 'a', roles: ['black'], toolbox: false }
+            ],
+            hiddenRights: 2
+        });
+        assert.deepEqual(
+            work.sites.map(s => `${s.name}:${s.role}`),
+            ['atelier:darf ansehen', 'zoo:darf bauen']
+        );
+        assert.equal(work.toolboxes, 1);
+        assert.equal(work.hidden, 2);
     });
 });

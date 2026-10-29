@@ -215,3 +215,42 @@ export const repairPrompt = (siteName, hours = 24) =>
     `Bitte schau dir mit dem Werkzeug site_problems die Probleme der Website «${siteName}» der letzten ` +
     `${hours === 24 ? '24 Stunden' : `${Math.round(hours / 24)} Tage`} an, finde die Ursachen und behebe sie. ` +
     'Teste danach mit test_site und erkläre mir kurz, was du geändert hast.';
+
+// ------------------------------------------------------------------
+// KI-HELFER (D4b) – einfache Fassung der Agenten-Seite
+// Daten aus GET /api/agents (agentService): connections, tokens, rights, lastActivityAt
+// ------------------------------------------------------------------
+
+// Mit wem ist die Verbindung? claude.ai / chatgpt.com statt technischer Namen
+export const clientLabel = conn => {
+    const host = String(conn?.clientHost || '').toLowerCase();
+    if (host === 'claude.ai' || host.endsWith('.claude.ai')) return 'Claude';
+    if (host === 'chatgpt.com' || host.endsWith('.chatgpt.com')) return 'ChatGPT';
+    return conn?.clientName || host || 'einer KI';
+};
+
+// Zustand eines KI-Helfers in einem Satz
+// -> { tone: 'ok' | 'warn' | 'off', text }
+export const helperStatus = agent => {
+    const active = (agent?.connections || []).filter(c => c.status === 'active');
+    if (active.length) {
+        const names = [...new Set(active.map(clientLabel))];
+        return { tone: 'ok', text: `Verbunden mit ${names.join(' und ')}` };
+    }
+    if (agent?.tokens?.active > 0) return { tone: 'ok', text: 'Verbunden mit einem Schlüssel' };
+    return { tone: 'off', text: 'Nicht verbunden' };
+};
+
+// Woran arbeitet er? Websites mit Recht in Worten, Werkzeugkästen nur gezählt
+export const helperWork = agent => {
+    const rights = Array.isArray(agent?.rights) ? agent.rights : [];
+    return {
+        sites: rights
+            .filter(r => !r.toolbox)
+            .map(r => ({ name: String(r.domain), rootUuid: r.rootUuid, role: roleText(r.roles) }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'de')),
+        toolboxes: rights.filter(r => r.toolbox).length,
+        // Rechte auf Websites, die du selbst nicht siehst (nur die Zahl, nie welche)
+        hidden: Number(agent?.hiddenRights) || 0
+    };
+};
