@@ -204,6 +204,7 @@ const PROBLEM_TEXT = {
     webhook_fehler: 'Fehler bei einem Webhook',
     live_abgewiesen: 'Live-Verbindung abgewiesen',
     auftrag_fehlgeschlagen: 'Hintergrund-Auftrag fehlgeschlagen',
+    vektoren_pausiert: 'Vektoren pausiert (Kontingent)',
     zeitplan: 'Termin im Zeitplan ausgefallen',
     eigene_domain: 'Eigene Domain nicht aktiv'
 };
