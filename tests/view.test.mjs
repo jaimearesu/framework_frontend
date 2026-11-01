@@ -213,6 +213,7 @@ describe('Website-Seite (D4)', () => {
 
     test('Problem-Arten in Worten, Unbekanntes lesbar', () => {
         assert.equal(problemKindText('datei_fehlt'), 'Bild oder Datei fehlt');
+        assert.equal(problemKindText('website_fehler'), 'Website liess sich nicht zusammensetzen');
         assert.equal(problemKindText('neu_art'), 'neu art');
     });
 

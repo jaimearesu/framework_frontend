@@ -193,6 +193,7 @@ export const partKind = part => {
 
 // Art eines Problems in Worten (Arten aus dem Backend, problemService.KINDS)
 const PROBLEM_TEXT = {
+    website_fehler: 'Website liess sich nicht zusammensetzen',
     ssf_fehler: 'Fehler in einer Funktion',
     nicht_gefunden: 'Teil nicht gefunden',
     server_voll: 'Server kurz ausgelastet',
