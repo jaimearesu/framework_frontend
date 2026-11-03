@@ -148,6 +148,38 @@ export const TOOLS = [
         text: 'Anlegen oder GANZ ersetzen: Gibt es den Schlüssel schon, bekommt der Datensatz genau diese Daten (ID bleibt). Gut für Einstellungen oder den aktuellen Stand von etwas.',
         snippet: "await api.data.upsert('resto/einstellungen', 'oeffnungszeiten', { mo: '11–22' });\n"
     },
+    // Plan "K", K2 (Lehren aus dem CRM-Test, 03.11.2026)
+    {
+        name: 'data.aggregate',
+        group: 'data',
+        signature: 'ziel, { filter, groupBy, sum, avg, min, max, limit, sort }',
+        role: 'black',
+        returns: '{ groups: [ { group, count, sum, avg, min, max } ], meta: { groups, capped } }',
+        text: 'Zählen und rechnen IN der Datenbank (Reports, Dashboards) – pro Gruppe, z.B. Summe pro Phase oder pro Monat ({ field: "datum", prefix: 7 }). Ohne groupBy eine Zeile für alle. sum/avg zählen nur echte Zahlen.',
+        snippet: "const r = await api.data.aggregate('crm/chancen', { groupBy: 'phase', sum: 'betrag' });\n"
+    },
+    {
+        name: 'data.updateEach',
+        group: 'data',
+        signature: 'ziel, [ { id | key, changes, ifVersion? }, … ]',
+        role: 'red',
+        budget: 'writes (pro Eintrag)',
+        returns: '{ geaendert }',
+        text: 'Bis 500 Datensätze mit JE EIGENEN Werten in einem Aufruf (z.B. ERP-Abgleich). Alles oder nichts: fehlt einer (NOT_FOUND) oder stimmt eine Version nicht (CONFLICT), wird nichts geändert.',
+        snippet:
+            "await api.data.updateEach('crm/kunden', [\n    { id: idA, changes: { umsatz: 1200 } },\n    { key: 'erp:4711', changes: { umsatz: 80 } }\n]);\n"
+    },
+    {
+        name: 'data.batch',
+        group: 'data',
+        signature: "[ ['insert', ziel, daten], ['update', ziel, id, änderungen], … ]",
+        role: 'red',
+        budget: 'writes (pro Datensatz)',
+        returns: '[ Ergebnis pro Schritt ]',
+        text: 'Mehrere Schritte (insert, update, delete, upsert, updateByKey, deleteByKey, updateEach – gleiche Argumente wie sonst), auch über mehrere Speicher, ALLES ODER NICHTS in einer Transaktion. Max. 50 Schritte; der Fehler nennt den Schritt.',
+        snippet:
+            "const [offerte] = await api.data.batch([\n    ['insert', 'crm/offerten', { kunde: kundeId, betrag: 1200 }],\n    ['update', 'crm/kunden', kundeId, { offen: 1 }]\n]);\n"
+    },
     {
         name: 'objects.get',
         group: 'objects',

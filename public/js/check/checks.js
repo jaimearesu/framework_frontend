@@ -1113,6 +1113,50 @@ return { v, v2: nach._sys_version, zellen: nach.zellen, info: nach.info, konflik
         }
     },
     {
+        // Plan "K", K2 (Lehren aus dem CRM-Test): zusammenfassen in der DB, viele mit eigenen
+        // Werten, alles oder nichts – ein Fehler im letzten Schritt nimmt auch die ersten zurück
+        id: 'ssf-data-k2',
+        group: 'SSF',
+        title: 'Daten: aggregate, updateEach, batch (alles oder nichts)',
+        needs: ['funktion', 'daten'],
+        run: async ctx => {
+            const ziel = `${ctx.domainName}/daten`;
+            const r = await runSsf(
+                ctx,
+                `const neu = await api.data.insert('${ziel}', [
+    { k2: true, phase: 'a', betrag: 10 }, { k2: true, phase: 'a', betrag: 5 }, { k2: true, phase: 'b', betrag: 1 }
+]);
+const agg = await api.data.aggregate('${ziel}', { filter: { k2: true }, groupBy: 'phase', sum: 'betrag' });
+const each = await api.data.updateEach('${ziel}', neu.map((n, i) => ({ id: n._sys_id, changes: { nr: i } })));
+let code = null;
+try {
+    await api.data.batch([
+        ['update', '${ziel}', neu[0]._sys_id, { zurueck: true }],
+        ['delete', '${ziel}', '11111111-1111-4111-8111-111111111111']
+    ]);
+} catch (e) { code = e.message.includes('Schritt Nr. 2') ? 'SCHRITT2' : e.message; }
+const erster = await api.data.get('${ziel}', neu[0]._sys_id);
+const d = await api.data.deleteMany('${ziel}', { k2: true });
+return { agg: agg.groups.map(g => [g.group.phase, g.count, g.sum.betrag]), each, code, zurueck: erster.zurueck === true, d };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const x = r.data.result;
+            expect(
+                JSON.stringify(x.agg) ===
+                    JSON.stringify([
+                        ['a', 2, 15],
+                        ['b', 1, 1]
+                    ]),
+                `aggregate: ${JSON.stringify(x.agg)}`,
+                r
+            );
+            expect(x.each.geaendert === 3, 'updateEach falsch', r);
+            expect(x.code === 'SCHRITT2' && !x.zurueck, `batch nicht zurückgenommen: ${x.code}`, r);
+            expect(x.d.geloescht === 3, 'Aufräumen falsch', r);
+            return 'Summe pro Phase stimmt, 3 mit eigenen Werten, batch ganz zurückgenommen';
+        }
+    },
+    {
         // Plan "R2 – Besucher laden hoch" (R2c): Die Upload-Tür ist nur für den Bauarbeiter
         // offen; accept gibt es nur bei einem echten Upload; die Liste "Neue Uploads" antwortet
         id: 'ssf-upload-door',
