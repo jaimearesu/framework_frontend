@@ -1952,6 +1952,50 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             return r.error;
         }
     },
+    // Plan "K", K6b: Einwurf – Adresse holen, einmal füllen, genau dieselben Bytes zurück.
+    // Legt nichts Bleibendes an (die Adresse läuft nach 1 Stunde ab und wird nachts gelöscht).
+    {
+        id: 'einwurf',
+        group: 'Klonen & Zügeln',
+        title: 'Einwurf (create_upload_link): einmal füllen, genau dieselben Bytes zurück',
+        needs: ['root'],
+        run: async () => {
+            const r = await api.post('/api/einwurf', {});
+            if (r.status === 403) return 'als Gast ohne Anmeldung abgelehnt (403) – richtig';
+            expectStatus(r, 201, 'POST /api/einwurf');
+            const url = r.data.data.url;
+            const text = `Grüezi 🚀 ${Date.now()}`;
+            const put = await fetch(url, { method: 'PUT', body: text });
+            expect(put.status === 201, `PUT antwortet mit ${put.status}`, r);
+            const again = await fetch(url, { method: 'PUT', body: 'anders' });
+            expect(again.status === 409, `zweites Füllen: ${again.status} statt 409`, r);
+            const back = await (await fetch(url)).text();
+            expect(back === text, 'andere Bytes zurück', { text, back });
+            return 'gefüllt, zweites Mal abgelehnt (409), Inhalt identisch';
+        }
+    },
+    // Plan "K", K6a: tiefer Klon – prüft nur die Ablehnungen (ein echter legt viele Teile an)
+    {
+        id: 'clone-deep-rules',
+        group: 'Klonen & Zügeln',
+        title: 'Tiefer Klon (deep): nur mit der Wurzel, ohne version',
+        needs: ['root', 'daten'],
+        run: async ctx => {
+            const teil = await api.post(`/api/objects/${ctx.daten}/clone`, {
+                domain: `${ctx.domainName}-tief`,
+                deep: true
+            });
+            expectStatus(teil, 400, 'deep mit einem Teil');
+            expect(/Wurzel/.test(teil.error || ''), 'Meldung unklar', teil);
+            const version = await api.post(`/api/objects/${ctx.root}/clone`, {
+                domain: `${ctx.domainName}-tief`,
+                deep: true,
+                version: 0
+            });
+            expectStatus(version, 400, 'deep mit version');
+            return 'Teil statt Wurzel und deep + version: abgelehnt (400)';
+        }
+    },
     {
         id: 'move',
         group: 'Klonen & Zügeln',
