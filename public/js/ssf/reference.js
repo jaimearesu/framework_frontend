@@ -66,7 +66,7 @@ export const TOOLS = [
         signature: 'ziel, { filter, sort, select, joins, limit, cursor, direction }',
         role: 'black',
         returns: '{ data: [...], meta: { total_count, total_count_capped, limit, returned_count, cursors } }',
-        text: 'Datensätze suchen – mit derselben Such-Sprache wie auf der Seite „Daten & Suche“. Höchstens 500 pro Seite, gezählt wird bis 10’000.',
+        text: 'Datensätze suchen – mit derselben Such-Sprache wie auf der Seite „Daten & Suche“. Höchstens 500 pro Seite, gezählt wird bis 10’000 (total_count_capped = „mehr als“). joins lädt Daten aus einem verknüpften Speicher mit: { relationType, sourceKey, targetKey, as, single, filter } – vorher eine Relation anlegen; falsche Angaben geben e.code INVALID_JOIN.',
         snippet:
             "const res = await api.data.find('shop/produkte', {\n    filter: { preis: { $lt: 50 } },\n    sort: { field: 'preis', order: 'ASC' },\n    limit: 20\n});\n"
     },
