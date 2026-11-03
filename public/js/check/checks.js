@@ -477,6 +477,24 @@ export const CHECKS = [
         }
     },
     {
+        // Plan K, K3b (CRM-Test 03.11.2026): "was würde beim Löschen passieren?" – löscht NICHTS
+        id: 'object-delete-preview',
+        group: 'Code',
+        title: 'Löschvorschau (delete_object dry_run) löscht nichts',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.get(`/api/objects/${ctx.root}/delete-preview`);
+            expectStatus(r, 200, 'Löschvorschau');
+            const d = r.data?.data || {};
+            expect(d.dryRun === true && typeof d.canDelete === 'boolean', 'kein dryRun/canDelete', r);
+            expect(Array.isArray(d.blockers) && Array.isArray(d.dnaReferences), 'blockers/dnaReferences fehlen', r);
+            expect(Number.isInteger(d.children?.total), 'keine Zahl children.total', r);
+            const still = await api.get(`/api/objects/${ctx.root}/usage`);
+            expectStatus(still, 200, 'Objekt noch da');
+            return `canDelete ${d.canDelete}, ${d.children.total} Kind(er), ${d.dnaReferences.length} DNA-Verweis(e)`;
+        }
+    },
+    {
         id: 'code-syntax-error',
         group: 'Code',
         title: 'Syntaxfehler wird erkannt (422)',
