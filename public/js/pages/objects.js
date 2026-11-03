@@ -1570,6 +1570,12 @@ const renderCopyTab = (box, o, objects, { onDone }) => {
         )
     );
     const withData = h('input', { type: 'checkbox' });
+    // Plan "K", K6a: die GANZE Website samt allen Teilen (nur bei der Wurzel einer Website)
+    const isRoot = Boolean(o.domain) && !o.domain_ref;
+    const deep = h('input', { type: 'checkbox' });
+    deep.addEventListener('change', () => {
+        cloneVersion.disabled = deep.checked; // tief: immer der neueste Stand aller Teile
+    });
     const cloneOut = h('div');
 
     const doClone = async () => {
@@ -1577,7 +1583,7 @@ const renderCopyTab = (box, o, objects, { onDone }) => {
         if (!domain) return toast('Bitte einen Namen für die Kopie eingeben.', 'error');
         const res = await api.post(`/api/objects/${o.uuid}/clone`, {
             domain,
-            version: Number(cloneVersion.value),
+            ...(deep.checked ? { deep: true } : { version: Number(cloneVersion.value) }),
             withData: withData.checked
         });
         mount(cloneOut, resultLine(res));
@@ -1607,7 +1613,7 @@ const renderCopyTab = (box, o, objects, { onDone }) => {
             h(
                 'li',
                 {},
-                'Kinder in der DNA bleiben Verweise auf das Original. Wer sie auch besitzen will, klont sie einzeln.'
+                'Kinder in der DNA bleiben Verweise auf das Original – ausser mit „Ganze Website“: dann kommen alle Teile mit.'
             )
         ),
         h(
@@ -1616,6 +1622,18 @@ const renderCopyTab = (box, o, objects, { onDone }) => {
             field('Name der Kopie', cloneName, 'Wird eine neue Domain – jeder Name existiert nur einmal.'),
             field('Welche Version?', cloneVersion)
         ),
+        isRoot
+            ? h(
+                  'label',
+                  { class: 'check' },
+                  deep,
+                  h(
+                      'span',
+                      {},
+                      'Ganze Website mit allen Teilen (Sandbox: die DNA zeigt auf die Kopien, neuester Stand)'
+                  )
+              )
+            : null,
         h('label', { class: 'check' }, withData, h('span', {}, 'Daten (Datensätze) mitkopieren')),
         h('div', {}, busyButton('Klonen', doClone, { className: 'btn primary', iconName: 'layers' })),
         cloneOut

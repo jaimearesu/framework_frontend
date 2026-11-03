@@ -202,11 +202,11 @@ export const TOOLS = [
     {
         name: 'objects.clone',
         group: 'objects',
-        signature: 'ziel, neueDomain, { version, withData }',
+        signature: 'ziel, neueDomain, { version, withData, deep }',
         role: 'red (einstellbar: CLONE_PERMISSION)',
         budget: 'objects (1) + writes (je mitkopiertem Datensatz 1)',
         returns: '{ uuid, domain, domainRef, path, origin, createdAt, updatedAt }',
-        text: 'Kopie als NEUE Domain: Code genau einer Version (Standard: neueste), Daten nur mit withData. Tresor-Schlüssel, Rechte und Relationen kommen nie mit. Die SSF wird Besitzerin – typisch danach: roles.grant an den Kunden und roles.leave.',
+        text: 'Kopie als NEUE Domain: Code genau einer Version (Standard: neueste), Daten nur mit withData. deep: true (nur mit der Wurzel) kopiert die GANZE Website samt allen Teilen, die DNA zeigt auf die Kopien. Tresor-Schlüssel, Rechte und Relationen kommen nie mit. Die SSF wird Besitzerin – typisch danach: roles.grant an den Kunden und roles.leave.',
         snippet:
             "const kopie = await api.objects.clone('shop/produkte', 'kauf-' + Math.random().toString(36).slice(2, 8), { withData: true });\n"
     },
