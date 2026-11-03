@@ -81,7 +81,7 @@ import {
     liveCountText,
     liveRulesRows
 } from '../core/site.js';
-import { addChildToDna, removeChildFromDna } from '../core/dna.js';
+import { addChildToDna } from '../core/dna.js';
 import {
     jobStatusText,
     canCancel,
@@ -2905,6 +2905,12 @@ const renderDeleteTab = async (box, o, objects, { onDeleted }) => {
             {},
             '🧬 Kopien (Klone) anderer bleiben erhalten. Wer das Objekt live eingehängt hat, sieht es nicht mehr.'
         ),
+        // Plan K, K3c: das Backend räumt die DNA selbst auf (vorher machte das hier das Cockpit)
+        h(
+            'li',
+            {},
+            '🧹 Einträge in DNAs, die auf das Objekt zeigen (meist die des Eltern-Objekts), werden automatisch entfernt – als neue Version.'
+        ),
         h('li', {}, 'Dafür brauchst du blue auf dieses Objekt.')
     );
 
@@ -2922,9 +2928,8 @@ const renderDeleteTab = async (box, o, objects, { onDeleted }) => {
 
     // Name abtippen: erst dann wird der Knopf aktiv
     const confirmInput = h('input', { class: 'input', placeholder: label, autocomplete: 'off' });
-    const fromDna = h('input', { type: 'checkbox', checked: true });
     const stepsLog = h('div', { class: 'steps-log' });
-    const usageBox = h('div'); // Warnung "wird noch benutzt" (wird unten nachgeladen)
+    const usageBox = h('div'); // Vorschau "was hängt daran?" (wird unten nachgeladen)
     let usedBy = 0;
 
     const doDelete = async () => {
@@ -2959,35 +2964,27 @@ const renderDeleteTab = async (box, o, objects, { onDeleted }) => {
                 callout('warn', `${lost} Mitglied${lost === 1 ? '' : 'er'}`, ' hat/haben dabei Rechte verloren.')
             );
 
-        // Schritt 2 (optional, nur bei Kindern): Eintrag aus der DNA des Eltern-Objekts entfernen,
-        // sonst zeigt die DNA weiter auf ein Objekt, das es nicht mehr gibt
-        if (parent && fromDna.checked) {
-            const code = await loadCode(parent.uuid);
-            let dna = null;
-            try {
-                dna = code.code.syntax ? JSON.parse(code.code.syntax) : null;
-            } catch {
-                stepsLog.append(
-                    callout(
-                        'error',
-                        'Die DNA des Eltern-Objekts ist kein gültiges JSON.',
-                        ' Bitte im Code-Editor reparieren.'
-                    )
-                );
-            }
-            if (dna) {
-                const { dna: updated, removed } = removeChildFromDna(dna, childRefFor(o, label));
-                if (removed) {
-                    const save = await saveCode(parent.uuid, [
-                        { type: 'syntax', code: JSON.stringify(updated, null, 2) }
-                    ]);
-                    log(stepsLog, '2. Aus der DNA des Eltern-Objekts entfernen', save);
-                } else {
-                    stepsLog.append(
-                        h('div', { class: 'muted small' }, '2. Stand nicht in der DNA des Eltern-Objekts.')
-                    );
-                }
-            }
+        // Schritt 2: Das Backend hat die Einträge in den DNAs schon entfernt (Plan K, K3c) –
+        // hier nur zeigen, wo, und wo es an Rechten fehlte
+        const cleaned = res.data?.dnaCleaned || [];
+        const left = res.data?.dnaLeft || [];
+        stepsLog.append(
+            h(
+                'div',
+                { class: 'muted small' },
+                cleaned.length
+                    ? `2. Aus der DNA entfernt: ${cleaned.map(c => `„${c.name}“ (Version ${c.version})`).join(', ')}`
+                    : '2. Stand in keiner DNA.'
+            )
+        );
+        if (left.length) {
+            stepsLog.append(
+                callout(
+                    'warn',
+                    'Noch eingetragen:',
+                    ` in ${left.map(l => `„${l.name}“`).join(', ')} – dort fehlt dir red. Bitte dort den Eintrag entfernen lassen.`
+                )
+            );
         }
 
         toast(`„${label}“ gelöscht.`, 'ok');
@@ -2999,14 +2996,6 @@ const renderDeleteTab = async (box, o, objects, { onDeleted }) => {
         card(
             { title: 'Löschen', icon: 'trash', subtitle: 'Ein Objekt endgültig entfernen. Es gibt keinen Papierkorb.' },
             rules,
-            parent
-                ? h(
-                      'label',
-                      { class: 'check' },
-                      fromDna,
-                      h('span', {}, `Auch aus der DNA von „${objectLabel(parent)}“ entfernen (empfohlen)`)
-                  )
-                : null,
             usageBox,
             field('Zur Sicherheit: Namen abtippen', confirmInput, `Tippe „${label}“, um das Löschen freizugeben.`),
             h('div', {}, busyButton('Endgültig löschen', doDelete, { className: 'btn danger', iconName: 'trash' })),
@@ -3014,13 +3003,24 @@ const renderDeleteTab = async (box, o, objects, { onDeleted }) => {
         )
     );
 
-    // Härtungs-Runde (28.10.): Wird das Objekt noch im Code anderer SSFs/Bibliotheken
-    // erwähnt (z.B. eine Bibliothek oder ein Werkzeug)? Nur eine Zahl – Löschen geht trotzdem.
-    const usage = await api.get(`/api/objects/${o.uuid}/usage`);
-    usedBy = usage.ok ? usage.data?.data?.codeMentions || 0 : 0;
+    // Plan K, K3b: Was hängt daran? Die Löschvorschau (löscht nichts) nennt die DNAs, die auf das
+    // Objekt zeigen, und wie oft es im Code anderer SSFs/Bibliotheken erwähnt wird (Härtungs-Runde).
+    const preview = await api.get(`/api/objects/${o.uuid}/delete-preview`);
+    const info = preview.ok ? preview.data?.data || {} : {};
+    usedBy = info.codeMentions || 0;
+    const refs = Array.isArray(info.dnaReferences) ? info.dnaReferences : [];
+    const notes = [];
+    if (refs.length) {
+        notes.push(
+            callout(
+                'info',
+                'Steht in der DNA von: ',
+                refs.map(r => `„${r.name}“${r.willClean ? '' : ' (dir fehlt dort red – bleibt stehen)'}`).join(', ')
+            )
+        );
+    }
     if (usedBy > 0) {
-        mount(
-            usageBox,
+        notes.push(
             callout(
                 'warn',
                 `Wird noch benutzt: `,
@@ -3028,6 +3028,7 @@ const renderDeleteTab = async (box, o, objects, { onDeleted }) => {
             )
         );
     }
+    if (notes.length) mount(usageBox, ...notes);
 };
 
 // Eine Zeile im Schritt-Protokoll: Überschrift + Ergebnis
