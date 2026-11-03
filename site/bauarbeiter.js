@@ -15,6 +15,8 @@
 //
 // WEBHOOKS (Plan "SSF-Ausbau", Teil B): POST|PUT /_at0mic/hook/<pfad> – damit
 // ruft ein fremder SERVER (Stripe, GitHub, ein ERP …) eine SSF der Website auf.
+// Seit Plan K, K4 auch GET, PATCH und DELETE – und die SSF darf mit
+// api.webhook.respond selbst antworten (Status, Header, JSON/Text; site/hookResponse.js).
 // Der Bauarbeiter reicht den ROHTEXT (für Unterschriften) und die Header des
 // Anbieters weiter – nie Cookies, nie einen Ausweis.
 //
@@ -38,7 +40,7 @@
 //   - einen Ausweis bei SSF-Aufrufen von einer fremden Seite mitschicken (Herkunft)
 //   - Fehlermeldungen aus dem Code einer Website an Besucher zeigen (nur ins Log)
 //   - etwas anderes als GET/HEAD annehmen – ausser POST auf /_at0mic/run/… und /logout
-//     sowie POST/PUT auf /_at0mic/hook/… und POST auf /_at0mic/upload/… (Plan "R2")
+//     sowie GET/POST/PUT/PATCH/DELETE auf /_at0mic/hook/… und POST auf /_at0mic/upload/… (Plan "R2")
 //
 // Das Backend fragt er mit dem Bauarbeiter-Schlüssel und der IP des
 // Besuchers – so bremst das Backend pro Besucher (Etappe 2). Rechte gibt
@@ -48,6 +50,7 @@ const { classifyHost } = require('./host');
 const { resolveFile, contentTypeFor, extensionOf } = require('./files');
 const { BauplanCache } = require('./cache');
 const { MESSAGES, neutralPage, markdownPage, markdownTitle } = require('./pages');
+const { cleanHookResponse } = require('./hookResponse'); // Plan K, K4
 const login = require('./login');
 const crypto = require('crypto');
 const { LIVE_PATH } = require('./live');
@@ -103,7 +106,8 @@ const FILE_HEADERS = [
 
 // Webhook: /_at0mic/hook/<pfad> (gleiche Pfad-Regeln wie bei run)
 const HOOK_ROUTE = /^\/_at0mic\/hook\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
-const HOOK_METHODS = ['POST', 'PUT'];
+// Plan K, K4 (CRM-Test): auch GET, PATCH, DELETE – für echte REST-Schnittstellen (z.B. ein ERP fragt ab)
+const HOOK_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 const MAX_HOOK_BODY_BYTES = 512 * 1024; // Rohtext: höchstens 512 KB (wie SYSTEM.webhooks im Backend)
 // Diese Header gibt der Bauarbeiter NIE weiter (das Backend filtert zusätzlich)
 const HOOK_DROP_HEADERS = ['cookie', 'host', 'connection', 'content-length', 'transfer-encoding', 'keep-alive'];
@@ -800,6 +804,8 @@ const createBauarbeiter = ({
     //     und die Abfrage (?a=1) – nie Cookies
     // Antwort an den Anbieter: 200 bei Erfolg. Bei einem Fehler in der SSF 500 –
     // dann versuchen es Stripe & Co. später nochmals. Details nie nach aussen.
+    // Hat die SSF mit api.webhook.respond selbst geantwortet (Plan K, K4), geht GENAU
+    // diese Antwort hinaus – nach einer zweiten Prüfung (cleanHookResponse).
     // ---------------------------------------------------------------------
     const runWebhook = async (req, res, name, hookPath) => {
         const reply = (status, body, extra = {}) => {
@@ -844,6 +850,17 @@ const createBauarbeiter = ({
             return reply(503, { error: 'Gerade nicht erreichbar.' });
         }
 
+        if (res2.ok && data && data.response !== undefined) {
+            const own = cleanHookResponse(data.response);
+            if (!own) {
+                log.warn(`[BAUARBEITER] Webhook "${name}/${hookPath}": eigene Antwort ungültig – nicht ausgeliefert.`);
+                return reply(500, { error: 'Der Webhook hatte einen Fehler.' });
+            }
+            res.set('Cache-Control', 'no-store');
+            for (const [headerName, value] of Object.entries(own.headers)) res.set(headerName, value);
+            // end statt send: Express würde sonst bei Text selbst einen content-type (HTML!) setzen
+            return res.status(own.status).end(own.body === '' ? undefined : Buffer.from(own.body, 'utf8'));
+        }
         if (res2.ok) return reply(200, { ok: true, result: data?.result ?? null });
         if (res2.status === 404) return reply(404, { error: 'Diesen Webhook gibt es nicht.' });
         if (res2.status === 400) return reply(400, { error: data?.error || 'Ungültiger Webhook-Aufruf.' });
@@ -927,12 +944,12 @@ const createBauarbeiter = ({
             const cookieToken = login.parseCookies(req.headers.cookie)[cookies.ausweis];
             const token = login.isTokenShape(cookieToken) ? cookieToken : null;
 
-            // Webhook (nur POST/PUT, nur unter /_at0mic/hook/) – ohne Ausweis
+            // Webhook (GET/POST/PUT/PATCH/DELETE, nur unter /_at0mic/hook/) – ohne Ausweis
             const hook = HOOK_ROUTE.exec(req.path);
             if (hook && host.name) {
                 if (!HOOK_METHODS.includes(req.method)) {
                     res.set('Allow', HOOK_METHODS.join(', '));
-                    return res.status(405).json({ error: 'Nur POST oder PUT.' });
+                    return res.status(405).json({ error: `Nur ${HOOK_METHODS.join(', ')}.` });
                 }
                 return await runWebhook(req, res, host.name, hook[1]);
             }
