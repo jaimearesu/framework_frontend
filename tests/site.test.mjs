@@ -685,14 +685,77 @@ describe('Bauarbeiter: Webhooks (POST|PUT /_at0mic/hook/…, Plan "SSF-Ausbau" B
         assert.equal(r.status, 200);
     });
 
-    test('PUT geht, GET nicht; ungültige Pfade erreichen das Backend nie', async () => {
+    test('PUT geht, OPTIONS nicht; ungültige Pfade erreichen das Backend nie', async () => {
         backend.hooks['shop/zahlung'] = { status: 200, body: { result: null } };
         assert.equal((await hook('zahlung', { method: 'PUT' })).status, 200);
-        const get = await request('shop.at0mic.site', '/_at0mic/hook/zahlung');
-        assert.equal(get.status, 405);
-        assert.equal(get.headers.allow, 'POST, PUT');
+        const other = await request('shop.at0mic.site', '/_at0mic/hook/zahlung', { method: 'OPTIONS' });
+        assert.equal(other.status, 405);
+        assert.equal(other.headers.allow, 'GET, POST, PUT, PATCH, DELETE');
         assert.equal((await hook('../zahlung')).status, 405);
         assert.equal(backend.calls.length, 1);
+    });
+
+    // Plan K, K4 (CRM-Test): GET/PATCH/DELETE und die eigene Antwort der SSF
+    test('GET, PATCH, DELETE gehen weiter – die echte Methode steht im Inhalt', async () => {
+        backend.hooks['shop/zahlung'] = { status: 200, body: { result: null } };
+        for (const method of ['GET', 'PATCH', 'DELETE']) {
+            const r = await request('shop.at0mic.site', '/_at0mic/hook/zahlung', { method });
+            assert.equal(r.status, 200, method);
+        }
+        assert.deepEqual(
+            backend.calls.map(c => [c.method, JSON.parse(c.body).method]),
+            [
+                ['POST', 'GET'],
+                ['POST', 'PATCH'],
+                ['POST', 'DELETE']
+            ]
+        );
+    });
+
+    test('eigene Antwort: Status, Header und JSON genau so; nie HTML, nie Set-Cookie', async () => {
+        backend.hooks['shop/zahlung'] = {
+            status: 200,
+            body: {
+                success: true,
+                result: null,
+                response: {
+                    status: 404,
+                    headers: { 'content-type': 'application/json; charset=utf-8', 'x-grund': 'fehlt' },
+                    body: '{"error":"nicht da"}'
+                }
+            }
+        };
+        const r = await request('shop.at0mic.site', '/_at0mic/hook/zahlung');
+        assert.equal(r.status, 404);
+        assert.equal(r.headers['x-grund'], 'fehlt');
+        assert.equal(r.headers['content-type'], 'application/json; charset=utf-8');
+        assert.equal(r.headers['cache-control'], 'no-store');
+        assert.equal(r.headers['x-content-type-options'], 'nosniff', 'Sicherheits-Header bleiben');
+        assert.equal(r.body, '{"error":"nicht da"}');
+
+        // 204 ohne Inhalt
+        backend.hooks['shop/zahlung'].body.response = {
+            status: 204,
+            headers: { 'content-type': 'text/plain; charset=utf-8' },
+            body: ''
+        };
+        const empty = await request('shop.at0mic.site', '/_at0mic/hook/zahlung', { method: 'DELETE' });
+        assert.equal(empty.status, 204);
+        assert.equal(empty.body, '');
+
+        // Was das Backend nie schicken sollte, liefert der Bauarbeiter trotzdem nicht aus
+        for (const bad of [
+            { status: 200, headers: { 'content-type': 'text/html' }, body: '<script>x</script>' },
+            { status: 200, headers: { 'content-type': 'text/plain', 'set-cookie': 'a=1' }, body: '' },
+            { status: 302, headers: { 'content-type': 'text/plain' }, body: '' },
+            { status: 200, headers: { 'content-type': 'text/plain', 'x-a': 'b\r\nset-cookie: c=1' }, body: '' }
+        ]) {
+            backend.hooks['shop/zahlung'].body.response = bad;
+            const r2 = await request('shop.at0mic.site', '/_at0mic/hook/zahlung');
+            assert.equal(r2.status, 500, JSON.stringify(bad));
+            assert.equal(r2.headers['set-cookie'], undefined);
+            assert.doesNotMatch(r2.body, /script/);
+        }
     });
 
     test('höchstens 512 KB', async () => {

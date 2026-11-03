@@ -316,6 +316,17 @@ export const TOOLS = [
             "const echt = await api.webhook.verify({ secret: 'STRIPE_WEBHOOK_SECRET', format: 'stripe' });\nif (!echt) throw new Error('Unterschrift ungültig');\nconst ereignis = requestContext.webhook.body;\n"
     },
     {
+        // Plan K, K4 (CRM-Test 03.11.2026)
+        name: 'webhook.respond',
+        group: 'webhook',
+        signature: '{ status = 200, headers?, body? }',
+        role: '– (nur im Webhook-Aufruf)',
+        returns: 'true (sofort, ohne await)',
+        text: 'Eigene Antwort an den Aufrufer, z.B. für eine kleine REST-Schnittstelle: status 200–299 oder 400–599, body als Objekt (wird JSON) oder Text. Header: content-type (nur JSON/Text, kein HTML), etag, last-modified, retry-after, link, content-language und eigene x-… – nie Set-Cookie. Max. 256 KB. Die letzte Antwort gilt; wirft die SSF danach, kommt 500. Methoden: GET, POST, PUT, PATCH, DELETE (requestContext.webhook.method).',
+        snippet:
+            "if (requestContext.webhook.method === 'GET') {\n    api.webhook.respond({ status: 404, body: { error: 'nicht gefunden' } });\n    return null;\n}\n"
+    },
+    {
         name: 'jobs.start',
         group: 'jobs',
         signature: 'ziel, eingabe = {}, { startInSec }',
@@ -444,6 +455,25 @@ export const TOOLS = [
         returns: 'UUID (Version 4)',
         text: 'Eine zufällige UUID, z.B. als eigene ID für einen Datensatz.',
         snippet: 'const id = await api.crypto.randomUuid();\n'
+    },
+    {
+        // Plan K, K4 (Entscheid E3)
+        name: 'crypto.sha256',
+        group: 'crypto',
+        signature: "text, encoding = 'hex' | 'base64' | 'base64url'",
+        role: '– (braucht keine Rechte)',
+        returns: 'Text (sofort, ohne await) – hex: 64 Zeichen',
+        text: 'Prüfsumme eines Textes (UTF-8), z.B. um zu erkennen, ob sich etwas geändert hat. Objekte vorher mit JSON.stringify.',
+        snippet: 'const pruefsumme = api.crypto.sha256(JSON.stringify(datensatz));\n'
+    },
+    {
+        name: 'crypto.hmac',
+        group: 'crypto',
+        signature: "text, schluessel | { secret: 'NAME' }, { algorithm: 'sha256' | 'sha512' | 'sha1', encoding }",
+        role: '– (Schlüssel nur aus dem eigenen Tresor)',
+        returns: 'Text (Standard: sha256, hex)',
+        text: "Eigene Unterschrift, z.B. für Aufrufe an ein ERP. Den Schlüssel am besten aus dem Tresor dieser SSF holen ({ secret: 'NAME' }) – der Wert verlässt den Server nie. sha1 nur für alte Anbieter.",
+        snippet: "const sig = await api.crypto.hmac(JSON.stringify(auftrag), { secret: 'ERP_KEY' });\n"
     }
 ];
 

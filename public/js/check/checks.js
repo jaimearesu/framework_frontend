@@ -1175,6 +1175,30 @@ return { agg: agg.groups.map(g => [g.group.phase, g.count, g.sum.betrag]), each,
         }
     },
     {
+        // Plan "K", K4 (Lehren aus dem CRM-Test): Prüfwerte mit bekannten Werten, und
+        // api.webhook.respond geht nur in einem Webhook-Aufruf (hier: verständlicher Fehler)
+        id: 'ssf-crypto-k4',
+        group: 'SSF',
+        title: 'Prüfwerte: api.crypto.sha256 + hmac, webhook.respond nur im Webhook',
+        needs: ['funktion'],
+        run: async ctx => {
+            const r = await runSsf(
+                ctx,
+                `const sha = api.crypto.sha256('abc');
+const mac = await api.crypto.hmac('what do ya want for nothing?', 'Jefe');
+let respond = null;
+try { api.webhook.respond({ status: 404 }); } catch (e) { respond = e.message.includes('nur, wenn') ? 'NUR_WEBHOOK' : e.message; }
+return { sha, mac, respond };`
+            );
+            expectStatus(r, 200, 'Ausführen');
+            const x = r.data.result;
+            expect(x.sha === 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad', `sha256: ${x.sha}`, r);
+            expect(x.mac === '5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843', `hmac: ${x.mac}`, r);
+            expect(x.respond === 'NUR_WEBHOOK', `respond: ${x.respond}`, r);
+            return 'sha256 und hmac stimmen (bekannte Werte), respond ausserhalb eines Webhooks abgelehnt';
+        }
+    },
+    {
         // Plan "R2 – Besucher laden hoch" (R2c): Die Upload-Tür ist nur für den Bauarbeiter
         // offen; accept gibt es nur bei einem echten Upload; die Liste "Neue Uploads" antwortet
         id: 'ssf-upload-door',
