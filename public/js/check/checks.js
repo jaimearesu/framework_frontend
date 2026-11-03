@@ -2292,7 +2292,11 @@ return { uuid: kopie.uuid, left: austritt.left };`
             expectStatus(taste, 400, 'unbekannte Taste');
             const fremd = await api.post(url, { steps: [{ oeffnen: 'https://böse.example' }] });
             expectStatus(fremd, 400, 'fremde Adresse bei oeffnen');
-            return 'zwei Aktionen, unbekannte Taste, fremde Adresse: abgelehnt (400)';
+            // Plan "K", K5a: ziehen braucht ein Ziel
+            const ziehen = await api.post(url, { steps: [{ ziehen: '#karte' }] });
+            expectStatus(ziehen, 400, 'ziehen ohne nach');
+            expect(/ziehen braucht nach/.test(ziehen.error || ''), 'Meldung unklar', ziehen);
+            return 'zwei Aktionen, unbekannte Taste, fremde Adresse, ziehen ohne Ziel: abgelehnt (400)';
         }
     },
     // Plan "Geo-Monitor", G4: Unterseite fotografieren – nur Pfade dieser Website.
