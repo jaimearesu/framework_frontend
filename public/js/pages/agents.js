@@ -9,6 +9,8 @@
 //      Knöpfe: Kasten dazu/weg, neuer Schlüssel, alle Schlüssel widerrufen.
 //   2. "Wer benutzt was?" – dieselbe Statistik pro Werkzeug.
 //   3. Agent anlegen (der Assistent ist von "KI-Zugänge" hierher gezogen).
+//   4. Testpersonen (Plan "K", K5b): erfundene Benutzer ohne Anmeldung, mit denen
+//      ein Agent "als Verkäufer ohne Admin-Rechte" testet – ansehen, anlegen, löschen.
 //
 // Lesen: GET /api/agents?days=… (nur eingeloggte Menschen, nur deine Agenten).
 // Ändern: nur über die BESTEHENDEN Routen – das Backend prüft alles wie immer:
@@ -43,6 +45,7 @@ import { pageHeader } from '../core/page.js';
 import { formatDate, timeAgo } from '../core/format.js';
 import { loadObjects, invalidateObjects } from '../core/objects.js';
 import { apiBase } from '../core/config.js';
+import { MAX_NAME, checkTestPersonName, rightsText, deletedAt } from '../core/testPersons.js';
 import {
     AGENT_PREFIX,
     DEFAULT_PRESET,
@@ -679,12 +682,130 @@ export default {
             createOut
         );
 
+        // ============================================================ TESTPERSONEN (Plan "K", K5b)
+        // Lesen: GET /api/test-persons, anlegen: POST, löschen: DELETE /api/test-persons/<uuid>.
+        // Rechte gibt man wie immer im Reiter „Rechte“ eines Objekts (Mitglied = ihre UUID).
+        const personsBox = h('div', {}, spinner('Lade Testpersonen …'));
+        const personName = h('input', { class: 'input', maxlength: MAX_NAME, placeholder: 'Test Verkäufer' });
+        const personOut = h('div');
+
+        const personRow = person => {
+            const gone = deletedAt(person);
+            return h(
+                'div',
+                { class: 'agent-box' },
+                h(
+                    'div',
+                    { class: 'row gap-s' },
+                    h('strong', {}, person.name),
+                    person.byMe ? null : badge('von deinem Agenten', 'neutral')
+                ),
+                h('div', { class: 'muted small' }, 'Darf: ', rightsText(person)),
+                h(
+                    'div',
+                    { class: 'muted small' },
+                    `Zuletzt benutzt ${timeAgo(person.lastUsedAt)}`,
+                    gone ? ` · wird ohne neuen Test am ${formatDate(gone)} gelöscht` : ''
+                ),
+                codeBlock(person.uuid, { label: 'UUID (für Rechte und für test_site / run_ssf „as“)' }),
+                h(
+                    'div',
+                    {},
+                    busyButton(
+                        'Löschen',
+                        async () => {
+                            if (
+                                !confirm(
+                                    `Testperson „${person.name}“ endgültig löschen?
+
+Ihre Rechte verschwinden mit. Was sie in Tests angelegt hat, bleibt.`
+                                )
+                            )
+                                return;
+                            const r = await api.del(`/api/test-persons/${person.uuid}`);
+                            if (!r.ok) return toast(r.error || 'Löschen ging nicht.', 'error');
+                            toast('Testperson gelöscht.');
+                            invalidateObjects();
+                            loadPersons();
+                        },
+                        { className: 'btn danger', iconName: 'trash' }
+                    )
+                )
+            );
+        };
+
+        const loadPersons = async () => {
+            mount(personsBox, spinner('Lade Testpersonen …'));
+            const r = await api.get('/api/test-persons');
+            if (!r.ok) return mount(personsBox, resultLine(r));
+            const persons = Array.isArray(r.data?.data) ? r.data.data : [];
+            const max = r.data?.meta?.max ?? 10;
+            if (!persons.length) {
+                return mount(
+                    personsBox,
+                    emptyState({
+                        icon: 'user',
+                        title: 'Noch keine Testpersonen',
+                        text: 'Mit einer Testperson prüft ein Agent, ob z.B. ein Verkäufer ohne Admin-Rechte wirklich nur das darf, was er soll.'
+                    })
+                );
+            }
+            mount(
+                personsBox,
+                ...persons.map(personRow),
+                h(
+                    'p',
+                    { class: 'muted small' },
+                    `${persons.length} von höchstens ${max} (zusammen mit deinen Agenten).`
+                )
+            );
+        };
+
+        const personsCard = card(
+            {
+                title: 'Testpersonen',
+                icon: 'user',
+                subtitle:
+                    'Erfundene Benutzer ohne Anmeldung – nur zum Testen „als“ sie (test_site, run_ssf). Nach 30 Tagen ohne Test automatisch weg.'
+            },
+            personsBox,
+            field('Neue Testperson', personName, 'Ein Name, an dem du sie wiedererkennst, z.B. „Test Verkäufer“.'),
+            h(
+                'div',
+                {},
+                busyButton(
+                    'Testperson anlegen',
+                    async () => {
+                        const checked = checkTestPersonName(personName.value);
+                        if (checked.error) return toast(checked.error, 'error');
+                        const r = await api.post('/api/test-persons', { name: checked.name });
+                        if (!r.ok) return mount(personOut, resultLine(r));
+                        mount(
+                            personOut,
+                            callout(
+                                'info',
+                                `„${checked.name}“ ist angelegt. `,
+                                'Gib ihr jetzt im Reiter „Rechte“ eines Objekts genau die Rechte, die sie haben soll (Mitglied = die UUID oben).'
+                            )
+                        );
+                        personName.value = '';
+                        invalidateObjects();
+                        loadPersons();
+                    },
+                    { className: 'btn', iconName: 'user' }
+                )
+            ),
+            personOut
+        );
+
         root.append(
             h('div', { class: 'row gap-s' }, field('Zeitraum der Statistik', periodSelect)),
             listBox,
             usageBox,
-            createCard
+            createCard,
+            personsCard
         );
+        loadPersons();
 
         // Zuerst die Kästen (die Karten brauchen sie für "Kasten dazu"), dann die Agenten
         const loaded = await loadGrantableBoxes(objects);

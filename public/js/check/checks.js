@@ -2743,6 +2743,43 @@ return { uuid: kopie.uuid, left: austritt.left };`
             return '⛔ HUMAN_ONLY';
         }
     },
+    // Plan "K", K5b (Testpersonen): anlegen, "als" sie eine SSF ausführen, wieder löschen.
+    // Räumt selbst auf (die Testperson ist danach weg).
+    {
+        id: 'test-person',
+        group: 'KI-Zugang',
+        title: 'Testperson: anlegen, SSF „als“ sie ausführen, löschen',
+        needs: ['funktion'],
+        run: async ctx => {
+            const made = await api.post('/api/test-persons', { name: 'Systemcheck Person' });
+            if (!ctx.aiToken) {
+                expectStatus(made, 403, 'Testperson als Gast');
+                return 'Gast: abgelehnt (richtig) – nur mit Login';
+            }
+            expectStatus(made, 201, 'Testperson anlegen');
+            const person = made.data.data;
+            try {
+                expect(/^testperson-[0-9a-f]{8}$/.test(person.domain), `Domain: ${person.domain}`, made);
+                const list = await api.get('/api/test-persons');
+                expectStatus(list, 200, 'Testpersonen auflisten');
+                expect(
+                    (list.data?.data || []).some(p => p.uuid === person.uuid),
+                    'Die neue Testperson fehlt in der Liste',
+                    list
+                );
+                const r = await runSsf(ctx, 'return { user: requestContext.userUuid };', {}, `?as=${person.uuid}`);
+                expectStatus(r, 200, 'SSF als Testperson');
+                expect(r.data?.result?.user === person.uuid, 'userUuid ist nicht die Testperson', r);
+                // ein echtes Objekt (die SSF selbst) geht nie als "as"
+                const fremd = await api.post(`/api/functions/${ctx.funktion}/executions?as=${ctx.funktion}`, {});
+                expectStatus(fremd, 404, '"as" mit einem normalen Objekt');
+            } finally {
+                const del = await api.del(`/api/test-persons/${person.uuid}`);
+                expectStatus(del, 200, 'Testperson löschen');
+            }
+            return 'angelegt · SSF lief als sie · normales Objekt als "as" abgelehnt · gelöscht';
+        }
+    },
     // Plan "OAuth für MCP" (Etappe 4): Verbindungen trennen dürfen nur Menschen – und
     // nur ihre eigenen. Eine erfundene Verbindung gibt es für niemanden (404).
     {
