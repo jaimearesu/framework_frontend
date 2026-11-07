@@ -1,4 +1,5 @@
-FROM node:20-alpine
+# Node 24 = LTS mit Sicherheits-Updates (Node 20 bekommt seit 03/2026 keine mehr)
+FROM node:24-alpine
 WORKDIR /usr/src/app
 
 # Sagt dem Code: "Du läufst jetzt live auf dem Server."
