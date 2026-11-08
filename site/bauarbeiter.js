@@ -25,6 +25,7 @@
 //   GET  /_at0mic/callback?code&state   zurück von at0mic: Code gegen Ausweis tauschen
 //   GET|POST /_at0mic/logout            abmelden
 //   GET  /_at0mic/me                    { angemeldet, uuid? } – für das JavaScript der Website
+//   POST /_at0mic/login-email|login-code  Besucher-Login per E-Mail-Code (Formular, emailLogin.js)
 //   GET  /_at0mic/datei/<pfad>[.endung] eine Datei der Website (Bild, PDF, Schrift …) aus
 //                                       Cloudflare R2 (Plan "Dateien mit R2", D3), z.B.
 //                                       <img src="/_at0mic/datei/bilder/logo.png">
@@ -39,7 +40,7 @@
 //   - den Ausweis an das JavaScript der Website geben (HttpOnly)
 //   - einen Ausweis bei SSF-Aufrufen von einer fremden Seite mitschicken (Herkunft)
 //   - Fehlermeldungen aus dem Code einer Website an Besucher zeigen (nur ins Log)
-//   - etwas anderes als GET/HEAD annehmen – ausser POST auf /_at0mic/run/… und /logout
+//   - etwas anderes als GET/HEAD annehmen – ausser POST auf /_at0mic/run/…, /logout und /login-email|code
 //     sowie GET/POST/PUT/PATCH/DELETE auf /_at0mic/hook/… und POST auf /_at0mic/upload/… (Plan "R2")
 //
 // Das Backend fragt er mit dem Bauarbeiter-Schlüssel und der IP des
@@ -52,6 +53,7 @@ const { BauplanCache } = require('./cache');
 const { MESSAGES, neutralPage, markdownPage, markdownTitle } = require('./pages');
 const { cleanHookResponse } = require('./hookResponse'); // Plan K, K4
 const login = require('./login');
+const emailLogin = require('./emailLogin'); // Plan "Besucher-Login per E-Mail-Code", E3
 const crypto = require('crypto');
 const { LIVE_PATH } = require('./live');
 const { LIVE_SCRIPT, LIVE_SCRIPT_PATH } = require('./liveClient');
@@ -481,6 +483,162 @@ const createBauarbeiter = ({
         return res.redirect(302, target.href);
     };
 
+    // ---------------------------------------------------------------------
+    // BESUCHER-LOGIN PER E-MAIL-CODE (Plan "Besucher-Login per E-Mail-Code", E3)
+    //   GET  /_at0mic/login          Ist er auf dieser Website an: Formular statt vindelis
+    //   POST /_at0mic/login-email    Adresse -> Backend verschickt den Code
+    //   POST /_at0mic/login-code     Code -> Ausweis als Cookie, wie beim vindelis-Login
+    // Die Besitzerin kommt mit /_at0mic/login?mit=vindelis weiterhin an ihr Konto.
+    // Der Zustand liegt nur im HttpOnly-Cookie. Käme er aus dem Formular, könnte
+    // eine fremde Seite ihn mitschicken. Adressen und Codes kommen nie ins Log.
+    // ---------------------------------------------------------------------
+
+    // Ist der E-Mail-Login hier an? Backend weg: false, dann läuft es wie bisher
+    const emailLoginActive = async (name, visitorIp) => {
+        if (!key) return false;
+        try {
+            const res = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/email-login`, {
+                headers: backendHeaders(visitorIp, null),
+                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+            });
+            const body = await res.json().catch(() => null);
+            return res.ok && !!body && !!body.data && body.data.aktiv === true;
+        } catch (error) {
+            log.warn(`[BAUARBEITER] Backend nicht erreichbar (E-Mail-Login ${name}): ${error.message}`);
+            return false;
+        }
+    };
+
+    const sendLoginHtml = (res, status, html, retryAfter = null) => {
+        res.set('Cache-Control', 'no-store');
+        res.set('Content-Security-Policy', emailLogin.LOGIN_CSP);
+        if (retryAfter) res.set('Retry-After', String(retryAfter));
+        return res.status(status).type('html').send(html);
+    };
+
+    const setLoginCookie = (res, state, returnPath) =>
+        res.append(
+            'Set-Cookie',
+            login.serializeCookie(cookies.login, login.encodeLogin(state, returnPath), {
+                maxAge: login.LOGIN_SECONDS,
+                isProduction
+            })
+        );
+
+    // Seite 1 mit einem frischen Zustand
+    const showEmailForm = (req, res, name, customHost, returnPath, error = null) => {
+        setLoginCookie(res, login.newState(), returnPath);
+        const lang = emailLogin.pickLang(req.headers['accept-language']);
+        return sendLoginHtml(res, 200, emailLogin.emailPage({ site: customHost || name, lang, error }));
+    };
+
+    // GET /_at0mic/login: Formular oder vindelis-Login?
+    const beginLogin = async (req, res, name, customHost, altHost) => {
+        if (req.query.mit !== 'vindelis' && (await emailLoginActive(name, visitorIpOf(req)))) {
+            return showEmailForm(req, res, name, customHost, login.safeReturnPath(req.query.zurueck));
+        }
+        return startLogin(req, res, name, customHost || altHost);
+    };
+
+    // Gemeinsam für beide POST: Formular lesen, Zustand aus dem Cookie, ans Backend.
+    // Rückgabe null = die Antwort ist schon geschickt
+    const emailLoginStep = async (req, res, name, customHost, step, payloadOf) => {
+        let form;
+        try {
+            form = emailLogin.parseForm(await readRawBody(req, emailLogin.MAX_FORM_BYTES));
+        } catch {
+            sendPage(res, 'loginFailed');
+            return null;
+        }
+        const started = login.decodeLogin(login.parseCookies(req.headers.cookie)[cookies.login]);
+        if (!started) {
+            showEmailForm(req, res, name, customHost, '/', 'expired');
+            return null;
+        }
+        let answer;
+        let data = null;
+        try {
+            answer = await fetchImpl(`${apiUrl}/api/sites/${encodeURIComponent(name)}/email-login/${step}`, {
+                method: 'POST',
+                headers: backendHeaders(visitorIpOf(req), null, { 'content-type': 'application/json' }),
+                body: JSON.stringify({ ...payloadOf(form), state: started.state }),
+                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+            });
+            data = await answer.json().catch(() => null);
+        } catch (error) {
+            log.warn(`[BAUARBEITER] Backend nicht erreichbar (E-Mail-Login ${name}): ${error.name}`);
+            sendPage(res, 'unavailable');
+            return null;
+        }
+        if (answer.status === 404) {
+            sendPage(res, 'loginUnavailable');
+            return null;
+        }
+        if (![200, 400, 429].includes(answer.status)) {
+            sendPage(res, 'unavailable');
+            return null;
+        }
+        return {
+            form,
+            started,
+            answer,
+            data,
+            lang: emailLogin.pickLang(req.headers['accept-language']),
+            restartHref: `/_vindelis/login?zurueck=${encodeURIComponent(started.returnPath)}`
+        };
+    };
+
+    // POST /_at0mic/login-email
+    const requestEmailCode = async (req, res, name, customHost) => {
+        const step = await emailLoginStep(req, res, name, customHost, 'anfordern', form => ({ email: form.email }));
+        if (!step) return undefined;
+        const { form, started, answer, lang, restartHref } = step;
+        const site = customHost || name;
+        if (answer.status === 400) {
+            return sendLoginHtml(
+                res,
+                400,
+                emailLogin.emailPage({ site, lang, error: 'invalidEmail', email: form.email })
+            );
+        }
+        if (answer.status === 429) {
+            return sendLoginHtml(
+                res,
+                429,
+                emailLogin.emailPage({ site, lang, error: 'tooMany', email: form.email }),
+                answer.headers.get('retry-after')
+            );
+        }
+        // Der Code gilt 10 Minuten ab jetzt: Das Cookie muss mindestens so lange leben
+        setLoginCookie(res, started.state, started.returnPath);
+        return sendLoginHtml(res, 200, emailLogin.codePage({ lang, email: form.email, restartHref }));
+    };
+
+    // POST /_at0mic/login-code
+    const verifyEmailCode = async (req, res, name, customHost) => {
+        const step = await emailLoginStep(req, res, name, customHost, 'pruefen', form => ({
+            email: form.email,
+            code: form.code
+        }));
+        if (!step) return undefined;
+        const { form, started, answer, data, lang, restartHref } = step;
+        const token = data && data.data && data.data.token;
+        if (answer.status !== 200 || !login.isTokenShape(token)) {
+            const tooMany = answer.status === 429;
+            return sendLoginHtml(
+                res,
+                tooMany ? 429 : 400,
+                emailLogin.codePage({ lang, email: form.email, restartHref, error: tooMany ? 'tooMany' : 'wrongCode' }),
+                tooMany ? answer.headers.get('retry-after') : null
+            );
+        }
+        res.set('Cache-Control', 'no-store');
+        res.append('Set-Cookie', login.serializeCookie(cookies.login, '', { maxAge: 0, isProduction }));
+        const seconds = Math.min((new Date(data.data.expiresAt).getTime() - Date.now()) / 1000, 7 * 24 * 3600);
+        setTokenCookie(res, token, Number.isFinite(seconds) && seconds > 0 ? seconds : 0);
+        return res.redirect(303, started.returnPath);
+    };
+
     // GET /_at0mic/callback?code=…&state=… (oder ?error=abgebrochen&state=…)
     const finishLogin = async (req, res, name) => {
         res.set('Cache-Control', 'no-store');
@@ -576,7 +734,14 @@ const createBauarbeiter = ({
     // statt shop.vindelis.site) – dann muss der Rücksprung des Logins auch dorthin
     const handleLoginRoute = async (req, res, name, token, customHost = null, altHost = null) => {
         const action = req.path.slice('/_at0mic/'.length);
-        const methods = { login: ['GET'], callback: ['GET'], logout: ['GET', 'POST'], me: ['GET'] };
+        const methods = {
+            login: ['GET'],
+            callback: ['GET'],
+            logout: ['GET', 'POST'],
+            me: ['GET'],
+            'login-email': ['POST'],
+            'login-code': ['POST']
+        };
         if (!Object.prototype.hasOwnProperty.call(methods, action)) return false;
         if (!methods[action].includes(req.method)) {
             res.set('Allow', methods[action].join(', '));
@@ -584,11 +749,14 @@ const createBauarbeiter = ({
             return true;
         }
         // Abmelden per POST: nur von der eigenen Website (nicht von einer Nachbar-Website aus)
-        if (action === 'logout' && req.method === 'POST' && !sameOriginRequest(req)) {
+        // Das gilt auch für beide Schritte des E-Mail-Logins
+        if (req.method === 'POST' && !sameOriginRequest(req)) {
             res.status(403).json({ error: 'Nur von dieser Website aus.' });
             return true;
         }
-        if (action === 'login') startLogin(req, res, name, customHost || altHost);
+        if (action === 'login') await beginLogin(req, res, name, customHost, altHost);
+        else if (action === 'login-email') await requestEmailCode(req, res, name, customHost);
+        else if (action === 'login-code') await verifyEmailCode(req, res, name, customHost);
         else if (action === 'callback') await finishLogin(req, res, name);
         else if (action === 'logout') await logout(req, res, name, token);
         else await whoAmI(req, res, name, token);
@@ -1021,6 +1189,17 @@ const createBauarbeiter = ({
                 personalCache.delete(personalKey(host.name, token)); // und sein privater Speicher
             }
             if (result.kind === 'missing') return sendPage(res, 'noSite');
+            // Website "angemeldet" mit E-Mail-Login: direkt zum Formular. Die Seite "Diese Website
+            // ist privat" nennt das vindelis-Konto, das diese Besucher gar nicht haben.
+            if (
+                result.page === 'loginRequired' &&
+                (req.method === 'GET' || req.method === 'HEAD') &&
+                (await emailLoginActive(host.name, visitorIpOf(req)))
+            ) {
+                res.set('Cache-Control', 'no-store');
+                const back = encodeURIComponent(login.safeReturnPath(req.originalUrl));
+                return res.redirect(302, `/_vindelis/login?zurueck=${back}`);
+            }
             if (result.kind === 'error') return sendPage(res, result.page, { ...result, returnPath: req.originalUrl });
 
             const { bauplan } = result;
