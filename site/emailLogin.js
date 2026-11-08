@@ -119,6 +119,18 @@ const shell = ({ lang, title, body }) =>
 
 const errorLine = message => (message ? `<p class="error" role="alert">${escapeHtml(message)}</p>` : '');
 
+// Cloudflare ersetzt E-Mail-Adressen im Text von Webseiten durch "[email protected]" und setzt
+// sie per Skript wieder ein. Skripte sind hier verboten (LOGIN_CSP), also bliebe "[email protected]"
+// stehen (gefunden beim ersten echten Test, 08.11.2026). Darum:
+//   <wbr>   trennt die Adresse im HTML, Cloudflare erkennt sie so nicht mehr (sichtbar bleibt sie gleich)
+//   email_off  die von Cloudflare dokumentierte Ausnahme, zur Sicherheit zusätzlich
+const ADDRESS_MARK = 'ADRESSE_PLATZHALTER';
+const addressMarkup = email => {
+    const at = email.lastIndexOf('@');
+    const parts = at < 0 ? escapeHtml(email) : `${escapeHtml(email.slice(0, at))}<wbr>${escapeHtml(email.slice(at))}`;
+    return `<!--email_off-->${parts}<!--email_on-->`;
+};
+
 /** Seite 1: Adresse eingeben. error = Schlüssel in TEXTS oder null */
 const emailPage = ({ site, lang, error = null, email = '' }) => {
     const t = TEXTS[lang];
@@ -147,7 +159,7 @@ const codePage = ({ lang, email, restartHref, error = null }) => {
         title: t.codeTitle,
         body: [
             `<h1>${escapeHtml(t.codeTitle)}</h1>`,
-            `<p>${escapeHtml(t.codeIntro(email))}</p>`,
+            `<p>${escapeHtml(t.codeIntro(ADDRESS_MARK)).replace(ADDRESS_MARK, () => addressMarkup(email))}</p>`,
             errorLine(error ? t[error] : null),
             '<form method="post" action="/_vindelis/login-code">',
             `<input type="hidden" name="email" value="${escapeHtml(email)}">`,
