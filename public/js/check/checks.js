@@ -2208,6 +2208,45 @@ return { uuid: kopie.uuid, left: austritt.left };`
     // wird die Check-Domain kurz öffentlich gemacht (nur sie, nicht die Kinder).
     // Eigene Domains (Plan "SSF-Ausbau", Teil D) – legt NIE etwas bei Cloudflare an:
     // nur Liste, eine ungültige Eingabe und die geschützte Abfrage des Bauarbeiters
+    // Besucher-Login per E-Mail-Code (E4) – legt nichts an und schaltet nichts ein
+    {
+        id: 'email-login-overview',
+        group: 'Website',
+        title: 'E-Mail-Login: Stand und Besucherliste nur für Menschen mit blue',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.get(`/api/objects/${ctx.root}/email-login`);
+            // Gast: 403 (nur Menschen) · Check-Wurzel ohne gültigen Website-Namen: 400 · sonst 200
+            expect([200, 400, 403].includes(r.status), `unerwarteter Status ${r.status}`, r);
+            if (r.status === 200) {
+                const data = r.data?.data;
+                expect(typeof data?.enabled === 'boolean' && Array.isArray(data?.visitors), 'Antwort unvollständig', r);
+                return `${data.enabled ? 'eingeschaltet' : 'ausgeschaltet'}, Mail-Versand ${data.ready ? 'bereit' : 'nicht eingerichtet'}`;
+            }
+            return `abgelehnt (${r.status})`;
+        }
+    },
+    {
+        id: 'email-login-input',
+        group: 'Website',
+        title: 'E-Mail-Login: Unsinn wird abgelehnt, nichts wird eingeschaltet',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.put(`/api/objects/${ctx.root}/email-login`, { enabled: 'vielleicht' });
+            expect([400, 403].includes(r.status), `unerwarteter Status ${r.status}`, r);
+            return `abgelehnt (${r.status})`;
+        }
+    },
+    {
+        id: 'email-login-door-protected',
+        group: 'Website',
+        title: 'E-Mail-Login: die Türen des Bauarbeiters brauchen seinen Schlüssel',
+        run: async () => {
+            const r = await api.get('/api/sites/check-beispiel/email-login', { anonymous: true });
+            expectStatus(r, 403, 'Abfrage ohne Bauarbeiter-Schlüssel');
+            return 'ohne Schlüssel: 403';
+        }
+    },
     {
         id: 'custom-domains-list',
         group: 'Website',
