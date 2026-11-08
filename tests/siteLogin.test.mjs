@@ -194,7 +194,11 @@ describe('Anmelden: /_at0mic/login und /_at0mic/callback', () => {
         assert.match(line, /HttpOnly/);
         assert.match(line, /Secure/);
         assert.match(line, /Max-Age=600/);
-        assert.equal(backend.calls.length, 0, 'fragt das Backend dabei nicht');
+        // Das Backend wird nur gefragt, ob der E-Mail-Login hier an ist (Etappe E3)
+        assert.deepEqual(
+            backend.calls.map(c => c.url.split('/api/sites/')[1]),
+            ['shop/email-login']
+        );
     });
 
     test('weitere Website-Domain: Rücksprung dorthin (host), auf der Hauptadresse ohne host', async () => {
