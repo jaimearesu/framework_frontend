@@ -55,6 +55,14 @@ export const inviteResultText = ({ added, already, invalid }) =>
         .filter(Boolean)
         .join(', ');
 
+/** Verbrauch dieses Monats auf der Karte (E5) */
+export const usageText = ({ mails, loginsThisMonth }) =>
+    `Diesen Monat: ${mails.used} von ${mails.max} Mails, ${loginsThisMonth} Anmeldungen`;
+
+/** Besitzer sollen wissen, dass Besucher nicht ewig auf der Liste bleiben (E5) */
+export const retentionText = days =>
+    `Wer sich ${Math.round(days / 30)} Monate lang nicht anmeldet, wird von der Liste gestrichen und verliert seine Rechte. Gesperrte bleiben.`;
+
 const visitorRow = (o, visitor, reload) => {
     const base = `/api/objects/${o.uuid}/email-login/besucher/${visitor.uuid}`;
     const state = visitorBadge(visitor);
@@ -204,10 +212,9 @@ export const renderEmailLoginCard = async (box, o) => {
                       : busyButton('Einschalten', () => setMode(true), { className: 'btn primary small' })
             ),
             data.enabled ? modeControl(data) : null,
-            data.enabled
-                ? h('p', { class: 'small muted' }, `Mails diesen Monat: ${data.mails.used} von ${data.mails.max}`)
-                : null,
+            data.enabled ? h('p', { class: 'small muted' }, usageText(data)) : null,
             inviteForm(),
+            h('p', { class: 'small muted' }, retentionText(data.visitorKeepDays)),
             h('h4', {}, `Besucher (${data.visitorCount})`),
             data.visitors.length === 0
                 ? h('p', { class: 'small muted' }, 'Noch niemand auf der Liste.')

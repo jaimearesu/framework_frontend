@@ -9,10 +9,23 @@ import {
     parseAddressList,
     visitorBadge,
     cannotEnableReason,
-    inviteResultText
+    inviteResultText,
+    usageText,
+    retentionText
 } from '../public/js/pages/objectEmailLogin.js';
 
 describe('Anmeldung per E-Mail: was steht auf der Karte?', () => {
+    test('Verbrauch: Mails und Anmeldungen', () => {
+        assert.equal(
+            usageText({ mails: { used: 7, max: 1000 }, loginsThisMonth: 3 }),
+            'Diesen Monat: 7 von 1000 Mails, 3 Anmeldungen'
+        );
+    });
+
+    test('Aufbewahrung: 365 Tage heissen 12 Monate', () => {
+        assert.ok(retentionText(365).startsWith('Wer sich 12 Monate'));
+    });
+
     test('Adressen trennen: Zeilen, Leerzeichen, Komma, Strichpunkt', () => {
         assert.deepEqual(parseAddressList('a@b.ch, c@d.ch;e@f.ch\ng@h.ch   i@j.ch\r\n'), [
             'a@b.ch',
