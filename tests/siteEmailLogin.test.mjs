@@ -237,7 +237,10 @@ describe('Code anfordern', () => {
         const [call] = uses('/email-login/anfordern');
         assert.deepEqual(call.body, { email: ADDRESS, state: STATE });
         assert.equal(call.headers['x-bauarbeiter-key'], KEY);
-        assert.ok(r.body.includes('Falls gast@example.ch'));
+        assert.ok(r.body.includes('Falls <!--email_off-->gast<wbr>@example.ch<!--email_on-->'));
+        // Cloudflare darf die Adresse im Text nicht finden, sonst steht dort "[email protected]".
+        // Im versteckten Feld fasst Cloudflare sie nicht an (das Einlösen klappte live).
+        assert.equal(r.body.replace(`value="${ADDRESS}"`, '').includes(ADDRESS), false);
         assert.match(r.body, /autocomplete="one-time-code"/);
         // Das Cookie lebt jetzt wieder volle 10 Minuten
         assert.match(cookieLine(r, LOGIN_COOKIE), /Max-Age=600/);
@@ -257,6 +260,12 @@ describe('Code anfordern', () => {
         assert.ok(r.body.includes('zu lange gedauert'));
         assert.equal(uses('/email-login/anfordern').length, 0);
         assert.ok(cookieLine(r, LOGIN_COOKIE));
+    });
+
+    test('Auch geteilt wird die Adresse nie zu HTML', () => {
+        const html = emailLogin.codePage({ lang: 'de', email: '<img src=x>@<b>.ch', restartHref: '/x' });
+        assert.equal(html.includes('<img'), false);
+        assert.equal(html.includes('<b>'), false);
     });
 
     test('Ungültige Adresse: zurück zum Formular', async () => {
