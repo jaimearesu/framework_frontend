@@ -107,6 +107,7 @@ import {
 import { renderDnaTree } from '../core/tree.js';
 import { load, save } from '../core/storage.js'; // aufgeklappte Domains, Sortierung, Filter
 import { renderSnapshotsTab } from './objectSnapshots.js'; // Zeitmaschine (Plan "R4")
+import { renderEmailLoginCard } from './objectEmailLogin.js'; // Besucher-Login per E-Mail (E4)
 import { renderVectorsTab } from './objectVectors.js'; // Vektoren (Plan "V")
 import {
     buildPreviewDocument,
@@ -2795,6 +2796,9 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
     // Eigene Domain (Plan "SSF-Ausbau", D3): eigene Karte unter der Website-Karte
     const domainBox = h('div');
     renderCustomDomainCard(domainBox, o);
+    // Besucher-Login per E-Mail-Code (E4)
+    const emailLoginBox = h('div');
+    renderEmailLoginCard(emailLoginBox, o);
     // Code-Baum (Plan "F", F-2d)
     const treeBox = h('div');
     renderCodeTreeCard(treeBox, o);
@@ -2895,6 +2899,7 @@ const renderSiteTab = (box, o, objects, { onTab }) => {
         problemsBox,
         screenshotBox,
         domainBox,
+        emailLoginBox,
         treeBox
     );
 };
