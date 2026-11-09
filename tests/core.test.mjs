@@ -66,7 +66,7 @@ describe('api: errorMessage', () => {
         );
     });
     test('ohne Meldung: verständlicher Text je Status', () => {
-        assert.equal(errorMessage(null, 0), 'Backend nicht erreichbar. Läuft der Server?');
+        assert.equal(errorMessage(null, 0), 'Keine Verbindung zum Server. Versuch es gleich nochmals.');
         assert.equal(errorMessage(null, 404), 'Nicht gefunden.');
         assert.match(errorMessage(null, 418), /Status 418/);
     });

@@ -2,7 +2,7 @@
 import { api } from '../../js/core/api.js';
 import { formatNumber, timeAgo } from '../../js/core/format.js';
 import { problemKindText, repairPrompt } from '../../js/core/view.js';
-import { h, meldung } from './ui.js';
+import { h, meldung, laedtBalken } from './ui.js';
 import { vorschauBild } from './seiten.js';
 import { zustandZeilen } from './website-werte.js';
 
@@ -59,7 +59,7 @@ const problemeKarte = site => {
                 zeitKnopf(168, '7 Tage')
             )
         );
-        karte.replaceChildren(kopf, h('span', { class: 'leise' }, 'Wird geladen…'));
+        karte.replaceChildren(kopf, laedtBalken());
         const antwort = await api.get('/api/objects/' + site.uuid + '/problems', { query: { hours: stunden } });
         if (dieser !== lauf) return;
         if (!antwort.ok) {

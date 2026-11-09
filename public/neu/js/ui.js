@@ -87,12 +87,21 @@ export const meldung = (titel, text, symbol = 'haken') => {
     const eintrag = h(
         'div',
         { class: 'bp-toast' },
-        h('i', { class: 'bp-toast-ik' }, ikon(symbol)),
+        h('i', { class: symbol === 'kreuz' ? 'bp-toast-ik fehler' : 'bp-toast-ik' }, ikon(symbol)),
         h('div', {}, h('b', {}, titel), text ? h('span', {}, text) : null)
     );
     ablage.append(eintrag);
     setTimeout(() => eintrag.remove(), 4000);
 };
+
+// Platzhalter, solange etwas lädt: ruhige graue Balken aus der Marke
+export const laedtBalken = () =>
+    h(
+        'div',
+        { class: 'bp-skelett', role: 'status', 'aria-label': 'Wird geladen' },
+        h('div', {}, h('i', {}), h('i', {}), h('i', {}))
+    );
+export const laedtKarte = id => h('div', { class: 'bp-karte', id: id || null }, laedtBalken());
 
 // Dialog über der Seite. zeichne() liefert den Inhalt und kann neu() aufrufen.
 // kreuz: false lässt das Kreuz oben rechts weg (die Suche hat dort ihr Eingabefeld).

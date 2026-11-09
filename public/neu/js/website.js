@@ -1,7 +1,7 @@
 // Eine Website mit ihren Reitern. Übersicht, Code und Daten sind echt,
 // Personen und Einstellungen kommen mit den Etappen U4e und U4f
 import { api } from '../../js/core/api.js';
-import { h, ikon, zustandPlakette, huelle, leer } from './ui.js';
+import { h, ikon, zustandPlakette, huelle, leer, laedtKarte } from './ui.js';
 import { DATEN } from './daten.js';
 import { verlaufPlatzhalter } from './seiten.js';
 import { neuLaden } from './websites.js';
@@ -106,14 +106,7 @@ export const seiteWebsite = (id, reiter, teil) => {
     if (Date.now() - stand.zeit > FRISCH_MS) websiteLaden(id);
     if (stand.fehler) return [zurueckLink(), fehlerAnzeige(stand.fehler)];
     if (!stand.site) {
-        return [
-            zurueckLink(),
-            h(
-                'div',
-                { class: 'bp-karte', id: 'website-laedt' },
-                leer('kugel', 'Einen Moment', 'Die Website wird geladen.')
-            )
-        ];
+        return [zurueckLink(), laedtKarte('website-laedt')];
     }
     const site = stand.site;
     const bitten = DATEN.wartet.filter(e => e.website === site.name);

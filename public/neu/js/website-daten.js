@@ -1,7 +1,7 @@
 // Reiter «Daten»: Datensätze als Tabelle und die Dateien der Website. Nur lesen.
 import { api } from '../../js/core/api.js';
 import { formatNumber } from '../../js/core/format.js';
-import { h, ikon, leer, meldung, huelle } from './ui.js';
+import { h, ikon, leer, meldung, huelle, laedtKarte } from './ui.js';
 import { datenAnderswo, dateiTeile, datenSpalten, datenTeile, hatWeiter, zelleText } from './website-werte.js';
 
 const PRO_SEITE = 50;
@@ -21,7 +21,7 @@ const bilderFreigeben = () => {
 // Füllt die Tabelle, ohne die ganze Seite neu zu zeichnen
 const tabelleFuellen = async (flaeche, teil, zuletzt) => {
     const dieser = ++zuletzt.lauf;
-    flaeche.replaceChildren(h('div', { class: 'bp-karte' }, h('span', { class: 'leise' }, 'Wird geladen…')));
+    flaeche.replaceChildren(laedtKarte());
     const query = { limit: PRO_SEITE };
     if (blatt.zeiger) {
         query.cursorValue = blatt.zeiger.value;

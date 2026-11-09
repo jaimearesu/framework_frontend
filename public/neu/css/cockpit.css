@@ -1087,14 +1087,34 @@ body.ueber-baum {
     .bp .db-seite a {
         white-space: nowrap;
     }
+    /* Die Marke «Test-Modus» bleibt sichtbar. Die Werkstatt findet man auf dem Handy über die Suche */
     .seite-unten {
+        display: contents;
+    }
+    .bp .db-seite .seite-unten nav {
         display: none;
+    }
+    #test-marke {
+        margin-left: auto;
     }
     .bp .db-haupt {
         padding: var(--space-4);
     }
+    /* Die Suche schrumpft auf ihr Symbol */
     .such-knopf {
+        flex: 0 0 auto;
+        justify-content: center;
+        min-width: 40px;
+        min-height: 40px;
+        padding: var(--space-2);
+        font-size: 0;
+    }
+    .such-knopf kbd {
         display: none;
+    }
+    .such-knopf .bp-ic {
+        width: 18px;
+        height: 18px;
     }
     .kopf-titel {
         flex: 1 1 100%;
@@ -1193,4 +1213,47 @@ body.ueber-baum {
 }
 .zeile-link:hover b {
     text-decoration: underline;
+}
+
+/* --- U5: Fertig machen --- */
+
+/* Eingebaute Teile des Browsers (Auswahl-Listen, Rollbalken) folgen dem dunklen Modus */
+.bp[data-modus='dunkel'] {
+    color-scheme: dark;
+}
+
+/* Lange Namen ohne Bindestrich brechen um, statt abgeschnitten zu werden */
+.kacheln > *,
+.kachel-text,
+.website-titel,
+.zeile-text {
+    min-width: 0;
+}
+.kachel-text,
+.website-titel,
+.zeile-text,
+.bp-toast {
+    overflow-wrap: anywhere;
+}
+.bp .website-titel h2 {
+    flex-wrap: wrap;
+}
+
+/* Auf dem Handy lassen sich alle Knöpfe bequem antippen */
+@media (max-width: 760px) {
+    .bp .bp-btn,
+    .bp .bp-segment button,
+    .bp .baum button {
+        min-height: 40px;
+    }
+    .bp .bp-ikonknopf {
+        min-width: 40px;
+        min-height: 40px;
+    }
+}
+
+/* Eine Fehler-Meldung sieht nicht aus wie eine Erfolgs-Meldung */
+.bp .bp-toast-ik.fehler {
+    background: var(--danger-soft-strong);
+    color: var(--on-danger-soft);
 }
