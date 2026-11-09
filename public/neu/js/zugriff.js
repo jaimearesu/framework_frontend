@@ -1,35 +1,39 @@
-// Dialog «Zugriff geben» im Reiter Personen (Entwurf, Beispieldaten).
+// Dialog «Zugriff geben» im Reiter Personen.
 //   Schritt 1: Wie? Link, E-Mail oder vindelis-ID
 //   Schritt 2: Worauf und was darf die Person?
-//   Danach: beim Link der Link zum Kopieren, sonst eine kurze Meldung
+//   Danach: beim Link der Link zum Kopieren, sonst eine kurze Bestätigung
 // Regeln wie im Backend: «Verwalten» nie per Link und nie nur auf einen Teil.
-import { h, ikon, dialog, kopierZeile, huelle } from './ui.js';
-import { DATEN } from './daten.js';
+// Ein Link gilt für die ganze Website oder für genau einen Teil.
+import { api } from '../../js/core/api.js';
+import { h, ikon, dialog, kopierZeile } from './ui.js';
+import {
+    GUELTIG,
+    RECHTE,
+    adressenAus,
+    eingabeFehler,
+    einladungKoerper,
+    rechteFuer,
+    wegeFuer,
+    zielAus
+} from './personen-werte.js';
 
-const WEGE = [
-    {
-        wert: 'link',
+const WEGE = {
+    link: {
         titel: 'Link verschicken',
         text: 'Du bekommst einen Link, zum Beispiel für WhatsApp. Die Person braucht ein vindelis-Konto.',
         tipp: true
     },
-    {
-        wert: 'email',
-        titel: 'Per E-Mail',
+    email: {
+        titel: 'Besucher per E-Mail',
         text: 'Für Besucher deiner Website. Sie melden sich mit einem Code an und brauchen kein Konto.'
     },
-    {
-        wert: 'id',
+    id: {
         titel: 'Mit vindelis-ID',
         text: 'Die Person hat dir ihre ID gegeben. Für Fachleute und Mitarbeitende.'
     }
-];
-
-const RECHTE = {
-    ansehen: { titel: 'Ansehen', text: 'Sieht die gewählten Teile, kann nichts ändern.', tipp: 'Empfohlen' },
-    aendern: { titel: 'Ansehen und ändern', text: 'Kann Inhalte und Code der gewählten Teile ändern.' },
-    verwalten: { titel: 'Verwalten', text: 'Kann alles, auch anderen Zugriff geben und löschen.' }
 };
+
+const TIPP = { ansehen: 'Empfohlen' };
 
 const zugriffSchritte = aktuell =>
     h(
@@ -45,25 +49,31 @@ const zugriffSchritte = aktuell =>
         )
     );
 
-// Worauf gilt der Zugriff, als Text
-const woraufText = stand => (stand.worauf === 'alles' ? 'Ganze Website' : stand.teile.join(', '));
-
-export const zugriffGebenOeffnen = website => {
+export const zugriffGebenOeffnen = ({ w, site, besucher, gast, nachher }) => {
+    const wege = wegeFuer(gast);
     const stand = {
         schritt: 1,
-        weg: 'link',
+        weg: wege[0],
         worauf: 'alles',
-        teile: [],
+        teil: '',
         darf: 'ansehen',
         gueltig: '7 Tage',
         anzahl: 1,
         id: '',
         email: '',
         fehler: '',
+        arbeitet: false,
+        link: '',
+        einladung: null,
+        ziel: null,
         mailOffen: false,
         mailAn: '',
         erfolg: null
     };
+    const teile = (site.parts || []).map(p => ({ uuid: p.uuid, name: p.name || 'Teil' }));
+
+    const woraufText = () =>
+        stand.worauf === 'alles' ? 'Ganze Website' : teile.find(t => t.uuid === stand.teil)?.name || 'Ein Teil';
 
     // Eine Auswahl-Karte mit Titel und Erklärung
     const karte = (name, wert, gewaehlt, inhalt, wennGewaehlt) =>
@@ -74,33 +84,46 @@ export const zugriffGebenOeffnen = website => {
             inhalt
         );
 
+    const kartenText = (titel, tipp, text) =>
+        h(
+            'span',
+            { class: 'zeile-text' },
+            h(
+                'span',
+                { class: 'wahl-kopf' },
+                h('b', {}, titel),
+                tipp ? h('span', { class: 'bp-badge bp-badge-s' }, tipp) : null
+            ),
+            text ? h('span', { class: 'leise' }, text) : null
+        );
+
+    // Beim Antippen verschwindet eine alte Fehlermeldung, ohne neu zu zeichnen
+    const fehlerEntfernen = feld => {
+        stand.fehler = '';
+        feld.closest('.dlg-box').querySelector('.bp-h-gefahr')?.remove();
+    };
+
+    // Passt die gewählte Stufe nicht mehr zu Weg und Umfang, zurück auf «Ansehen»
+    const darfPruefen = () => {
+        if (!rechteFuer(stand.weg, stand.worauf).includes(stand.darf)) stand.darf = 'ansehen';
+    };
+
     const schrittWie = ({ zu, neu }) => [
         h('h3', {}, 'Zugriff geben'),
         zugriffSchritte(1),
         h(
             'div',
             { class: 'wahl-liste' },
-            WEGE.map(w =>
+            wege.map(wert =>
                 karte(
                     'zg-weg',
-                    w.wert,
-                    stand.weg === w.wert,
-                    h(
-                        'span',
-                        { class: 'zeile-text' },
-                        h(
-                            'span',
-                            { class: 'wahl-kopf' },
-                            h('b', {}, w.titel),
-                            w.tipp ? h('span', { class: 'bp-badge bp-badge-s' }, 'Am einfachsten') : null
-                        ),
-                        h('span', { class: 'leise' }, w.text)
-                    ),
+                    wert,
+                    stand.weg === wert,
+                    kartenText(WEGE[wert].titel, WEGE[wert].tipp ? 'Am einfachsten' : null, WEGE[wert].text),
                     () => {
-                        stand.weg = w.wert;
+                        stand.weg = wert;
                         stand.fehler = '';
-                        // «Verwalten» gibt es nur mit der ID
-                        if (w.wert !== 'id' && stand.darf === 'verwalten') stand.darf = 'ansehen';
+                        darfPruefen();
                         neu();
                     }
                 )
@@ -126,7 +149,7 @@ export const zugriffGebenOeffnen = website => {
         )
     ];
 
-    // Worauf gilt der Zugriff: ganze Website oder einzelne Teile
+    // Worauf gilt der Zugriff: ganze Website oder genau ein Teil
     const woraufWahl = neu =>
         h(
             'div',
@@ -139,97 +162,57 @@ export const zugriffGebenOeffnen = website => {
                     'zg-worauf',
                     'alles',
                     stand.worauf === 'alles',
-                    h(
-                        'span',
-                        { class: 'zeile-text' },
-                        h(
-                            'span',
-                            { class: 'wahl-kopf' },
-                            h('b', {}, 'Ganze Website'),
-                            h('span', { class: 'bp-badge bp-badge-s' }, 'Am einfachsten')
-                        )
-                    ),
+                    kartenText('Ganze Website', 'Am einfachsten'),
                     () => {
                         stand.worauf = 'alles';
                         stand.fehler = '';
                         neu();
                     }
                 ),
-                karte(
-                    'zg-worauf',
-                    'teile',
-                    stand.worauf === 'teile',
-                    h('span', { class: 'zeile-text' }, h('b', {}, 'Nur bestimmte Teile')),
-                    () => {
-                        stand.worauf = 'teile';
-                        if (stand.darf === 'verwalten') stand.darf = 'ansehen';
-                        neu();
-                    }
-                ),
-                stand.worauf === 'teile'
+                teile.length
+                    ? karte('zg-worauf', 'teil', stand.worauf === 'teil', kartenText('Nur einen Teil'), () => {
+                          stand.worauf = 'teil';
+                          darfPruefen();
+                          neu();
+                      })
+                    : null,
+                stand.worauf === 'teil'
                     ? h(
                           'div',
                           { class: 'wahl-unter' },
-                          DATEN.teile.map(teil =>
-                              h(
-                                  'label',
-                                  {},
-                                  h('input', {
-                                      type: 'checkbox',
-                                      value: teil,
-                                      checked: stand.teile.includes(teil),
-                                      onchange: e => {
-                                          stand.teile = e.target.checked
-                                              ? [...stand.teile, teil]
-                                              : stand.teile.filter(x => x !== teil);
-                                          fehlerEntfernen(e.target);
-                                      }
-                                  }),
-                                  teil
-                              )
+                          h(
+                              'select',
+                              {
+                                  id: 'zg-teil',
+                                  class: 'bp-in',
+                                  'aria-label': 'Teil wählen',
+                                  onchange: e => {
+                                      stand.teil = e.target.value;
+                                      fehlerEntfernen(e.target);
+                                  }
+                              },
+                              h('option', { value: '', selected: !stand.teil }, 'Bitte wählen'),
+                              teile.map(t => h('option', { value: t.uuid, selected: t.uuid === stand.teil }, t.name))
                           )
                       )
                     : null
             )
         );
 
-    // Beim Antippen verschwindet eine alte Fehlermeldung, ohne neu zu zeichnen
-    const fehlerEntfernen = feld => {
-        stand.fehler = '';
-        feld.closest('.dlg-box').querySelector('.bp-h-gefahr')?.remove();
-    };
-
-    // Was darf die Person: je nach Weg und Umfang stehen nicht alle Rechte zur Wahl
-    const rechteWahl = neu => {
-        const moeglich =
-            stand.weg === 'id' && stand.worauf === 'alles'
-                ? ['ansehen', 'aendern', 'verwalten']
-                : ['ansehen', 'aendern'];
-        return h(
+    const rechteWahl = neu =>
+        h(
             'div',
             { class: 'feld-gruppe' },
             h('span', { class: 'feld-titel' }, 'Was darf die Person?'),
             h(
                 'div',
                 { class: 'wahl-liste' },
-                moeglich.map(wert =>
+                rechteFuer(stand.weg, stand.worauf).map(wert =>
                     karte(
                         'zg-darf',
                         wert,
                         stand.darf === wert,
-                        h(
-                            'span',
-                            { class: 'zeile-text' },
-                            h(
-                                'span',
-                                { class: 'wahl-kopf' },
-                                h('b', {}, RECHTE[wert].titel),
-                                RECHTE[wert].tipp
-                                    ? h('span', { class: 'bp-badge bp-badge-s' }, RECHTE[wert].tipp)
-                                    : null
-                            ),
-                            h('span', { class: 'leise' }, RECHTE[wert].text)
-                        ),
+                        kartenText(RECHTE[wert].titel, TIPP[wert], RECHTE[wert].text),
                         () => {
                             stand.darf = wert;
                             neu();
@@ -238,7 +221,6 @@ export const zugriffGebenOeffnen = website => {
                 )
             )
         );
-    };
 
     // Felder, die nur bei einem bestimmten Weg gebraucht werden
     const wegFelder = () => {
@@ -253,9 +235,7 @@ export const zugriffGebenOeffnen = website => {
                     h(
                         'select',
                         { id: 'zg-gueltig', class: 'bp-in', onchange: e => (stand.gueltig = e.target.value) },
-                        ['1 Tag', '7 Tage', '30 Tage'].map(v =>
-                            h('option', { value: v, selected: v === stand.gueltig }, v)
-                        )
+                        GUELTIG.map(v => h('option', { value: v, selected: v === stand.gueltig }, v))
                     )
                 ),
                 h(
@@ -277,21 +257,36 @@ export const zugriffGebenOeffnen = website => {
         if (stand.weg === 'email') {
             return h(
                 'div',
-                { class: 'bp-feld' },
-                h('label', { for: 'zg-email' }, 'E-Mail-Adresse'),
-                h('input', {
-                    id: 'zg-email',
-                    class: 'bp-in',
-                    type: 'email',
-                    value: stand.email,
-                    autocomplete: 'off',
-                    'data-fokus': true,
-                    oninput: e => {
-                        stand.email = e.target.value;
-                        fehlerEntfernen(e.target);
-                    }
-                }),
-                h('small', {}, 'Die Person sieht den geschützten Bereich deiner Website und kann nichts ändern.')
+                { class: 'stapel' },
+                h(
+                    'div',
+                    { class: 'bp-feld' },
+                    h('label', { for: 'zg-email' }, 'E-Mail-Adresse'),
+                    h('input', {
+                        id: 'zg-email',
+                        class: 'bp-in',
+                        type: 'email',
+                        value: stand.email,
+                        autocomplete: 'off',
+                        'data-fokus': true,
+                        oninput: e => {
+                            stand.email = e.target.value;
+                            fehlerEntfernen(e.target);
+                        }
+                    }),
+                    h(
+                        'small',
+                        {},
+                        'Die Person kann sich auf deiner Website anmelden und nichts ändern. Es geht keine Mail raus.'
+                    )
+                ),
+                besucher && !besucher.enabled
+                    ? h(
+                          'div',
+                          { class: 'bp-hinweis bp-h-warn', id: 'zg-anmeldung-aus' },
+                          'Die Anmeldung per E-Mail ist noch ausgeschaltet. Die Adresse kommt auf die Liste und wirkt, sobald du sie einschaltest.'
+                      )
+                    : null
             );
         }
         return h(
@@ -314,53 +309,6 @@ export const zugriffGebenOeffnen = website => {
         );
     };
 
-    // Prüft die Eingaben, gibt einen Fehlertext oder nichts zurück
-    const fehlerText = () => {
-        if (stand.weg === 'email') return stand.email.includes('@') ? '' : 'Bitte gib eine gültige E-Mail-Adresse ein.';
-        if (stand.worauf === 'teile' && !stand.teile.length) return 'Bitte wähle mindestens einen Teil.';
-        if (stand.weg === 'id' && !/^[0-9a-f-]{36}$/i.test(stand.id.trim()))
-            return 'Das sieht nicht wie eine vindelis-ID aus.';
-        const anzahl = Number(stand.anzahl);
-        if (stand.weg === 'link' && !(Number.isInteger(anzahl) && anzahl >= 1 && anzahl <= 100))
-            return 'Die Anzahl Personen muss zwischen 1 und 100 liegen.';
-        return '';
-    };
-
-    const speichern = ({ neu }) => {
-        stand.fehler = fehlerText();
-        if (stand.fehler) return neu();
-        if (stand.weg === 'link') {
-            DATEN.einladungen.unshift({
-                id: 'e' + Date.now(),
-                worauf: woraufText(stand),
-                darf: RECHTE[stand.darf].titel,
-                gueltig: 'noch ' + stand.gueltig,
-                benutzt: '0 von ' + stand.anzahl
-            });
-            stand.schritt = 3;
-            huelle.neu();
-            return neu();
-        }
-        if (stand.weg === 'email') {
-            DATEN.personen.push({
-                name: stand.email.trim(),
-                art: 'Besucher mit E-Mail-Login',
-                darf: 'Geschützten Bereich sehen',
-                seit: 'Heute'
-            });
-            erfolg(neu, 'Hat geklappt!', stand.email.trim() + ' kann sich jetzt mit einem Code anmelden.');
-        } else {
-            DATEN.personen.push({
-                name: stand.id.trim().slice(0, 8) + '…',
-                art: 'Mensch',
-                darf: RECHTE[stand.darf].titel + ': ' + woraufText(stand),
-                seit: 'Heute'
-            });
-            erfolg(neu, 'Hat geklappt!', 'Die Person hat jetzt Zugriff auf «' + website.titel + '».');
-        }
-        huelle.neu();
-    };
-
     // Wechselt auf die Schluss-Ansicht mit dem animierten Haken
     const erfolg = (neu, titel, text) => {
         stand.erfolg = { titel, text };
@@ -368,10 +316,67 @@ export const zugriffGebenOeffnen = website => {
         neu();
     };
 
+    const linkErstellen = async neu => {
+        const ziel = zielAus(stand, site.uuid);
+        const antwort = await api.post('/api/objects/' + ziel.uuid + '/invitations', einladungKoerper(stand), {
+            sensitive: true
+        });
+        if (!antwort.ok) return antwort.error;
+        stand.link = antwort.data.data.link;
+        stand.einladung = antwort.data.data.uuid;
+        stand.ziel = ziel.uuid;
+        stand.schritt = 3;
+        neu();
+        return '';
+    };
+
+    const besucherEintragen = async neu => {
+        const adresse = adressenAus(stand.email)[0];
+        const antwort = await api.post('/api/objects/' + site.uuid + '/email-login/besucher', { emails: [adresse] });
+        if (!antwort.ok) return antwort.error;
+        const { invalid, already } = antwort.data.data;
+        if (invalid) return 'Bitte gib eine gültige E-Mail-Adresse ein.';
+        erfolg(
+            neu,
+            already ? 'Steht schon auf der Liste' : 'Hat geklappt!',
+            adresse +
+                ' bekommt keine automatische Mail. Sag der Person die Adresse deiner Website, dort bekommt sie ihren Code.'
+        );
+        return '';
+    };
+
+    const rechteGeben = async neu => {
+        const ziel = zielAus(stand, site.uuid);
+        const id = stand.id.trim().toLowerCase();
+        for (const roleType of RECHTE[stand.darf].rollen) {
+            const antwort = await api.put('/api/objects/' + ziel.uuid + '/members/' + id, {
+                roleType,
+                scope: ziel.scope
+            });
+            if (antwort.status === 404) return 'Diese vindelis-ID gibt es nicht.';
+            if (!antwort.ok) return antwort.error;
+        }
+        erfolg(neu, 'Hat geklappt!', 'Die Person hat jetzt Zugriff auf «' + w.titel + '».');
+        return '';
+    };
+
+    const speichern = async ({ neu }) => {
+        if (stand.arbeitet) return;
+        stand.fehler = eingabeFehler(stand);
+        if (stand.fehler) return neu();
+        stand.arbeitet = true;
+        neu();
+        const tun = { link: linkErstellen, email: besucherEintragen, id: rechteGeben }[stand.weg];
+        stand.fehler = await tun(neu);
+        stand.arbeitet = false;
+        neu();
+        if (!stand.fehler) await nachher();
+    };
+
     const schrittWas = hilfe => {
         const { neu } = hilfe;
         return [
-            h('h3', {}, 'Zugriff auf «' + website.titel + '»'),
+            h('h3', {}, 'Zugriff auf «' + w.titel + '»'),
             zugriffSchritte(2),
             stand.weg === 'email' ? null : woraufWahl(neu),
             stand.weg === 'email' ? null : rechteWahl(neu),
@@ -395,22 +400,47 @@ export const zugriffGebenOeffnen = website => {
                 ),
                 h(
                     'button',
-                    { class: 'bp-btn bp-btn-p', type: 'button', id: 'zg-speichern', onclick: () => speichern(hilfe) },
-                    stand.weg === 'link' ? 'Link erstellen' : 'Zugriff geben'
+                    {
+                        class: 'bp-btn bp-btn-p',
+                        type: 'button',
+                        id: 'zg-speichern',
+                        disabled: stand.arbeitet,
+                        onclick: () => speichern(hilfe)
+                    },
+                    stand.arbeitet ? 'Einen Moment…' : stand.weg === 'link' ? 'Link erstellen' : 'Zugriff geben'
                 )
             )
         ];
     };
 
-    // Beispiel-Link der Anprobe. Beim Einbau kommt er vom Backend.
-    const LINK = 'https://vindelis.com/einladung/beispiel-link';
-
-    // Fertiger Text für WhatsApp
+    // Fertiger Text für WhatsApp. Abgeschickt wird dort, nicht hier
     const whatsappAdresse = () =>
         'https://wa.me/?text=' +
-        encodeURIComponent(DATEN.mensch.name + ' lädt dich zu «' + website.titel + '» auf vindelis ein: ' + LINK);
+        encodeURIComponent('Ich lade dich zu «' + w.titel + '» auf vindelis ein: ' + stand.link);
 
-    // Feld für die Adresse, erscheint nach dem Klick auf «Per E-Mail»
+    // «Gesendet» steht nur da, wenn vindelis die Mail wirklich verschickt hat
+    const mailSenden = async neu => {
+        if (stand.arbeitet) return;
+        const adresse = stand.mailAn.trim();
+        if (!adresse.includes('@')) {
+            stand.fehler = 'Bitte gib eine gültige E-Mail-Adresse ein.';
+            return neu();
+        }
+        stand.arbeitet = true;
+        const antwort = await api.post(
+            '/api/objects/' + stand.ziel + '/invitations/' + stand.einladung + '/mail',
+            { link: stand.link, email: adresse },
+            { sensitive: true }
+        );
+        stand.arbeitet = false;
+        if (!antwort.ok) {
+            stand.fehler = antwort.error;
+            return neu();
+        }
+        erfolg(neu, 'Gesendet!', 'Die Einladung ist unterwegs an ' + adresse + '.');
+    };
+
+    // Feld für die Adresse, erscheint nach dem Klick auf «E-Mail»
     const mailFeld = ({ neu }) =>
         h(
             'div',
@@ -434,18 +464,7 @@ export const zugriffGebenOeffnen = website => {
                 }),
                 h(
                     'button',
-                    {
-                        class: 'bp-btn bp-btn-p',
-                        type: 'button',
-                        id: 'zg-mail-senden',
-                        onclick: () => {
-                            if (!stand.mailAn.includes('@')) {
-                                stand.fehler = 'Bitte gib eine gültige E-Mail-Adresse ein.';
-                                return neu();
-                            }
-                            erfolg(neu, 'Gesendet!', 'Die Einladung ist unterwegs an ' + stand.mailAn.trim() + '.');
-                        }
-                    },
+                    { class: 'bp-btn bp-btn-p', type: 'button', id: 'zg-mail-senden', onclick: () => mailSenden(neu) },
                     'Senden'
                 )
             )
@@ -453,7 +472,7 @@ export const zugriffGebenOeffnen = website => {
 
     const schrittLink = hilfe => [
         h('h3', {}, 'Dein Link ist bereit'),
-        kopierZeile(LINK),
+        kopierZeile(stand.link),
         h('div', { class: 'bp-hinweis bp-h-warn' }, 'Kopiere ihn jetzt, er wird nur dieses eine Mal angezeigt.'),
         h('span', { class: 'feld-titel' }, 'Direkt verschicken'),
         h(
@@ -497,9 +516,9 @@ export const zugriffGebenOeffnen = website => {
         h(
             'div',
             { class: 'einladung-vorschau', id: 'zg-vorschau' },
-            h('b', {}, DATEN.mensch.name + ' lädt dich zu «' + website.titel + '» ein'),
-            h('span', { class: 'leise' }, RECHTE[stand.darf].titel + ': ' + woraufText(stand)),
-            h('span', { class: 'bp-btn bp-btn-p bp-btn-klein' }, 'Einladung annehmen')
+            h('b', {}, 'Einladung zu «' + w.titel + '»'),
+            h('span', { class: 'leise' }, RECHTE[stand.darf].titel + ': ' + woraufText()),
+            h('span', { class: 'bp-btn bp-btn-p bp-btn-klein' }, 'Annehmen')
         ),
         h(
             'div',

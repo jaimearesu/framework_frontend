@@ -7,7 +7,7 @@ import { DATEN } from './daten.js';
 import { verlaufPlatzhalter } from './seiten.js';
 import { neuLaden } from './websites.js';
 import { wartetKarte } from './wartet.js';
-import { zugriffGebenOeffnen } from './zugriff.js';
+import { reiterPersonen } from './website-personen.js';
 import { websiteAus } from './websites-werte.js';
 import { darfVeroeffentlichen, websiteLink } from './website-werte.js';
 import { reiterUebersicht } from './website-uebersicht.js';
@@ -23,133 +23,6 @@ const REITER = [
     ['personen', 'Personen'],
     ['einstellungen', 'Einstellungen']
 ];
-
-const reiterPersonen = w =>
-    h(
-        'div',
-        { class: 'stapel' },
-        h(
-            'div',
-            { class: 'abschnitt' },
-            h(
-                'div',
-                { class: 'abschnitt-kopf' },
-                h('h3', {}, 'Wer hat Zugriff'),
-                h(
-                    'button',
-                    {
-                        class: 'bp-btn bp-btn-p',
-                        id: 'zugriff-geben',
-                        type: 'button',
-                        onclick: () => zugriffGebenOeffnen(w)
-                    },
-                    ikon('plus'),
-                    'Zugriff geben'
-                )
-            ),
-            h(
-                'div',
-                { class: 'bp-tab-wrap' },
-                h(
-                    'table',
-                    { class: 'bp-tab' },
-                    h(
-                        'thead',
-                        {},
-                        h(
-                            'tr',
-                            {},
-                            ['Name', 'Art', 'Darf', 'Seit', ''].map(t => h('th', {}, t))
-                        )
-                    ),
-                    h(
-                        'tbody',
-                        {},
-                        DATEN.personen.map(p =>
-                            h(
-                                'tr',
-                                {},
-                                h('td', {}, h('b', {}, p.name)),
-                                h('td', {}, p.art),
-                                h('td', {}, p.darf),
-                                h('td', {}, p.seit),
-                                h(
-                                    'td',
-                                    { class: 'bp-rechts' },
-                                    p.darf === 'Besitzer'
-                                        ? null
-                                        : h(
-                                              'button',
-                                              {
-                                                  class: 'bp-ikonknopf',
-                                                  type: 'button',
-                                                  'aria-label': 'Zugriff von ' + p.name + ' entfernen',
-                                                  onclick: nurAnprobe
-                                              },
-                                              ikon('kreuz')
-                                          )
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        ),
-        DATEN.einladungen.length
-            ? h(
-                  'div',
-                  { class: 'abschnitt', id: 'offene-einladungen' },
-                  h('div', { class: 'abschnitt-kopf' }, h('h3', {}, 'Offene Einladungen')),
-                  h(
-                      'div',
-                      { class: 'bp-tab-wrap' },
-                      h(
-                          'table',
-                          { class: 'bp-tab' },
-                          h(
-                              'thead',
-                              {},
-                              h(
-                                  'tr',
-                                  {},
-                                  ['Worauf', 'Darf', 'Gültig', 'Benutzt', ''].map(t => h('th', {}, t))
-                              )
-                          ),
-                          h(
-                              'tbody',
-                              {},
-                              DATEN.einladungen.map(e =>
-                                  h(
-                                      'tr',
-                                      {},
-                                      h('td', {}, e.worauf),
-                                      h('td', {}, e.darf),
-                                      h('td', {}, e.gueltig),
-                                      h('td', {}, e.benutzt),
-                                      h(
-                                          'td',
-                                          { class: 'bp-rechts' },
-                                          h(
-                                              'button',
-                                              {
-                                                  class: 'bp-btn bp-btn-o bp-btn-klein',
-                                                  type: 'button',
-                                                  onclick: () => {
-                                                      DATEN.einladungen = DATEN.einladungen.filter(x => x.id !== e.id);
-                                                      huelle.neu();
-                                                  }
-                                              },
-                                              'Widerrufen'
-                                          )
-                                      )
-                                  )
-                              )
-                          )
-                      )
-                  )
-              )
-            : null
-    );
 
 // Die Einstellungen als ruhige Liste, nach Thema gruppiert
 const EINSTELLUNGEN = [
@@ -287,7 +160,7 @@ const sofortNeu = async () => {
     await neuLaden();
 };
 
-// Zwei Reiter zeigen bis U4e und U4f noch Beispiele. Das muss man sehen
+// Die Einstellungen zeigen bis U4f noch Beispiele. Das muss man sehen
 const beispielHinweis = w =>
     h(
         'div',
@@ -330,7 +203,7 @@ export const seiteWebsite = (id, reiter, teil) => {
         verlauf: () => verlaufPlatzhalter(),
         code: () => reiterCode(w, site, teil),
         daten: () => reiterDaten(w, site, teil),
-        personen: () => reiterPersonen(w),
+        personen: () => reiterPersonen(w, site),
         einstellungen: () => reiterEinstellungen()
     }[aktiv]();
     const bitteOffen = bitten.some(e => e.art === 'Veröffentlichen');
@@ -396,7 +269,7 @@ export const seiteWebsite = (id, reiter, teil) => {
                 )
             )
         ),
-        aktiv === 'personen' || aktiv === 'einstellungen' ? beispielHinweis(w) : null,
+        aktiv === 'einstellungen' ? beispielHinweis(w) : null,
         h('div', { class: 'reiter-inhalt' }, inhalt)
     ];
 };

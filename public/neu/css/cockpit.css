@@ -644,6 +644,11 @@ body.bp {
     border-radius: var(--radius);
 }
 
+/* Lange E-Mail-Adressen dürfen die Zeile nicht sprengen */
+.umbruch {
+    overflow-wrap: anywhere;
+}
+
 .mail-zeile {
     flex-wrap: nowrap;
 }
