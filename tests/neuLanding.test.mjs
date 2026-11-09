@@ -2,7 +2,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { RECHTLICHES, VERBINDEN, anmeldungHolen, anmeldungMerken } from '../public/neu/js/landing-werte.js';
+import {
+    RECHTLICHES,
+    VERBINDEN,
+    fussVersatz,
+    anmeldungHolen,
+    anmeldungMerken
+} from '../public/neu/js/landing-werte.js';
 import { filmPfade, sanft } from '../public/neu/js/baum-film.js';
 
 const lies = datei => readFileSync(new URL('../public/neu/' + datei, import.meta.url), 'utf8');
@@ -93,7 +99,7 @@ test('Unter dem Baum steht zuerst, wie man Claude und ChatGPT verbindet', () => 
     );
     for (const k of VERBINDEN) assert.match(k.schritte.at(-1), /Erlauben/);
     const code = lies('js/landing-inhalt.js');
-    assert.ok(code.indexOf('abschnittVerbinden(), abschnittAufbau(), fuss()') > 0);
+    assert.ok(code.indexOf('abschnittVerbinden(),') < code.indexOf('abschnittAufbau(), fussBauen()'));
 });
 
 test('Rechtliche Seiten ohne Adresse sind keine toten Links', () => {
@@ -102,6 +108,20 @@ test('Rechtliche Seiten ohne Adresse sind keine toten Links', () => {
         lies('js/landing-inhalt.js'),
         /href \? h\('a', \{ href \}, text\) : h\('span', \{\}, text, h\('small'/
     );
+});
+
+test('Der Inhalt des Footers steigt auf, solange der Footer erst teilweise zu sehen ist', () => {
+    assert.equal(fussVersatz(0, 400, 120), 120);
+    assert.equal(fussVersatz(200, 400, 120), 60);
+    assert.equal(fussVersatz(400, 400, 120), 0);
+    assert.equal(fussVersatz(900, 400, 120), 0);
+    assert.equal(fussVersatz(-50, 400, 120), 120);
+    assert.equal(fussVersatz(10, 0, 120), 0);
+});
+
+test('Der Footer zeigt nur den Schriftzug, ohne Zeichen', () => {
+    assert.match(lies('js/landing-inhalt.js'), /wortmarke.svg/);
+    assert.equal(lies('bilder/wortmarke.svg').match(/<polygon/g), null);
 });
 
 test('Oben auf der Startseite steht nur das V', () => {
