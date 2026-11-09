@@ -464,6 +464,24 @@ export const CHECKS = [
         }
     },
     {
+        // Plan U, U4c: frühere Stände des Codes (nur mit red, darum auch hier nur für die eigene Wurzel)
+        id: 'code-versions',
+        group: 'Code',
+        title: 'Frühere Code-Versionen auflisten und lesen',
+        needs: ['root'],
+        run: async ctx => {
+            const liste = await api.get(`/api/ast/${ctx.root}/versions`);
+            expectStatus(liste, 200, 'Versionen auflisten');
+            const versionen = liste.data?.data || [];
+            expect(versionen.length > 0, 'keine Version gefunden', liste);
+            const stand = await api.get(`/api/ast/${ctx.root}/versions/${versionen[0].step}`);
+            expectStatus(stand, 200, 'Version lesen');
+            expect(stand.data?.step === versionen[0].step, 'falsche Version geliefert', stand);
+            expectStatus(await api.get(`/api/ast/${ctx.root}/versions/abc`), 400, 'unsinnige Version');
+            return `${versionen.length} Versionen, neuste gelesen`;
+        }
+    },
+    {
         // Härtungs-Runde (28.10.2026): Warnung vor dem Löschen benutzter Teile
         id: 'object-usage',
         group: 'Code',

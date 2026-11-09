@@ -36,26 +36,27 @@ export const kachelZeile = (website, jetzt) => {
     return teile.filter(Boolean).join(', ');
 };
 
+// Eine Website so, wie Kachel und Website-Seite sie brauchen
+export const websiteAus = (w, namenMitBitte, jetzt = Date.now()) => ({
+    id: w.uuid,
+    uuid: w.uuid,
+    titel: String(w.name),
+    adresse: displayAddress(w),
+    beschreibung: w.note || '',
+    zustand: zustandAus(w, namenMitBitte),
+    zeile: kachelZeile(w, jetzt),
+    geaendertVor: alterMs(w.lastChange, jetzt),
+    erstelltVor: alterMs(w.createdAt, jetzt),
+    thumbAt: w.thumbAt || null,
+    probleme: w.problems24h || 0
+});
+
 // Werkzeugkästen gehören in die Werkstatt, auf den Kacheln stehen nur Websites und noch leere Domains
 export const websitesAusApi = (liste, bitten, jetzt = Date.now()) => {
     const namenMitBitte = new Set((bitten || []).map(b => b.objectName));
     return (Array.isArray(liste) ? liste : [])
         .filter(w => w && w.uuid && w.name && w.art !== 'werkzeugkasten')
-        .map(w => ({
-            id: w.uuid,
-            uuid: w.uuid,
-            titel: String(w.name),
-            adresse: displayAddress(w),
-            beschreibung: w.note || '',
-            zustand: zustandAus(w, namenMitBitte),
-            zeile: kachelZeile(w, jetzt),
-            geaendertVor: alterMs(w.lastChange, jetzt),
-            erstelltVor: alterMs(w.createdAt, jetzt),
-            thumbAt: w.thumbAt || null,
-            probleme: w.problems24h || 0,
-            besuche: '–',
-            speicher: '–'
-        }));
+        .map(w => websiteAus(w, namenMitBitte, jetzt));
 };
 
 const SICHTBAR = { public: 'öffentlich', members: 'nur Angemeldete', private: 'privat' };

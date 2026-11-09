@@ -421,6 +421,60 @@ body.bp {
     padding-top: var(--space-1);
     padding-bottom: var(--space-1);
 }
+.baum {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+.baum-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.code-arten {
+    padding: var(--space-3) var(--space-4) 0;
+    overflow-x: auto;
+}
+.code-leer {
+    margin: 0;
+    padding: var(--space-4);
+}
+.notiz-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.wahl-liste {
+    display: grid;
+    gap: var(--space-1);
+    max-height: 40vh;
+    overflow-y: auto;
+}
+.wahl-zeile {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+.wahl-zeile .leise {
+    margin-left: auto;
+}
+.datei-zeile {
+    display: block;
+}
+.datei-kopf {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+.datei-kopf .zeile-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.datei-bild {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    margin-top: var(--space-3);
+    border-radius: var(--radius-sm);
+}
 .code-karte {
     padding: 0;
     overflow: hidden;
