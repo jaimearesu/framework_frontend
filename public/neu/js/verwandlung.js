@@ -1,52 +1,50 @@
-// Der Übergang von der Startseite ins Cockpit: Der Text verblasst, der Baum schrumpft an seinen
-// Platz unten rechts, das Cockpit erscheint. Grösse und Bewegung stehen in cockpit.css (body.landing-baum).
+// Der Übergang von der Startseite ins Cockpit: Der Text verschwindet, der Baum baut sich Stück für Stück
+// bis zur Wurzel ab und sinkt dabei an seinen Platz. Dort wächst der eigene Baum, und das Cockpit erscheint.
+// Grösse und Bewegung des Rahmens stehen in cockpit.css (body.landing-baum).
 import { hintergrundStarten } from './hintergrund.js';
 
-const BAUM_ZEIGEN_MS = 900;
-const TEXT_WEG_MS = 400;
-const BIS_COCKPIT_MS = 450;
+const STARTSEITE_ZEIGEN_MS = 400;
+const TEXT_VORLAUF_MS = 300;
+const ABBAU_MS = 1800;
+const COCKPIT_NACH_MS = 350;
 const COCKPIT_AUF_MS = 700;
 
 const warte = ms => new Promise(fertig => setTimeout(fertig, ms));
 const ruhig = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Grosser Beispiel-Baum auf der Startseite
-export const startseitenBaum = () => {
+export const startseitenBaum = ({ fertig = false } = {}) => {
     document.body.classList.add('landing-baum');
-    return hintergrundStarten({ muster: true });
+    return hintergrundStarten({ muster: true, fertig });
 };
 
-const textWegUndCockpit = async cockpitAuf => {
-    document.querySelector('.landing')?.classList.add('weg');
-    await warte(TEXT_WEG_MS);
+export const startseitenBaumWeg = beispielBaum => {
+    beispielBaum?.entfernen();
     document.body.classList.remove('landing-baum');
-    await warte(BIS_COCKPIT_MS);
+};
+
+export const insCockpit = async (beispielBaum, cockpitStarten) => {
+    if (ruhig()) {
+        startseitenBaumWeg(beispielBaum);
+        cockpitStarten();
+        return;
+    }
+    document.querySelector('.landing')?.classList.add('weg');
+    await warte(TEXT_VORLAUF_MS);
+    document.body.classList.remove('landing-baum');
+    if (beispielBaum) await beispielBaum.abbauen(ABBAU_MS);
+    // Auf dem Handy gibt es keinen Baum: Dann blendet nur die Seite über
+    else await warte(TEXT_VORLAUF_MS);
+    hintergrundStarten({ vorgaenger: beispielBaum });
+    await warte(COCKPIT_NACH_MS);
     const app = document.getElementById('app');
     app.classList.add('cockpit-kommt');
-    cockpitAuf();
+    cockpitStarten({ baumSteht: true });
     setTimeout(() => app.classList.remove('cockpit-kommt'), COCKPIT_AUF_MS);
 };
 
-// Zurück von der Anmeldung: Der eigene Baum steht gross da und schrumpft genau an seinen Platz
-export const nachAnmeldung = async cockpitStarten => {
-    if (ruhig()) {
-        cockpitStarten();
-        return;
-    }
-    document.body.classList.add('landing-baum');
-    hintergrundStarten();
-    await warte(BAUM_ZEIGEN_MS);
-    await textWegUndCockpit(() => cockpitStarten({ baumSteht: true }));
-};
-
-// Ohne Konto weiter: Gäste haben einen anderen Baum, darum blendet der Beispiel-Baum beim Schrumpfen aus
-export const alsGastWeiter = async (beispielBaum, cockpitStarten) => {
-    if (ruhig()) {
-        beispielBaum?.wegblenden();
-        document.body.classList.remove('landing-baum');
-        cockpitStarten();
-        return;
-    }
-    beispielBaum?.wegblenden();
-    await textWegUndCockpit(cockpitStarten);
+// Zurück von der Anmeldung: Die Startseite steht kurz genau so da wie vorher, dann beginnt der Übergang
+export const nachAnmeldung = async (beispielBaum, cockpitStarten) => {
+    await warte(STARTSEITE_ZEIGEN_MS);
+    await insCockpit(beispielBaum, cockpitStarten);
 };

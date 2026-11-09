@@ -1406,15 +1406,20 @@ body.ueber-baum {
 .hintergrund {
     transform-origin: 74.55% 87.5%;
     transition:
-        transform 1000ms cubic-bezier(0.65, 0, 0.35, 1),
+        transform 1800ms cubic-bezier(0.65, 0, 0.35, 1),
         opacity 900ms ease;
     animation: hg-auf 500ms ease backwards;
 }
+/* Die Wurzel kommt auf 64 % der Breite und 76 % der Höhe, egal wie gross der Bildschirm ist */
 body.landing-baum .hintergrund {
-    transform: translateX(-16vw) scale(1.7);
+    --breite: min(60vw, 1100px);
+    transform: translate(calc(var(--breite) * 0.2545 - 36vw), calc(var(--breite) * 0.0636 - 24vh)) scale(1.5);
 }
-.hintergrund.hg-weg {
-    opacity: 0;
+@media (min-width: 761px) {
+    .landing-text {
+        margin-left: clamp(0px, 6.5vw, 150px);
+        padding-bottom: 8vh;
+    }
 }
 /* Auf der Startseite ist der Baum die Hauptsache, im Cockpit tritt er zurück */
 .baum-linie {
