@@ -56,7 +56,16 @@ export const websitesAusApi = (liste, bitten, jetzt = Date.now()) => {
     const namenMitBitte = new Set((bitten || []).map(b => b.objectName));
     return (Array.isArray(liste) ? liste : [])
         .filter(w => w && w.uuid && w.name && w.art !== 'werkzeugkasten')
-        .map(w => websiteAus(w, namenMitBitte, jetzt));
+        .map(w => ({ ...websiteAus(w, namenMitBitte, jetzt), mein: w.mine !== false }));
+};
+
+// Den Umschalter braucht es nur, wenn es beides gibt
+export const hatBeideHerkuenfte = websites => websites.some(w => w.mein) && websites.some(w => !w.mein);
+
+// «alle», «mein» (zählt auf mein Konto, auch was mein Agent gebaut hat) oder «geteilt»
+export const nachHerkunft = (websites, herkunft) => {
+    if (herkunft === 'alle' || !hatBeideHerkuenfte(websites)) return websites;
+    return websites.filter(w => w.mein === (herkunft === 'mein'));
 };
 
 const SICHTBAR = { public: 'öffentlich', members: 'nur Angemeldete', private: 'privat' };

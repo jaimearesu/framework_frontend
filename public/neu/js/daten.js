@@ -19,6 +19,6 @@ export const DATEN = {
     websitesFehler: false,
     websitesGekappt: false,
     wartetFehler: false,
-    // Sortierung und Seite der Kacheln auf Start
-    startAnsicht: { sortierung: 'geaendert', seite: 1 }
+    // Sortierung, Filter und Seite der Kacheln auf Start
+    startAnsicht: { sortierung: 'geaendert', herkunft: 'alle', seite: 1 }
 };

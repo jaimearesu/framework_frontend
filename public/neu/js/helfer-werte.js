@@ -2,7 +2,7 @@
 // Alles ohne Bildschirm, darum in tests/neuHelfer.test.mjs geprüft.
 import { timeAgo } from '../../js/core/format.js';
 import { clientLabel, helperStatus, helperWork } from '../../js/core/view.js';
-import { activeConnections, checkAgentName, createAgent, AGENT_PREFIX } from '../../js/core/agent.js';
+import { activeConnections, checkAgentName, createAgent, disconnect, AGENT_PREFIX } from '../../js/core/agent.js';
 
 // Ein Agent aus GET /api/agents, so wie Karte und Auswahl ihn zeigen.
 // «neu»: Er war noch nie verbunden und hat noch nichts getan
@@ -22,6 +22,20 @@ export const helferAusApi = (agent, jetzt = Date.now()) => {
         versteckt: arbeit.hidden,
         verbindungen: activeConnections(agent).map(c => ({ id: c.uuid, name: clientLabel(c) }))
     };
+};
+
+// So viele Websites zeigt eine Karte, bevor man «Alle anzeigen» drücken muss
+export const HELFER_KURZ = 3;
+
+// Jedes «Erlauben» in Claude macht eine neue Verbindung, die alten bleiben bestehen.
+// Für Menschen ist das EINE Verbindung, darum nennt die Karte jeden Dienst nur einmal
+export const verbindungsNamen = verbindungen => [...new Set(verbindungen.map(v => v.name))].join(' und ');
+
+// Trennt alle Verbindungen eines Helfers. Liefert null oder den ersten Fehler
+export const alleTrennen = async ({ api, verbindungen }) => {
+    const antworten = await Promise.all(verbindungen.map(v => disconnect({ api, uuid: v.id })));
+    const gescheitert = antworten.find(a => !a.ok);
+    return gescheitert ? gescheitert.error : null;
 };
 
 // Aus dem, was man eintippt, wird der Name des Agenten. So erkennt man ihn beim «Erlauben» wieder
