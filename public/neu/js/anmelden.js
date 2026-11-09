@@ -5,6 +5,7 @@ import { GUEST_HINT } from '../../js/core/session.js';
 import { DATEN } from './daten.js';
 import { anmeldeAdresse } from './sitzung.js';
 import { anmeldungMerken } from './landing-werte.js';
+import { landingInhalt } from './landing-inhalt.js';
 
 // Gemeinsamer Rahmen: das Logo und darunter die Karte, mittig auf der Seite
 const rahmen = (dunkel, ...inhalt) =>
@@ -40,51 +41,56 @@ export const anmeldeSeite = alsGast =>
         'div',
         { class: 'landing', id: 'landing' },
         h(
-            'header',
-            { class: 'landing-kopf' },
-            h('img', { src: LOGOS.v, alt: 'vindelis' }),
+            'div',
+            { class: 'landing-held' },
             h(
-                'a',
-                {
-                    class: 'bp-btn bp-btn-o',
-                    id: 'anmelden-kopf',
-                    href: anmeldeAdresse(),
-                    onclick: () => anmeldungMerken()
-                },
-                'Anmelden'
-            )
-        ),
-        h(
-            'main',
-            { class: 'landing-text' },
-            h(
-                'h1',
-                {},
-                h('span', {}, 'Smart to build.'),
-                h('span', {}, 'Safe to ship.'),
-                h('span', {}, 'Reliable to run.')
-            ),
-            h('p', { class: 'landing-lead' }, 'Deine KI baut die Website, du gibst sie frei.'),
-            h(
-                'div',
-                { class: 'landing-knoepfe' },
+                'header',
+                { class: 'landing-kopf' },
+                h('img', { src: LOGOS.v, alt: 'vindelis' }),
                 h(
                     'a',
                     {
-                        class: 'bp-btn bp-btn-p bp-btn-gross',
-                        id: 'anmelden',
+                        class: 'bp-btn bp-btn-o',
+                        id: 'anmelden-kopf',
                         href: anmeldeAdresse(),
                         onclick: () => anmeldungMerken()
                     },
-                    'Jetzt bauen'
-                ),
+                    'Anmelden'
+                )
+            ),
+            h(
+                'main',
+                { class: 'landing-text' },
                 h(
-                    'button',
-                    { class: 'bp-btn bp-btn-o bp-btn-gross', id: 'als-gast', type: 'button', onclick: alsGast },
-                    'Ohne Konto ausprobieren'
+                    'h1',
+                    {},
+                    h('span', {}, 'Smart to build.'),
+                    h('span', {}, 'Safe to ship.'),
+                    h('span', {}, 'Reliable to run.')
+                ),
+                h('p', { class: 'landing-lead' }, 'Deine KI baut die Website, du gibst sie frei.'),
+                h(
+                    'div',
+                    { class: 'landing-knoepfe' },
+                    h(
+                        'a',
+                        {
+                            class: 'bp-btn bp-btn-p bp-btn-gross',
+                            id: 'anmelden',
+                            href: anmeldeAdresse(),
+                            onclick: () => anmeldungMerken()
+                        },
+                        'Jetzt bauen'
+                    ),
+                    h(
+                        'button',
+                        { class: 'bp-btn bp-btn-o bp-btn-gross', id: 'als-gast', type: 'button', onclick: alsGast },
+                        'Ohne Konto ausprobieren'
+                    )
                 )
             )
-        )
+        ),
+        landingInhalt()
     );
 
 // Steht oben auf jeder Seite, solange man nicht angemeldet ist
