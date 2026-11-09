@@ -4,6 +4,7 @@ import { h, LOGOS } from './ui.js';
 import { GUEST_HINT } from '../../js/core/session.js';
 import { DATEN } from './daten.js';
 import { anmeldeAdresse } from './sitzung.js';
+import { anmeldungMerken } from './landing-werte.js';
 
 // Gemeinsamer Rahmen: das Logo und darunter die Karte, mittig auf der Seite
 const rahmen = (dunkel, ...inhalt) =>
@@ -32,17 +33,57 @@ export const fehlerSeite = (dunkel, fehler, nochmals) =>
         )
     );
 
-// Für alle ohne Anmeldung. Wer als Gast weitermacht, wird erst beim ersten Anlegen wirklich zum Gast.
+// Die Startseite für alle ohne Anmeldung. Der Baum dahinter kommt aus verwandlung.js.
+// Wer als Gast weitermacht, wird erst beim ersten Anlegen wirklich zum Gast.
 export const anmeldeSeite = (dunkel, alsGast) =>
-    rahmen(
-        dunkel,
-        h('h2', {}, 'Willkommen bei vindelis'),
-        h('span', { class: 'leise' }, 'Melde dich an, um deine Websites zu sehen.'),
-        h('a', { class: 'bp-btn bp-btn-p', id: 'anmelden', href: anmeldeAdresse() }, 'Anmelden'),
+    h(
+        'div',
+        { class: 'landing', id: 'landing' },
         h(
-            'button',
-            { class: 'bp-btn bp-btn-o', id: 'als-gast', type: 'button', onclick: alsGast },
-            'Ohne Konto ausprobieren'
+            'header',
+            { class: 'landing-kopf' },
+            h('img', { src: dunkel ? LOGOS.dunkel : LOGOS.hell, alt: 'vindelis' }),
+            h(
+                'a',
+                {
+                    class: 'bp-btn bp-btn-o',
+                    id: 'anmelden-kopf',
+                    href: anmeldeAdresse(),
+                    onclick: () => anmeldungMerken()
+                },
+                'Anmelden'
+            )
+        ),
+        h(
+            'main',
+            { class: 'landing-text' },
+            h(
+                'h1',
+                {},
+                h('span', {}, 'Smart to build.'),
+                h('span', {}, 'Safe to ship.'),
+                h('span', {}, 'Reliable to run.')
+            ),
+            h('p', { class: 'landing-lead' }, 'Deine KI baut die Website, du gibst sie frei.'),
+            h(
+                'div',
+                { class: 'landing-knoepfe' },
+                h(
+                    'a',
+                    {
+                        class: 'bp-btn bp-btn-p bp-btn-gross',
+                        id: 'anmelden',
+                        href: anmeldeAdresse(),
+                        onclick: () => anmeldungMerken()
+                    },
+                    'Jetzt bauen'
+                ),
+                h(
+                    'button',
+                    { class: 'bp-btn bp-btn-o bp-btn-gross', id: 'als-gast', type: 'button', onclick: alsGast },
+                    'Ohne Konto ausprobieren'
+                )
+            )
         )
     );
 

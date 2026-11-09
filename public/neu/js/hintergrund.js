@@ -112,7 +112,7 @@ const herausnehmen = (liste, stelle) => {
 };
 
 // Pflanzt den Baum und gibt die Funktion zurück, mit der man sein Alter wechselt
-const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen) => {
+const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen, startTage) => {
     const ruhig = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let tage, ziel, trieb, basis, hoehe, breite;
     let belegt, dichte, straenge, haken, stamm, stuecke, wuerfel, sammlung, uhr;
@@ -342,13 +342,16 @@ const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen) => {
     const gemerkt = nurAnschauen ? null : baumLesen(kennung);
     if (gemerkt) triebNummer = gemerkt.nummer;
     // Die Grösse kommt immer vom echten Alter. Der gemerkte Stand gilt nur am selben Tag, danach ist der Baum grösser
-    pflanzen(DATEN.mensch.tage, gemerkt && gemerkt.tage === DATEN.mensch.tage ? gemerkt.gewachsen : null);
-    return { alter: () => tage, linien: () => linien };
+    pflanzen(startTage, gemerkt && gemerkt.tage === startTage ? gemerkt.gewachsen : null);
+    return { alter: () => tage, linien: () => linien, stoppen: () => clearTimeout(uhr) };
 };
 
+// Der Baum auf der Startseite: Wer nicht angemeldet ist, hat noch keinen eigenen. Er merkt sich nichts
+const MUSTER = { kennung: 'vindelis', tage: 365 };
+
 // Steht ausserhalb von #app, so wächst der Baum beim Seitenwechsel einfach weiter. Auf dem Handy gibt es ihn nicht
-export const hintergrundStarten = () => {
-    if (window.matchMedia('(max-width: 760px)').matches) return;
+export const hintergrundStarten = ({ muster = false } = {}) => {
+    if (window.matchMedia('(max-width: 760px)').matches) return null;
     const gitter = svgFlaeche('hg-gitter');
     gitter.append(svgTeil('path', { d: gitterLinien() }));
     const bild = svgFlaeche('hg-baum');
@@ -361,7 +364,26 @@ export const hintergrundStarten = () => {
     document.body.prepend(rahmen);
     // Nur zum Anschauen: ?id=irgendwas zeigt den Baum einer anderen ID und merkt sich nichts
     const andereId = new URLSearchParams(location.search).get('id');
-    const baum = baumPflanzen(altEbene, triebEbene, andereId || DATEN.mensch.id || 'gast', Boolean(andereId));
+    const baum = muster
+        ? baumPflanzen(altEbene, triebEbene, MUSTER.kennung, true, MUSTER.tage)
+        : baumPflanzen(
+              altEbene,
+              triebEbene,
+              andereId || DATEN.mensch.id || 'gast',
+              Boolean(andereId),
+              DATEN.mensch.tage
+          );
+
+    // Auf der Startseite gibt es keine grosse Ansicht, der Baum muss nur wieder verschwinden können
+    if (muster) {
+        return {
+            wegblenden: () => {
+                baum.stoppen();
+                rahmen.classList.add('hg-weg');
+                setTimeout(() => rahmen.remove(), 1000);
+            }
+        };
+    }
 
     // Öffnet die grosse Ansicht. Sie beginnt genau dort, wo der Baum gerade im Hintergrund steht
     huelle.baumOeffnen = () => {

@@ -14,6 +14,8 @@ import { sitzungLaden } from './sitzung.js';
 import { ladeSeite, fehlerSeite, anmeldeSeite, gastHinweis } from './anmelden.js';
 import { api } from '../../js/core/api.js';
 import { ALTES_COCKPIT, alteAdresse } from './adressen-werte.js';
+import { anmeldungHolen } from './landing-werte.js';
+import { alsGastWeiter, nachAnmeldung, startseitenBaum } from './verwandlung.js';
 
 const MENUE = [
     { pfad: '#/', text: 'Start', symbol: 'start', seite: seiteStart },
@@ -203,8 +205,8 @@ const alteAdresseFolgen = async () => {
 };
 
 // Stellt das Cockpit auf. Läuft genau einmal, erst wenn feststeht, wer am Cockpit sitzt
-const cockpitStarten = () => {
-    hintergrundStarten();
+const cockpitStarten = ({ baumSteht = false } = {}) => {
+    if (!baumSteht) hintergrundStarten();
     huelle.neu = zeichnen;
     window.addEventListener('hashchange', async () => {
         if (await alteAdresseFolgen()) return;
@@ -232,19 +234,27 @@ const vorStartZeigen = seite => document.getElementById('app').replaceChildren(s
 const starten = async () => {
     const dunkel = modus === 'dunkel';
     modusAnwenden();
-    vorStartZeigen(ladeSeite(dunkel));
+    // Wer von der Anmeldung zurückkommt, sieht sofort wieder die Startseite, der Übergang beginnt dort
+    const vomLogin = anmeldungHolen();
+    vorStartZeigen(vomLogin ? anmeldeSeite(dunkel, () => {}) : ladeSeite(dunkel));
     const sitzung = await sitzungLaden();
     if (!sitzung.erreichbar) {
         vorStartZeigen(fehlerSeite(dunkel, sitzung.fehler, starten));
         return;
     }
     if (sitzung.art === 'anon') {
-        vorStartZeigen(anmeldeSeite(dunkel, cockpitStarten));
+        let beispielBaum = null;
+        vorStartZeigen(anmeldeSeite(dunkel, () => alsGastWeiter(beispielBaum, cockpitStarten)));
+        beispielBaum = startseitenBaum();
         return;
     }
     if (await alteAdresseFolgen()) return;
     // Gleich beim Start laden, so stimmt schon das erste Bild (auch bei einem Link direkt auf eine Website)
     await Promise.all([datenLaden(), helferLaden()]);
+    if (vomLogin) {
+        nachAnmeldung(cockpitStarten);
+        return;
+    }
     cockpitStarten();
 };
 
