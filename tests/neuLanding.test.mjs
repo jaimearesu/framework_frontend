@@ -79,6 +79,13 @@ test('Das V sitzt am selben Ort wie das Logo im Cockpit', () => {
     assert.match(block, /max-width: 760px\)[^]*?left: 24px;/);
 });
 
+test('Text und Baum stehen als ein Block in der Mitte, auch auf breiten Bildschirmen', () => {
+    const css = lies('css/cockpit.css');
+    const baum = css.slice(css.indexOf('body.landing-baum .hintergrund {'));
+    assert.match(baum.slice(0, 200), /var\(--landing-versatz\) - 50vw/);
+    assert.match(css, /calc\(50vw - var\(--landing-versatz\) - var\(--landing-breite\) \* 0\.41/);
+});
+
 test('Oben auf der Startseite steht nur das V', () => {
     assert.match(lies('js/anmelden.js'), /h\('img', \{ src: LOGOS\.v, alt: 'vindelis' \}\)/);
 });

@@ -1425,14 +1425,30 @@ body.ueber-baum {
         opacity 900ms ease;
     animation: hg-auf 500ms ease backwards;
 }
-/* Die Wurzel kommt auf 64 % der Breite und 76 % der Höhe, egal wie gross der Bildschirm ist */
+/* Text und Baum sind zusammen ein Block, der mittig auf dem Bildschirm steht. So bleiben sie auch
+   auf sehr breiten Bildschirmen nahe beieinander. --landing-text = Breite des Textes,
+   --landing-luft = kleinster Abstand zum Baum. 0.41 = wie weit die längsten Äste im Verhältnis zum
+   Rahmen ausladen, über eine ganze Drehung gemessen, damit sie nie in den Text ragen */
+:root {
+    --landing-breite: min(60vw, 1100px);
+    --landing-text: min(440px, 31vw);
+    --landing-luft: 30px;
+    --landing-versatz: calc((var(--landing-text) + var(--landing-luft)) / 2);
+}
+/* Die Wurzel steht rechts der Mitte und auf 76 % der Höhe */
 body.landing-baum .hintergrund {
-    --breite: min(60vw, 1100px);
-    transform: translate(calc(var(--breite) * 0.2545 - 36vw), calc(var(--breite) * 0.0636 - 24vh)) scale(1.85);
+    transform: translate(
+            calc(var(--landing-breite) * 0.2545 + var(--landing-versatz) - 50vw),
+            calc(var(--landing-breite) * 0.0636 - 24vh)
+        )
+        scale(1.85);
 }
 @media (min-width: 761px) {
     .landing-text {
-        margin-left: clamp(0px, 6.5vw, 150px);
+        margin-left: max(
+            0px,
+            calc(50vw - var(--landing-versatz) - var(--landing-breite) * 0.41 - clamp(16px, 4vw, 64px))
+        );
         padding-bottom: 8vh;
     }
 }
