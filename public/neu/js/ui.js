@@ -94,9 +94,6 @@ export const meldung = (titel, text, symbol = 'haken') => {
     setTimeout(() => eintrag.remove(), 4000);
 };
 
-// In der Anprobe tun manche Knöpfe noch nichts, das sagen wir offen
-export const nurAnprobe = () => meldung('Nur Anprobe', 'Dieser Knopf bekommt seine Funktion beim Einbau.');
-
 // Dialog über der Seite. zeichne() liefert den Inhalt und kann neu() aufrufen.
 // kreuz: false lässt das Kreuz oben rechts weg (die Suche hat dort ihr Eingabefeld).
 export const dialog = (zeichne, { kreuz = true } = {}) => {

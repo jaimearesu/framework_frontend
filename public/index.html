@@ -17,6 +17,7 @@
         <link rel="stylesheet" href="/css/fonts.css" />
         <link rel="stylesheet" href="/css/app.css" />
         <link rel="stylesheet" href="/css/pages.css" />
+        <link rel="stylesheet" href="/css/werkstatt.css" />
         <!-- Theme so früh wie möglich setzen, damit die Seite nicht kurz hell aufblitzt -->
         <script>
             try {
@@ -25,6 +26,16 @@
                 if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
             } catch {
                 /* ohne Speicher einfach automatisch */
+            }
+            // Über die Werkstatt des neuen Cockpits: Technik-Ansicht, Farben der Marke (nur in diesem Tab)
+            try {
+                if (new URLSearchParams(location.search).has('werkstatt')) {
+                    sessionStorage.setItem('at0mic.werkstatt', '1');
+                    localStorage.setItem('at0mic.view', JSON.stringify('technik'));
+                }
+                if (sessionStorage.getItem('at0mic.werkstatt')) document.documentElement.dataset.werkstatt = '';
+            } catch {
+                /* ohne Speicher einfach die normalen Farben */
             }
         </script>
     </head>

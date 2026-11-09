@@ -1,11 +1,12 @@
 // Die Seiten des Hauptmenüs: Start, Websites, Verlauf, Konto, Werkstatt
-import { h, zustandPlakette, leer, huelle, kopierKnopf, kopierZeile } from './ui.js';
+import { h, ikon, zustandPlakette, leer, huelle, kopierKnopf, kopierZeile } from './ui.js';
 import { loadThumbnail } from '../../js/core/objects.js';
 import { DATEN } from './daten.js';
 import { neueWebsiteOeffnen } from './neue-website.js';
 import { abmeldeAdresse } from './sitzung.js';
 import { neuLaden } from './websites.js';
 import { papierkorbAbschnitt } from './papierkorb.js';
+import { werkzeugGruppen } from './werkstatt-werte.js';
 
 // Vorschaubild einer Website. Nur öffentliche Websites haben ein echtes Bild, die anderen behalten die Skizze
 export const vorschauBild = (gross, website) => {
@@ -274,13 +275,38 @@ export const seiteKonto = () =>
             : null
     );
 
+// Die Technik bleibt, wie sie ist. Hier führen die Wege hinein
 export const seiteWerkstatt = () =>
     h(
         'div',
-        { class: 'bp-karte' },
-        leer(
-            'werkstatt',
-            'Die Technik bleibt hier',
-            'Objekte, Rechte, SSF-Studio und Systemcheck ziehen unverändert hierher, nur in den neuen Farben.'
+        { class: 'stapel', id: 'werkstatt' },
+        h(
+            'p',
+            { class: 'leise' },
+            'Die Technik-Seiten für alle, die genauer hinschauen wollen. Sie öffnen sich in der gewohnten Ansicht, zurück geht es mit dem Pfeil des Browsers.'
+        ),
+        werkzeugGruppen().map(([gruppe, liste]) =>
+            h(
+                'div',
+                { class: 'bp-karte eng stapel' },
+                h('h3', {}, gruppe),
+                h(
+                    'div',
+                    { class: 'zeilen' },
+                    liste.map(w =>
+                        h(
+                            'a',
+                            { class: 'zeile zeile-link', href: w.adresse },
+                            h(
+                                'div',
+                                { class: 'zeile-text' },
+                                h('b', {}, w.titel),
+                                h('span', { class: 'leise' }, w.text)
+                            ),
+                            h('span', { class: 'bp-ikonknopf', 'aria-hidden': 'true' }, ikon('pfeil'))
+                        )
+                    )
+                )
+            )
         )
     );

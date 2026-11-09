@@ -1,5 +1,4 @@
-// Was die Seiten anzeigen. Mensch, Konto, Websites, Wartet und Papierkorb füllt das Backend beim Start,
-// der Rest sind noch Beispiele und wird Etappe für Etappe (U4d bis U4f) ersetzt.
+// Was die Seiten anzeigen. Alles füllt das Backend beim Start, hier stehen nur die Anfangswerte.
 
 export const DATEN = {
     // tage: wie lange die Person schon auf vindelis ist, bestimmt die Grösse ihres Baums
