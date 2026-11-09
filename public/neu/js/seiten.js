@@ -1,8 +1,8 @@
-// Die Seiten des Hauptmenüs: Start, Wartet auf mich, KI-Helfer, Verlauf, Konto, Werkstatt
-import { h, ikon, zustandPlakette, nurAnprobe, leer, dialog, huelle, kopierKnopf, kopierZeile } from './ui.js';
+// Die Seiten des Hauptmenüs: Start, Websites, Verlauf, Konto, Werkstatt
+import { h, zustandPlakette, leer, huelle, kopierKnopf, kopierZeile } from './ui.js';
 import { loadThumbnail } from '../../js/core/objects.js';
 import { DATEN } from './daten.js';
-import { anleitungListe, neueWebsiteOeffnen } from './neue-website.js';
+import { neueWebsiteOeffnen } from './neue-website.js';
 import { abmeldeAdresse } from './sitzung.js';
 import { neuLaden } from './websites.js';
 import { papierkorbAbschnitt } from './papierkorb.js';
@@ -217,80 +217,6 @@ seiteStart.unter = () =>
             },
             'Mein Baum'
         )
-    );
-
-const helferVerbindenOeffnen = () =>
-    dialog(({ zu }) => [
-        h('h3', {}, 'KI-Helfer verbinden'),
-        anleitungListe(),
-        h(
-            'p',
-            { class: 'leise' },
-            'Ein KI-Helfer arbeitet mit seinen eigenen Rechten, nie mit deinen. Veröffentlichen kann er nie, er bittet dich darum.'
-        ),
-        h(
-            'div',
-            { class: 'bp-dialog-fuss' },
-            h('button', { class: 'bp-btn bp-btn-p', type: 'button', onclick: zu }, 'Fertig')
-        )
-    ]);
-
-const helferPlakette = x => {
-    if (x.zustand === 'aktiv') return h('span', { class: 'bp-st bp-st-ok' }, 'Verbunden mit ' + x.verbunden);
-    if (x.zustand === 'neu') return h('span', { class: 'bp-st bp-st-warn' }, 'Wartet auf Verbindung');
-    return h('span', { class: 'bp-badge bp-badge-s' }, 'Nicht verbunden');
-};
-
-export const seiteHelfer = () => [
-    h(
-        'div',
-        { class: 'kacheln' },
-        DATEN.helfer.map(x =>
-            h(
-                'div',
-                { class: 'bp-karte eng stapel' },
-                h(
-                    'div',
-                    { class: 'zeile', style: 'padding:0;border:0' },
-                    h('span', { class: 'rund', 'aria-hidden': 'true' }, ikon('helfer')),
-                    h(
-                        'div',
-                        { class: 'zeile-text' },
-                        h('b', {}, x.name),
-                        h('span', { class: 'leise' }, 'Zuletzt aktiv: ' + x.aktiv)
-                    )
-                ),
-                h('div', {}, helferPlakette(x)),
-                h('div', { class: 'leise' }, 'Arbeitet an: ' + (x.websites.join(', ') || 'noch nichts')),
-                h(
-                    'div',
-                    { class: 'zeile-knopf' },
-                    x.zustand === 'aktiv'
-                        ? h(
-                              'button',
-                              { class: 'bp-btn bp-btn-o bp-btn-klein', type: 'button', onclick: nurAnprobe },
-                              'Verbindung trennen'
-                          )
-                        : h(
-                              'button',
-                              {
-                                  class: 'bp-btn bp-btn-o bp-btn-klein',
-                                  type: 'button',
-                                  onclick: helferVerbindenOeffnen
-                              },
-                              'Verbinden'
-                          )
-                )
-            )
-        )
-    )
-];
-seiteHelfer.knopf = () =>
-    h(
-        'button',
-        { class: 'bp-btn bp-btn-p', type: 'button', onclick: helferVerbindenOeffnen },
-        ikon('plus'),
-        'KI-Helfer verbinden'
     );
 
 // Platz ist reserviert, Jaimes Idee zum Verlauf kommt noch

@@ -4,6 +4,7 @@ import { loadObjects, loadObjectNames, objectLabel } from '../../js/core/objects
 import { DATEN } from './daten.js';
 import { huelle } from './ui.js';
 import { websitesAusApi, bitteAusApi, uploadAusApi, papierkorbAusApi } from './websites-werte.js';
+import { helferAusApi } from './helfer-werte.js';
 
 const liste = antwort => (antwort.ok && Array.isArray(antwort.data?.data) ? antwort.data.data : []);
 
@@ -59,5 +60,24 @@ export const datenLaden = async () => {
 // Für die Knöpfe «Nochmals versuchen» und nach jeder Entscheidung
 export const neuLaden = async () => {
     await datenLaden();
+    huelle.neu();
+};
+
+// KI-Helfer gibt es nur für angemeldete Menschen. Sie werden nicht bei jedem Seitenwechsel geladen,
+// sondern beim Start, auf ihrer Seite und vor dem Dialog «Neue Website». Liefert true bei einer Änderung
+export const helferLaden = async () => {
+    if (DATEN.mensch.art !== 'user') return false;
+    const vorher = JSON.stringify([DATEN.helfer, DATEN.helferFehler, DATEN.mcpAdresse]);
+    const antwort = await api.get('/api/agents', { query: { days: 180 } });
+    DATEN.helferFehler = !antwort.ok;
+    if (antwort.ok) {
+        DATEN.helfer = liste(antwort).map(a => helferAusApi(a));
+        DATEN.mcpAdresse = antwort.data?.meta?.oauth?.mcpUrl || null;
+    }
+    return JSON.stringify([DATEN.helfer, DATEN.helferFehler, DATEN.mcpAdresse]) !== vorher;
+};
+
+export const helferNeuLaden = async () => {
+    await helferLaden();
     huelle.neu();
 };

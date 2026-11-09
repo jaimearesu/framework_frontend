@@ -4,34 +4,11 @@
 export const DATEN = {
     // tage: wie lange die Person schon auf vindelis ist, bestimmt die Grösse ihres Baums
     mensch: { name: 'Jaime', id: 'a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d', tage: 30 },
-    mcpAdresse: 'https://vindelis.com/mcp',
+    // Adresse zum Verbinden. Leer, solange das Backend sie nicht gemeldet hat
+    mcpAdresse: null,
     websites: [],
-    helfer: [
-        {
-            id: 'claude',
-            name: 'Claude',
-            verbunden: 'Claude',
-            aktiv: 'vor 12 Minuten',
-            zustand: 'aktiv',
-            websites: ['Bäckerei Sonne', 'Ferienhaus Engadin']
-        },
-        {
-            id: 'chatgpt',
-            name: 'ChatGPT',
-            verbunden: 'ChatGPT',
-            aktiv: 'vor 1 Stunde',
-            zustand: 'aktiv',
-            websites: ['Turnverein Aarau']
-        },
-        {
-            id: 'mira',
-            name: 'Mira',
-            verbunden: null,
-            aktiv: 'vor 3 Tagen',
-            zustand: 'getrennt',
-            websites: ['Quartier-Flohmarkt']
-        }
-    ],
+    helfer: [],
+    helferFehler: false,
     wartet: [],
     personen: [
         { name: 'Jaime', art: 'Mensch', darf: 'Besitzer', seit: 'März' },

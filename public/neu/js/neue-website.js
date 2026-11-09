@@ -2,8 +2,14 @@
 //   Schritt 1: Name und Beschreibung
 //   Schritt 2: bestehenden KI-Helfer zuweisen oder neuen erstellen
 //   Danach, nur bei einem neuen Helfer: Anleitung zum Verbinden. Dann fertig.
+// Eine KI bekommt alle drei Rechte, aber nur auf dieser Website (Entscheid 3 in Plan U).
+import { api } from '../../js/core/api.js';
+import { invalidateObjects } from '../../js/core/objects.js';
 import { h, dialog, meldung, zuAdresse, kopierZeile } from './ui.js';
 import { DATEN } from './daten.js';
+import { datenLaden, helferLaden } from './websites.js';
+import { sitzungLaden } from './sitzung.js';
+import { helferNameAus, websiteAnlegen } from './helfer-werte.js';
 
 // Kopfzeile mit den zwei Schritten
 const schrittAnzeige = aktuell =>
@@ -27,57 +33,85 @@ const fehlerWeg = (stand, feld) => {
     feld.closest('.dlg-box').querySelector('.bp-h-gefahr')?.remove();
 };
 
-// Legt die Website in den Beispieldaten an und geht zu ihr
-const websiteAnlegen = stand => {
-    const id = zuAdresse(stand.name);
-    const helferName = stand.wahl === 'neu' ? stand.neuerName.trim() : DATEN.helfer.find(x => x.id === stand.wahl).name;
-    DATEN.websites.unshift({
-        id,
-        adresse: id + '.vindelis.site',
-        zeile: 'gerade eben',
-        titel: stand.name.trim(),
-        beschreibung: stand.beschreibung.trim(),
-        zustand: 'entwurf',
-        geaendert: 'gerade eben',
-        geaendertVor: 0,
-        erstelltVor: 0,
-        von: 'Du',
-        besuche: '0',
-        speicher: '0 MB',
-        probleme: 0
-    });
-    // Zurück auf die erste Seite, dort steht die neue Website
-    DATEN.startAnsicht.seite = 1;
-    if (stand.wahl === 'neu') {
-        DATEN.helfer.push({
-            id: zuAdresse(helferName),
-            name: helferName,
-            verbunden: null,
-            aktiv: 'noch nie',
-            zustand: 'neu',
-            websites: [stand.name.trim()]
-        });
-    } else {
-        DATEN.helfer.find(x => x.id === stand.wahl).websites.push(stand.name.trim());
-    }
-    return id;
-};
+// Nur angemeldete Menschen können einen KI-Helfer zuweisen. Gäste legen die Website direkt an
+const mitHelfer = () => DATEN.mensch.art === 'user';
 
-export const neueWebsiteOeffnen = () => {
+export const neueWebsiteOeffnen = async () => {
+    // Vorher frisch holen: Inzwischen kann ein Helfer dazugekommen sein
+    await helferLaden();
     const stand = {
         schritt: 1,
         name: '',
         beschreibung: '',
         wahl: DATEN.helfer[0]?.id || 'neu',
         neuerName: '',
-        fehler: ''
+        helferName: '',
+        fehler: '',
+        arbeitet: false,
+        fortschritt: {}
+    };
+
+    // Führt das Anlegen aus und entscheidet, was danach zu sehen ist
+    const anlegen = async ({ zu, neu }) => {
+        if (stand.arbeitet) return;
+        const adresse = zuAdresse(stand.name);
+        let helfer = null;
+        if (mitHelfer() && stand.wahl === 'neu') {
+            const name = helferNameAus(stand.neuerName, zuAdresse);
+            if (name.fehler) {
+                stand.fehler = name.fehler;
+                neu();
+                return;
+            }
+            stand.helferName = name.name;
+            helfer = { neu: name.name };
+        } else if (mitHelfer()) {
+            helfer = { uuid: stand.wahl };
+            stand.helferName = DATEN.helfer.find(x => x.id === stand.wahl)?.name || '';
+        }
+        stand.arbeitet = true;
+        stand.fehler = '';
+        neu();
+        const ergebnis = await websiteAnlegen({
+            api,
+            adresse,
+            beschreibung: stand.beschreibung.trim(),
+            helfer,
+            fortschritt: stand.fortschritt
+        });
+        stand.arbeitet = false;
+        invalidateObjects();
+        // Wer ohne Konto angefangen hat, ist jetzt Gast. Erst dann liefern die Listen etwas
+        if (DATEN.mensch.art === 'anon' && stand.fortschritt.website) await sitzungLaden();
+        // Auch nach einem Teil-Erfolg, damit die neue Website in der Liste steht
+        await Promise.all([datenLaden(), helferLaden()]);
+        if (!ergebnis.ok) {
+            stand.fehler =
+                ergebnis.schritt === 'website'
+                    ? ergebnis.error
+                    : 'Die Website ist angelegt, der KI-Helfer aber noch nicht zugewiesen: ' + ergebnis.error;
+            if (ergebnis.schritt === 'website') stand.schritt = 1;
+            neu();
+            return;
+        }
+        stand.id = ergebnis.uuid;
+        DATEN.startAnsicht.seite = 1;
+        if (helfer?.neu) {
+            // Neuer Helfer: zuerst die Anleitung zum Verbinden
+            stand.schritt = 3;
+            neu();
+            return;
+        }
+        zu();
+        meldung('Website angelegt', ergebnis.warnung || (helfer ? 'Dein KI-Helfer kann jetzt loslegen.' : adresse));
+        location.hash = '#/website/' + stand.id;
     };
 
     const schrittEins = ({ zu, neu }) => {
         const adresse = h('small', {}, adressText(stand.name));
         return [
             h('h3', {}, 'Neue Website'),
-            schrittAnzeige(1),
+            mitHelfer() ? schrittAnzeige(1) : null,
             h(
                 'div',
                 { class: 'bp-feld' },
@@ -124,16 +158,20 @@ export const neueWebsiteOeffnen = () => {
                         onclick: () => {
                             const id = zuAdresse(stand.name);
                             if (!id) stand.fehler = 'Bitte gib der Website einen Namen.';
-                            else if (DATEN.websites.some(w => zuAdresse(w.titel) === id))
+                            else if (!stand.fortschritt.website && DATEN.websites.some(w => w.titel === id))
                                 stand.fehler = 'Diese Adresse ist schon vergeben.';
                             else {
                                 stand.fehler = '';
-                                stand.schritt = 2;
+                                if (mitHelfer()) stand.schritt = 2;
+                                else {
+                                    anlegen({ zu, neu });
+                                    return;
+                                }
                             }
                             neu();
                         }
                     },
-                    'Weiter'
+                    mitHelfer() ? 'Weiter' : stand.arbeitet ? 'Wird angelegt…' : 'Website anlegen'
                 )
             )
         ];
@@ -173,9 +211,11 @@ export const neueWebsiteOeffnen = () => {
                             h(
                                 'span',
                                 { class: 'leise' },
-                                x.verbunden
-                                    ? 'Verbunden mit ' + x.verbunden + ', zuletzt ' + x.aktiv
-                                    : 'Nicht verbunden'
+                                x.zustand === 'aktiv'
+                                    ? x.status + ', zuletzt aktiv: ' + x.aktiv
+                                    : x.zustand === 'neu'
+                                      ? 'Wartet auf Verbindung'
+                                      : 'Nicht verbunden'
                             )
                         )
                     )
@@ -198,19 +238,26 @@ export const neueWebsiteOeffnen = () => {
                               stand.neuerName = e.target.value;
                               fehlerWeg(stand, e.target);
                           }
-                      })
+                      }),
+                      h('small', {}, 'Du erkennst ihn beim Verbinden unter «agent-…» wieder.')
                   )
                 : null,
             stand.fehler ? h('div', { class: 'bp-hinweis bp-h-gefahr' }, stand.fehler) : null,
-            h('p', { class: 'leise' }, 'Der Helfer darf nur an dieser Website arbeiten. Veröffentlichen kann nur du.'),
+            h(
+                'p',
+                { class: 'leise' },
+                'Der Helfer bekommt seine Rechte nur für diese Website. Veröffentlichen kannst nur du.'
+            ),
             h(
                 'div',
                 { class: 'bp-dialog-fuss' },
                 h(
                     'button',
                     {
-                        class: 'bp-btn bp-btn-o',
+                        class: 'bp-btn ' + (stand.fortschritt.website ? 'bp-btn-off' : 'bp-btn-o'),
                         type: 'button',
+                        // Ist die Website schon angelegt, lässt sich ihr Name hier nicht mehr ändern
+                        disabled: Boolean(stand.fortschritt.website),
                         onclick: () => {
                             stand.schritt = 1;
                             stand.fehler = '';
@@ -225,34 +272,19 @@ export const neueWebsiteOeffnen = () => {
                         class: 'bp-btn bp-btn-p',
                         type: 'button',
                         id: 'nw-anlegen',
-                        onclick: () => {
-                            if (stand.wahl === 'neu' && !stand.neuerName.trim()) {
-                                stand.fehler = 'Bitte gib dem neuen Helfer einen Namen.';
-                                neu();
-                                return;
-                            }
-                            stand.id = websiteAnlegen(stand);
-                            if (stand.wahl === 'neu') {
-                                // Neuer Helfer: zuerst die Anleitung zum Verbinden
-                                stand.schritt = 3;
-                                neu();
-                            } else {
-                                zu();
-                                meldung('Website angelegt', 'Dein KI-Helfer kann jetzt loslegen.');
-                                location.hash = '#/website/' + stand.id;
-                            }
-                        }
+                        disabled: stand.arbeitet,
+                        onclick: () => anlegen({ zu, neu })
                     },
-                    'Website anlegen'
+                    stand.arbeitet ? 'Wird angelegt…' : 'Website anlegen'
                 )
             )
         ];
     };
 
     const schrittAnleitung = ({ zu }) => [
-        h('h3', {}, stand.neuerName.trim() + ' verbinden'),
+        h('h3', {}, stand.helferName + ' verbinden'),
         h('p', { class: 'leise' }, 'Die Website ist angelegt. Noch drei Schritte, dann kann der Helfer loslegen.'),
-        anleitungListe(),
+        anleitungListe(stand.helferName),
         h(
             'div',
             { class: 'bp-dialog-fuss' },
@@ -284,16 +316,37 @@ const adressText = name => {
     return id ? 'Adresse: ' + id + '.vindelis.site' : 'Daraus entsteht die Adresse der Website.';
 };
 
-// Die drei Schritte zum Verbinden, auch auf der Seite KI-Helfer gebraucht
-export const anleitungListe = () =>
-    h(
-        'ol',
-        { class: 'anleitung' },
-        h(
-            'li',
-            {},
-            h('span', {}, 'Öffne in Claude oder ChatGPT die Einstellungen und füge einen eigenen Connector hinzu.')
-        ),
-        h('li', {}, h('span', {}, 'Füge diese Adresse ein:'), kopierZeile(DATEN.mcpAdresse)),
-        h('li', {}, h('span', {}, 'Melde dich bei vindelis an und klicke auf «Erlauben».'))
-    );
+// Die drei Schritte zum Verbinden, auch auf der Seite KI-Helfer gebraucht.
+// name: Dieser Helfer soll es sein. Ohne Namen legt man ihn beim «Erlauben» an
+export const anleitungListe = name =>
+    DATEN.mcpAdresse
+        ? h(
+              'ol',
+              { class: 'anleitung' },
+              h(
+                  'li',
+                  {},
+                  h(
+                      'span',
+                      {},
+                      'Öffne in Claude oder ChatGPT die Einstellungen und füge einen eigenen Connector hinzu.'
+                  )
+              ),
+              h('li', {}, h('span', {}, 'Füge diese Adresse ein:'), kopierZeile(DATEN.mcpAdresse)),
+              h(
+                  'li',
+                  {},
+                  h(
+                      'span',
+                      {},
+                      name
+                          ? 'Melde dich bei vindelis an, wähle «' + name + '» und klicke auf «Erlauben».'
+                          : 'Melde dich bei vindelis an, wähle einen Namen für den Helfer und klicke auf «Erlauben».'
+                  )
+              )
+          )
+        : h(
+              'div',
+              { class: 'bp-hinweis bp-h-warn', id: 'verbinden-aus' },
+              'Das Verbinden von KI-Helfern ist auf diesem Server noch nicht eingeschaltet.'
+          );
