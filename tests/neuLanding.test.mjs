@@ -72,6 +72,13 @@ test('Dreht sich der Baum, zählt die neue Blickrichtung samt ihrer Tiefe', () =
     assert.deepEqual(filmPfade(LINIEN.slice(0, 1), 0.5, gedreht), { tief: 'M1.0 0.0L1.0 0.0' });
 });
 
+test('Das V sitzt am selben Ort wie das Logo im Cockpit', () => {
+    const css = lies('css/cockpit.css');
+    const block = css.slice(css.indexOf('.landing-kopf {'));
+    assert.match(block, /top: 20px;[^}]*left: 20px;[^}]*height: 16px;/);
+    assert.match(block, /max-width: 760px\)[^]*?left: 24px;/);
+});
+
 test('Oben auf der Startseite steht nur das V', () => {
     assert.match(lies('js/anmelden.js'), /h\('img', \{ src: LOGOS\.v, alt: 'vindelis' \}\)/);
 });

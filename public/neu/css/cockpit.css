@@ -1364,14 +1364,29 @@ body.ueber-baum {
 .landing.weg {
     opacity: 0;
 }
+/* Das V sitzt genau dort und ist genau so gross wie im Logo des Cockpits (20 px vom Rand, Höhe 16 px).
+   Die Datei der Bildmarke hat einen hauchdünnen Rand, darum 16.32 px und der kleine Versatz */
 .landing-kopf {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    left: 20px;
+    height: 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 .landing-kopf img {
     display: block;
-    height: 22px;
+    height: 16.32px;
+    margin-left: -0.16px;
+}
+@media (max-width: 760px) {
+    .landing-kopf {
+        top: 19.75px;
+        right: 24px;
+        left: 24px;
+    }
 }
 .landing-text {
     flex: 1;
@@ -1450,9 +1465,6 @@ body.landing-baum .baum-t2 {
 }
 body.landing-baum .baum-t3 {
     opacity: 0.28;
-}
-.landing-kopf img {
-    height: 28px;
 }
 body[data-modus='dunkel'] .landing-kopf img {
     filter: invert(1);
