@@ -2,6 +2,7 @@
 // Eine Suche durch Code, Daten und Personen braucht eine neue Abfrage im Backend (eigener Plan nach der Umstellung).
 import { h, ikon, dialog } from './ui.js';
 import { DATEN } from './daten.js';
+import { WERKZEUGE } from './werkstatt-werte.js';
 
 // Gross/klein und Akzente zählen nicht. Pro Zeichen genau ein Zeichen, damit die Fundstelle stimmt.
 const einfach = text =>
@@ -26,7 +27,7 @@ const fundstelle = (text, wort) => {
     return null;
 };
 
-// Alles, was durchsucht wird. Beim Einbau liefert das Backend diese Liste.
+// Alles, was durchsucht wird: die Namen, die der Browser schon kennt
 const allesDurchsuchbare = seiten => [
     ...DATEN.websites.map(w => ({
         art: 'Websites',
@@ -42,7 +43,8 @@ const allesDurchsuchbare = seiten => [
         texte: x.websites,
         pfad: '#/helfer'
     })),
-    ...seiten.map(m => ({ art: 'Seiten', symbol: m.symbol, titel: m.text, texte: [], pfad: m.pfad }))
+    ...seiten.map(m => ({ art: 'Seiten', symbol: m.symbol, titel: m.text, texte: [], pfad: m.pfad })),
+    ...WERKZEUGE.map(w => ({ art: 'Werkstatt', symbol: 'werkstatt', titel: w.titel, texte: [w.text], pfad: w.adresse }))
 ];
 
 // Alle Wörter müssen vorkommen. Treffer im Namen zählen mehr als Treffer im Text.
@@ -180,7 +182,7 @@ export const sucheOeffnen = seiten => {
                                 fuellen();
                             }
                             if (e.key === 'Enter' && gefunden[aktiv]) {
-                                location.hash = gefunden[aktiv].pfad;
+                                location.assign(gefunden[aktiv].pfad);
                                 zu();
                             }
                         }

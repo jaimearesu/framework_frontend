@@ -1,13 +1,13 @@
 // Eine Website mit ihren Reitern. Übersicht, Code und Daten sind echt,
 // Personen und Einstellungen kommen mit den Etappen U4e und U4f
 import { api } from '../../js/core/api.js';
-import { h, ikon, zustandPlakette, nurAnprobe, huelle, leer } from './ui.js';
-import { href } from '../../js/core/routes.js';
+import { h, ikon, zustandPlakette, huelle, leer } from './ui.js';
 import { DATEN } from './daten.js';
 import { verlaufPlatzhalter } from './seiten.js';
 import { neuLaden } from './websites.js';
 import { wartetKarte } from './wartet.js';
-import { zugriffGebenOeffnen } from './zugriff.js';
+import { reiterPersonen } from './website-personen.js';
+import { reiterEinstellungen } from './website-einstellungen.js';
 import { websiteAus } from './websites-werte.js';
 import { darfVeroeffentlichen, websiteLink } from './website-werte.js';
 import { reiterUebersicht } from './website-uebersicht.js';
@@ -23,200 +23,6 @@ const REITER = [
     ['personen', 'Personen'],
     ['einstellungen', 'Einstellungen']
 ];
-
-const reiterPersonen = w =>
-    h(
-        'div',
-        { class: 'stapel' },
-        h(
-            'div',
-            { class: 'abschnitt' },
-            h(
-                'div',
-                { class: 'abschnitt-kopf' },
-                h('h3', {}, 'Wer hat Zugriff'),
-                h(
-                    'button',
-                    {
-                        class: 'bp-btn bp-btn-p',
-                        id: 'zugriff-geben',
-                        type: 'button',
-                        onclick: () => zugriffGebenOeffnen(w)
-                    },
-                    ikon('plus'),
-                    'Zugriff geben'
-                )
-            ),
-            h(
-                'div',
-                { class: 'bp-tab-wrap' },
-                h(
-                    'table',
-                    { class: 'bp-tab' },
-                    h(
-                        'thead',
-                        {},
-                        h(
-                            'tr',
-                            {},
-                            ['Name', 'Art', 'Darf', 'Seit', ''].map(t => h('th', {}, t))
-                        )
-                    ),
-                    h(
-                        'tbody',
-                        {},
-                        DATEN.personen.map(p =>
-                            h(
-                                'tr',
-                                {},
-                                h('td', {}, h('b', {}, p.name)),
-                                h('td', {}, p.art),
-                                h('td', {}, p.darf),
-                                h('td', {}, p.seit),
-                                h(
-                                    'td',
-                                    { class: 'bp-rechts' },
-                                    p.darf === 'Besitzer'
-                                        ? null
-                                        : h(
-                                              'button',
-                                              {
-                                                  class: 'bp-ikonknopf',
-                                                  type: 'button',
-                                                  'aria-label': 'Zugriff von ' + p.name + ' entfernen',
-                                                  onclick: nurAnprobe
-                                              },
-                                              ikon('kreuz')
-                                          )
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        ),
-        DATEN.einladungen.length
-            ? h(
-                  'div',
-                  { class: 'abschnitt', id: 'offene-einladungen' },
-                  h('div', { class: 'abschnitt-kopf' }, h('h3', {}, 'Offene Einladungen')),
-                  h(
-                      'div',
-                      { class: 'bp-tab-wrap' },
-                      h(
-                          'table',
-                          { class: 'bp-tab' },
-                          h(
-                              'thead',
-                              {},
-                              h(
-                                  'tr',
-                                  {},
-                                  ['Worauf', 'Darf', 'Gültig', 'Benutzt', ''].map(t => h('th', {}, t))
-                              )
-                          ),
-                          h(
-                              'tbody',
-                              {},
-                              DATEN.einladungen.map(e =>
-                                  h(
-                                      'tr',
-                                      {},
-                                      h('td', {}, e.worauf),
-                                      h('td', {}, e.darf),
-                                      h('td', {}, e.gueltig),
-                                      h('td', {}, e.benutzt),
-                                      h(
-                                          'td',
-                                          { class: 'bp-rechts' },
-                                          h(
-                                              'button',
-                                              {
-                                                  class: 'bp-btn bp-btn-o bp-btn-klein',
-                                                  type: 'button',
-                                                  onclick: () => {
-                                                      DATEN.einladungen = DATEN.einladungen.filter(x => x.id !== e.id);
-                                                      huelle.neu();
-                                                  }
-                                              },
-                                              'Widerrufen'
-                                          )
-                                      )
-                                  )
-                              )
-                          )
-                      )
-                  )
-              )
-            : null
-    );
-
-// Die Einstellungen als ruhige Liste, nach Thema gruppiert
-const EINSTELLUNGEN = [
-    [
-        'Website',
-        [
-            ['Eigene Domain', 'Die Website unter deiner eigenen Adresse zeigen.'],
-            ['Sichtbarkeit', 'Wer welchen Teil der Website sehen kann.']
-        ]
-    ],
-    [
-        'Sicherheit',
-        [
-            ['Schlüssel', 'Zugangsdaten für fremde Dienste, sicher im Tresor.'],
-            ['Sicherungen', 'Frühere Stände ansehen und wiederherstellen.']
-        ]
-    ],
-    [
-        'Automatik',
-        [
-            ['Aufträge und Zeitpläne', 'Was im Hintergrund oder regelmässig läuft.'],
-            ['Webhooks', 'Nachrichten von fremden Diensten empfangen.'],
-            ['Vektoren', 'Suche nach Bedeutung statt nach genauen Wörtern.']
-        ]
-    ],
-    [
-        'Website als Ganzes',
-        [
-            ['Klonen', 'Eine Kopie dieser Website anlegen.'],
-            ['Löschen', 'Die Website mit allen Daten entfernen.', true]
-        ]
-    ]
-];
-
-const reiterEinstellungen = () =>
-    h(
-        'div',
-        { class: 'stapel' },
-        EINSTELLUNGEN.map(([gruppe, zeilen]) =>
-            h(
-                'div',
-                { class: 'bp-karte eng stapel' },
-                h('h3', {}, gruppe),
-                h(
-                    'div',
-                    { class: 'zeilen' },
-                    zeilen.map(([titel, text, gefahr]) =>
-                        h(
-                            'div',
-                            { class: gefahr ? 'zeile gefahr' : 'zeile' },
-                            h('div', { class: 'zeile-text' }, h('b', {}, titel), h('span', { class: 'leise' }, text)),
-                            h(
-                                'button',
-                                {
-                                    class: 'bp-ikonknopf',
-                                    type: 'button',
-                                    'aria-label': titel + ' öffnen',
-                                    onclick: nurAnprobe
-                                },
-                                ikon('pfeil')
-                            )
-                        )
-                    )
-                )
-            )
-        )
-    );
 
 // Der geladene Stand der offenen Website. Wie lange er als frisch gilt, steht in FRISCH_MS
 const FRISCH_MS = 30000;
@@ -287,15 +93,6 @@ const sofortNeu = async () => {
     await neuLaden();
 };
 
-// Zwei Reiter zeigen bis U4e und U4f noch Beispiele. Das muss man sehen
-const beispielHinweis = w =>
-    h(
-        'div',
-        { class: 'bp-hinweis bp-h-warn mit-knopf', id: 'noch-beispiele' },
-        h('span', {}, 'Dieser Reiter zeigt noch Beispiele, nicht diese Website.'),
-        h('a', { class: 'bp-btn bp-btn-o bp-btn-klein', href: '/' + href('website', w.id) }, 'Im alten Cockpit öffnen')
-    );
-
 export const seiteWebsite = (id, reiter, teil) => {
     if (stand.id !== id) {
         Object.assign(stand, { id, site: null, fehler: null, zeit: 0, bitten: null });
@@ -330,8 +127,8 @@ export const seiteWebsite = (id, reiter, teil) => {
         verlauf: () => verlaufPlatzhalter(),
         code: () => reiterCode(w, site, teil),
         daten: () => reiterDaten(w, site, teil),
-        personen: () => reiterPersonen(w),
-        einstellungen: () => reiterEinstellungen()
+        personen: () => reiterPersonen(w, site),
+        einstellungen: () => reiterEinstellungen(w, site, teil, sofortNeu)
     }[aktiv]();
     const bitteOffen = bitten.some(e => e.art === 'Veröffentlichen');
     const link = websiteLink(site);
@@ -396,7 +193,6 @@ export const seiteWebsite = (id, reiter, teil) => {
                 )
             )
         ),
-        aktiv === 'personen' || aktiv === 'einstellungen' ? beispielHinweis(w) : null,
         h('div', { class: 'reiter-inhalt' }, inhalt)
     ];
 };

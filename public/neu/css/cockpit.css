@@ -644,6 +644,11 @@ body.bp {
     border-radius: var(--radius);
 }
 
+/* Lange E-Mail-Adressen dürfen die Zeile nicht sprengen */
+.umbruch {
+    overflow-wrap: anywhere;
+}
+
 .mail-zeile {
     flex-wrap: nowrap;
 }
@@ -1179,4 +1184,13 @@ body.ueber-baum {
     .bp .dlg-box .bp-dialog-fuss .bp-btn {
         flex: 1 1 0;
     }
+}
+
+/* Einstellungen: eine ganze Zeile ist der Weg in ihren Bereich */
+.zeile-link {
+    color: inherit;
+    text-decoration: none;
+}
+.zeile-link:hover b {
+    text-decoration: underline;
 }

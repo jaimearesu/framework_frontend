@@ -1,0 +1,94 @@
+/*
+   Die Werkstatt: das alte Cockpit in den Farben der Marke (Plan U, U4g).
+   Gilt nur, wenn man über die Werkstatt des neuen Cockpits kommt (data-werkstatt, siehe index.html).
+   Nur Farben und Schrift, kein Umbau. Die Farben stammen aus neu/marke/code/komponenten.css.
+   Bewusst nicht geändert: die Rollen-Farben black/red/blue und die Farben der JSON-Anzeige,
+   denn beide tragen eine Bedeutung.
+*/
+@font-face {
+    font-family: 'Host Grotesk';
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    src: url('/neu/marke/schriften/host-grotesk-400.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'Host Grotesk';
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+    src: url('/neu/marke/schriften/host-grotesk-500.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'Host Grotesk';
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+    src: url('/neu/marke/schriften/host-grotesk-600.woff2') format('woff2');
+}
+
+:root[data-werkstatt] {
+    --font: 'Host Grotesk', ui-sans-serif, Arial, sans-serif;
+    --bg: #ffffff;
+    --side: #fafafb;
+    --surface: #ffffff;
+    --border: #e6e6e7;
+    --border-strong: #d4d4d6;
+    --text: #18181a;
+    --muted: #555557;
+    --faint: #747477;
+    --accent: #18181b;
+    --accent-strong: #0b0b0e;
+    --accent-soft: #f2f2f3;
+    --on-accent: #ffffff;
+    --ok: #15803d;
+    --ok-soft: #f1faf2;
+    --warn: #b45309;
+    --warn-soft: #fff4ef;
+    --error: #dc2626;
+    --error-soft: #fff4f2;
+    --info: #2563eb;
+    --info-soft: #f3f7ff;
+}
+
+/* Dunkel: nach Systemeinstellung … */
+@media (prefers-color-scheme: dark) {
+    :root[data-werkstatt]:not([data-theme='light']) {
+        --bg: #0b0b0d;
+        --side: #18181a;
+        --surface: #18181a;
+        --border: #29292a;
+        --border-strong: #3f3f41;
+        --text: #fafafb;
+        --muted: #d4d4d6;
+        --faint: #a1a1a4;
+        --accent: #fafafb;
+        --accent-strong: #ffffff;
+        --accent-soft: #2c2c30;
+        --on-accent: #18181b;
+        --ok-soft: #003915;
+        --warn-soft: #4d1e00;
+        --error-soft: #5d0003;
+        --info-soft: #05256f;
+    }
+}
+
+/* … oder von Hand gewählt */
+:root[data-werkstatt][data-theme='dark'] {
+    --bg: #0b0b0d;
+    --side: #18181a;
+    --surface: #18181a;
+    --border: #29292a;
+    --border-strong: #3f3f41;
+    --text: #fafafb;
+    --muted: #d4d4d6;
+    --faint: #a1a1a4;
+    --accent: #fafafb;
+    --accent-strong: #ffffff;
+    --accent-soft: #2c2c30;
+    --on-accent: #18181b;
+    --ok-soft: #003915;
+    --warn-soft: #4d1e00;
+    --error-soft: #5d0003;
+    --info-soft: #05256f;
+}

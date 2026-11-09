@@ -1030,6 +1030,12 @@ export const CHECKS = [
             if (!me.data?.isAuthenticated) {
                 const gast = await api.post(`/api/objects/${ctx.root}/invitations`, { roles: ['black'] });
                 expectStatus(gast, 403, 'Einladung als Gast');
+                // Plan U, U4e: Auch der Mail-Versand einer Einladung ist Menschen vorbehalten
+                const mail = await api.post(`/api/objects/${ctx.root}/invitations/${ctx.root}/mail`, {
+                    link: 'x',
+                    email: 'test@beispiel.ch'
+                });
+                expectStatus(mail, 403, 'Einladungs-Mail als Gast');
                 return 'als Gast abgelehnt ✓ (Erstellen nur mit Login prüfbar)';
             }
             const blue = await api.post(`/api/objects/${ctx.root}/invitations`, { roles: ['blue'] });
@@ -1037,6 +1043,12 @@ export const CHECKS = [
             const r = await api.post(`/api/objects/${ctx.root}/invitations`, { roles: ['black'], hours: 1 });
             expectStatus(r, 201, 'Einladung erstellen');
             expect(/\/einladung\/[A-Za-z0-9_-]{43}$/.test(r.data?.data?.link || ''), 'Link sieht falsch aus', r);
+            // Ein erfundener Link geht nie raus, und es wird keine echte Mail verschickt
+            const falsch = await api.post(`/api/objects/${ctx.root}/invitations/${r.data.data.uuid}/mail`, {
+                link: 'https://beispiel.ch/spam',
+                email: 'test@beispiel.ch'
+            });
+            expectStatus(falsch, 400, 'Einladungs-Mail mit fremdem Link');
             const list = await api.get(`/api/objects/${ctx.root}/invitations`);
             expectStatus(list, 200, 'Einladungen laden');
             const mine = (list.data?.data || []).find(i => i.uuid === r.data.data.uuid);

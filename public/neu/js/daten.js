@@ -1,5 +1,4 @@
-// Was die Seiten anzeigen. Mensch, Konto, Websites, Wartet und Papierkorb füllt das Backend beim Start,
-// der Rest sind noch Beispiele und wird Etappe für Etappe (U4d bis U4f) ersetzt.
+// Was die Seiten anzeigen. Alles füllt das Backend beim Start, hier stehen nur die Anfangswerte.
 
 export const DATEN = {
     // tage: wie lange die Person schon auf vindelis ist, bestimmt die Grösse ihres Baums
@@ -10,21 +9,11 @@ export const DATEN = {
     helfer: [],
     helferFehler: false,
     wartet: [],
-    personen: [
-        { name: 'Jaime', art: 'Mensch', darf: 'Besitzer', seit: 'März' },
-        { name: 'Claude', art: 'KI-Helfer', darf: 'Bauen und ändern', seit: 'Juni' },
-        { name: 'Lea Meier', art: 'Mensch', darf: 'Inhalte pflegen', seit: 'Oktober' },
-        { name: 'Stammkunden', art: 'Besucher mit E-Mail-Login', darf: 'Bereich «Vorbestellen» sehen', seit: 'Oktober' }
-    ],
     konto: [
         { name: 'Speicher', wert: '374 MB von 1 GB', anteil: 37 },
         { name: 'Objekte', wert: '1’028 von 2’000', anteil: 51 },
         { name: 'Websites', wert: '60 von 100', anteil: 60 }
     ],
-    // Teile einer Website, auf die man Zugriff geben kann
-    teile: ['Startseite', 'Tagesangebot', 'Öffnungszeiten', 'Vorbestellen'],
-    // Offene Einladungs-Links
-    einladungen: [{ id: 'e1', worauf: 'Vorbestellen', darf: 'Ansehen', gueltig: 'noch 5 Tage', benutzt: '0 von 1' }],
     // Gelöschte Websites mit Sicherung, und ob das Laden gescheitert ist
     papierkorb: [],
     websitesFehler: false,
