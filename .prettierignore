@@ -2,3 +2,5 @@
 node_modules
 package-lock.json
 docker-compose.yml
+# Marken-Paket aus dem Branding Studio: bleibt genau so, wie es geliefert wurde
+public/neu/marke
