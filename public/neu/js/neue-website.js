@@ -33,6 +33,8 @@ const websiteAnlegen = stand => {
     const helferName = stand.wahl === 'neu' ? stand.neuerName.trim() : DATEN.helfer.find(x => x.id === stand.wahl).name;
     DATEN.websites.unshift({
         id,
+        adresse: id + '.vindelis.site',
+        zeile: 'gerade eben',
         titel: stand.name.trim(),
         beschreibung: stand.beschreibung.trim(),
         zustand: 'entwurf',
@@ -122,7 +124,7 @@ export const neueWebsiteOeffnen = () => {
                         onclick: () => {
                             const id = zuAdresse(stand.name);
                             if (!id) stand.fehler = 'Bitte gib der Website einen Namen.';
-                            else if (DATEN.websites.some(w => w.id === id))
+                            else if (DATEN.websites.some(w => zuAdresse(w.titel) === id))
                                 stand.fehler = 'Diese Adresse ist schon vergeben.';
                             else {
                                 stand.fehler = '';

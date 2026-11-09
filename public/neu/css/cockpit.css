@@ -233,6 +233,18 @@ body.bp {
     background: var(--surface-2);
     border-bottom: var(--border-width) solid var(--border);
 }
+.vorschau.mit-bild {
+    display: block;
+    padding: 0;
+    overflow: hidden;
+}
+.vorschau.mit-bild img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+}
 .vorschau.gross {
     height: 280px;
     padding: var(--space-6);
@@ -762,8 +774,34 @@ body.bp {
 /* Eine Bitte, die auf den Menschen wartet */
 .bp .wartet-karte {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-4);
+}
+.bp .wartet-karte .zeile-text {
+    flex: 1 1 280px;
+    min-width: 0;
+}
+.upload-bild {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+}
+.upload-bild img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.hinweis-liste {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding-left: var(--space-5);
 }
 
 /* Hintergrund unten rechts: feines eingedelltes Gitter, daraus wächst langsam ein Baum.

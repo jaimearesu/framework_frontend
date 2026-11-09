@@ -69,14 +69,16 @@ export const zustandPlakette = zustand => {
         online: ['bp-st bp-st-ok', 'Online'],
         wartet: ['bp-st bp-st-warn', 'Wartet auf Freigabe'],
         problem: ['bp-st bp-st-stop', 'Problem'],
-        entwurf: ['bp-badge bp-badge-s', 'Entwurf']
+        entwurf: ['bp-badge bp-badge-s', 'Entwurf'],
+        mitglieder: ['bp-badge bp-badge-s', 'Nur Angemeldete'],
+        leer: ['bp-badge bp-badge-s', 'Noch leer']
     };
     const [klasse, text] = arten[zustand] || arten.entwurf;
     return h('span', { class: klasse }, text);
 };
 
 // Kurze Meldung unten rechts, verschwindet von selbst
-export const meldung = (titel, text) => {
+export const meldung = (titel, text, symbol = 'haken') => {
     let ablage = document.querySelector('.toasts');
     if (!ablage) {
         ablage = h('div', { class: 'toasts', role: 'status' });
@@ -85,7 +87,7 @@ export const meldung = (titel, text) => {
     const eintrag = h(
         'div',
         { class: 'bp-toast' },
-        h('i', { class: 'bp-toast-ik' }, ikon('haken')),
+        h('i', { class: 'bp-toast-ik' }, ikon(symbol)),
         h('div', {}, h('b', {}, titel), text ? h('span', {}, text) : null)
     );
     ablage.append(eintrag);

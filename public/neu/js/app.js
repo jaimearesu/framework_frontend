@@ -3,15 +3,9 @@ import { h, ikon, huelle, LOGOS } from './ui.js';
 import { sucheOeffnen } from './suche.js';
 import { DATEN } from './daten.js';
 import { neueWebsiteOeffnen } from './neue-website.js';
-import {
-    seiteStart,
-    seiteWebsites,
-    seiteWartet,
-    seiteHelfer,
-    seiteVerlauf,
-    seiteKonto,
-    seiteWerkstatt
-} from './seiten.js';
+import { seiteStart, seiteWebsites, seiteHelfer, seiteVerlauf, seiteKonto, seiteWerkstatt } from './seiten.js';
+import { seiteWartet } from './wartet.js';
+import { datenLaden } from './websites.js';
 import { seiteWebsite } from './website.js';
 import { hintergrundStarten } from './hintergrund.js';
 import { sitzungLaden } from './sitzung.js';
@@ -167,6 +161,13 @@ function zeichnen() {
     );
 }
 
+// Holt im Hintergrund den neusten Stand der Listen. Auf der Seite einer Website wird nicht
+// neu gezeichnet, damit dort nichts unter den Fingern wegspringt
+const auffrischen = async () => {
+    const geaendert = await datenLaden();
+    if (geaendert && !location.hash.startsWith('#/website/')) zeichnen();
+};
+
 // Stellt das Cockpit auf. Läuft genau einmal, erst wenn feststeht, wer am Cockpit sitzt
 const cockpitStarten = () => {
     hintergrundStarten();
@@ -174,6 +175,11 @@ const cockpitStarten = () => {
     window.addEventListener('hashchange', () => {
         zeichnen();
         window.scrollTo(0, 0);
+        auffrischen();
+    });
+    // Zurück im Tab: Eine KI kann inzwischen etwas gebaut oder um etwas gebeten haben
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') auffrischen();
     });
     document.addEventListener('keydown', e => {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -201,6 +207,8 @@ const starten = async () => {
         vorStartZeigen(anmeldeSeite(dunkel, cockpitStarten));
         return;
     }
+    // Gleich beim Start laden, so stimmt schon das erste Bild (auch bei einem Link direkt auf eine Website)
+    await datenLaden();
     cockpitStarten();
 };
 

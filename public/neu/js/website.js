@@ -1,7 +1,9 @@
 // Eine Website mit ihren Reitern: Übersicht, Verlauf, Code, Daten, Personen, Einstellungen
 import { h, ikon, zustandPlakette, nurAnprobe, huelle, leer } from './ui.js';
+import { href } from '../../js/core/routes.js';
 import { DATEN } from './daten.js';
-import { vorschauBild, ereignisZeile, verlaufPlatzhalter, wartetKarte } from './seiten.js';
+import { vorschauBild, ereignisZeile, verlaufPlatzhalter } from './seiten.js';
+import { wartetKarte } from './wartet.js';
 import { zugriffGebenOeffnen } from './zugriff.js';
 
 const REITER = [
@@ -33,7 +35,7 @@ const reiterUebersicht = w => {
                       )
                   )
                 : null,
-            vorschauBild(true),
+            vorschauBild(true, w),
             h(
                 'div',
                 { class: 'bp-karte eng stapel' },
@@ -457,7 +459,7 @@ export const seiteWebsite = (id, reiter, teilNr) => {
                 'div',
                 { class: 'website-titel' },
                 h('h2', {}, w.titel, zustandPlakette(w.zustand)),
-                h('span', { class: 'leise' }, w.id + '.vindelis.site')
+                h('span', { class: 'leise' }, w.adresse)
             ),
             h(
                 'div',
@@ -474,6 +476,17 @@ export const seiteWebsite = (id, reiter, teilNr) => {
             )
         ),
         bitten.map(wartetKarte),
+        // Die Reiter werden erst mit Etappe U4c echt. Bis dahin darf niemand die Beispiele für echt halten
+        h(
+            'div',
+            { class: 'bp-hinweis bp-h-warn mit-knopf', id: 'noch-beispiele' },
+            h('span', {}, 'Die Reiter unten zeigen noch Beispiele, nicht diese Website.'),
+            h(
+                'a',
+                { class: 'bp-btn bp-btn-o bp-btn-klein', href: '/' + href('website', w.id) },
+                'Im alten Cockpit öffnen'
+            )
+        ),
         h(
             'div',
             { class: 'bp-tabs', role: 'tablist' },

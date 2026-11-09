@@ -19,7 +19,7 @@ import { icon } from '../core/icons.js';
 import { timeAgo } from '../core/format.js';
 import { formatBytes } from '../core/site.js';
 
-const IMAGE_KINDS = ['png', 'jpg', 'gif', 'webp', 'avif'];
+export const IMAGE_KINDS = ['png', 'jpg', 'gif', 'webp', 'avif'];
 let objectUrls = []; // blob:-Adressen der letzten Vorschau – beim Neuzeichnen freigeben
 
 /**

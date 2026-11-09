@@ -1,6 +1,5 @@
-// Suche über alles (Strg K): Websites, Code, Daten, Personen, KI-Helfer und Seiten.
-// In der Anprobe läuft sie über die Beispieldaten im Browser.
-// Beim Einbau (Etappe U4) kommen die Treffer von einer neuen Abfrage im Backend.
+// Suche (Strg K): Websites, KI-Helfer und Seiten, alles direkt im Browser.
+// Eine Suche durch Code, Daten und Personen braucht eine neue Abfrage im Backend (eigener Plan nach der Umstellung).
 import { h, ikon, dialog } from './ui.js';
 import { DATEN } from './daten.js';
 
@@ -33,38 +32,8 @@ const allesDurchsuchbare = seiten => [
         art: 'Websites',
         symbol: 'kugel',
         titel: w.titel,
-        texte: [w.beschreibung, w.id + '.vindelis.site'],
+        texte: [w.beschreibung, w.adresse],
         pfad: '#/website/' + w.id
-    })),
-    ...DATEN.codeTeile.flatMap((t, i) => {
-        const v = t.versionen[0];
-        return [
-            {
-                art: 'Code',
-                symbol: 'datei',
-                titel: t.name,
-                zusatz: 'Bäckerei Sonne',
-                texte: v.code.split('\n'),
-                pfad: '#/website/baeckerei-sonne/code/' + i,
-                code: true
-            }
-        ];
-    }),
-    ...DATEN.datensaetze.map(d => ({
-        art: 'Daten',
-        symbol: 'tabelle',
-        titel: d.kunde,
-        zusatz: 'Bäckerei Sonne, Vorbestellungen',
-        texte: [d.produkt, d.abholung, d.stand],
-        pfad: '#/website/baeckerei-sonne/daten'
-    })),
-    ...DATEN.personen.map(p => ({
-        art: 'Personen',
-        symbol: 'konto',
-        titel: p.name,
-        zusatz: 'Bäckerei Sonne',
-        texte: [p.art, p.darf],
-        pfad: '#/website/baeckerei-sonne/personen'
     })),
     ...DATEN.helfer.map(x => ({
         art: 'KI-Helfer',
@@ -194,8 +163,8 @@ export const sucheOeffnen = seiten => {
                     h('input', {
                         id: 'such-feld',
                         class: 'bp-in',
-                        placeholder: 'Websites, Code, Daten, Personen…',
-                        'aria-label': 'Alles durchsuchen',
+                        placeholder: 'Websites, KI-Helfer, Seiten…',
+                        'aria-label': 'Suchen',
                         'data-fokus': true,
                         autocomplete: 'off',
                         oninput: e => {

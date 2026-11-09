@@ -1,12 +1,31 @@
 // Die Seiten des Hauptmenüs: Start, Wartet auf mich, KI-Helfer, Verlauf, Konto, Werkstatt
-import { h, ikon, zustandPlakette, meldung, nurAnprobe, leer, dialog, huelle, kopierKnopf, kopierZeile } from './ui.js';
+import { h, ikon, zustandPlakette, nurAnprobe, leer, dialog, huelle, kopierKnopf, kopierZeile } from './ui.js';
+import { loadThumbnail } from '../../js/core/objects.js';
 import { DATEN } from './daten.js';
 import { anleitungListe, neueWebsiteOeffnen } from './neue-website.js';
 import { abmeldeAdresse } from './sitzung.js';
+import { neuLaden } from './websites.js';
+import { papierkorbAbschnitt } from './papierkorb.js';
 
-// Platzhalter fürs Vorschaubild (beim Einbau kommt das echte Bild)
-export const vorschauBild = gross =>
-    h('div', { class: 'vorschau' + (gross ? ' gross' : ''), 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'));
+// Vorschaubild einer Website. Nur öffentliche Websites haben ein echtes Bild, die anderen behalten die Skizze
+export const vorschauBild = (gross, website) => {
+    const flaeche = h(
+        'div',
+        { class: 'vorschau' + (gross ? ' gross' : ''), 'aria-hidden': 'true' },
+        h('i'),
+        h('i'),
+        h('i'),
+        h('i')
+    );
+    if (website?.thumbAt) {
+        loadThumbnail(website).then(adresse => {
+            if (!adresse) return;
+            flaeche.classList.add('mit-bild');
+            flaeche.replaceChildren(h('img', { src: adresse, alt: '' }));
+        });
+    }
+    return flaeche;
+};
 
 // Eine Zeile «wer hat was wo gemacht»
 export const ereignisZeile = (e, mitOrt) =>
@@ -26,13 +45,13 @@ const websiteKachel = w =>
     h(
         'a',
         { class: 'bp-karte kachel', href: '#/website/' + w.id },
-        vorschauBild(),
+        vorschauBild(false, w),
         h(
             'div',
             { class: 'kachel-text' },
             h('div', { class: 'kachel-titel' }, h('span', {}, w.titel), zustandPlakette(w.zustand)),
-            h('span', { class: 'leise' }, w.id + '.vindelis.site'),
-            h('span', { class: 'leise' }, w.von + ', ' + w.geaendert)
+            h('span', { class: 'leise' }, w.adresse),
+            h('span', { class: 'leise' }, w.zeile)
         )
     );
 
@@ -107,6 +126,19 @@ const blaettern = (seite, letzte, gesamt) => {
 
 // Die Kacheln mit Filter und Blättern, auf Start und auf der Seite «Websites» dieselben
 const websitesAbschnitt = ueberschrift => {
+    // Beim allerersten Laden gescheitert: nicht «Noch keine Website» behaupten
+    if (DATEN.websitesFehler && !DATEN.websites.length) {
+        return h(
+            'div',
+            { class: 'bp-karte', id: 'websites-fehler' },
+            leer(
+                'kugel',
+                'Konnte deine Websites nicht laden',
+                'Versuch es in einer Minute nochmals.',
+                h('button', { class: 'bp-btn bp-btn-o', type: 'button', onclick: neuLaden }, 'Nochmals versuchen')
+            )
+        );
+    }
     const alle = sortierteWebsites();
     const letzte = Math.max(1, Math.ceil(alle.length / PRO_SEITE));
     const seite = Math.min(DATEN.startAnsicht.seite, letzte);
@@ -130,7 +162,8 @@ const websitesAbschnitt = ueberschrift => {
         alle.length
             ? [
                   h('div', { class: 'kacheln' }, sichtbar.map(websiteKachel)),
-                  alle.length > PRO_SEITE ? blaettern(seite, letzte, alle.length) : null
+                  alle.length > PRO_SEITE ? blaettern(seite, letzte, alle.length) : null,
+                  DATEN.websitesGekappt ? h('span', { class: 'leise' }, 'Es werden die ersten 200 gezeigt.') : null
               ]
             : h(
                   'div',
@@ -150,7 +183,10 @@ const websitesAbschnitt = ueberschrift => {
 };
 
 // Eigene Seite im Menü: nur die Websites, ohne alles andere von Start
-export const seiteWebsites = () => websitesAbschnitt(DATEN.websites.length + ' Websites');
+export const seiteWebsites = () => [
+    websitesAbschnitt(DATEN.websites.length === 1 ? '1 Website' : DATEN.websites.length + ' Websites'),
+    papierkorbAbschnitt()
+];
 
 export const seiteStart = () => {
     const anzahl = DATEN.wartet.length;
@@ -163,26 +199,7 @@ export const seiteStart = () => {
                   h('a', { class: 'bp-btn bp-btn-o bp-btn-klein', href: '#/wartet' }, 'Ansehen')
               )
             : null,
-        websitesAbschnitt('Meine Websites'),
-        h(
-            'section',
-            { class: 'abschnitt' },
-            h(
-                'div',
-                { class: 'abschnitt-kopf' },
-                h('h3', {}, 'Zuletzt passiert'),
-                h('a', { class: 'leise', href: '#/verlauf' }, 'Ganzer Verlauf')
-            ),
-            h(
-                'div',
-                { class: 'bp-karte eng' },
-                h(
-                    'div',
-                    { class: 'zeilen' },
-                    DATEN.ereignisse.map(e => ereignisZeile(e, true))
-                )
-            )
-        )
+        websitesAbschnitt('Meine Websites')
     ];
 };
 
@@ -215,55 +232,6 @@ seiteStart.unter = () =>
             'Mein Baum'
         )
     );
-
-// Bitte entscheiden: aus der Liste nehmen, beim Veröffentlichen ändert sich auch der Zustand der Website
-const entscheiden = (eintrag, freigegeben) => {
-    DATEN.wartet = DATEN.wartet.filter(x => x.id !== eintrag.id);
-    const website = DATEN.websites.find(w => w.titel === eintrag.website);
-    if (website && eintrag.art === 'Veröffentlichen') website.zustand = freigegeben ? 'online' : 'entwurf';
-    meldung(freigegeben ? 'Freigegeben' : 'Abgelehnt', eintrag.website);
-    huelle.neu();
-};
-
-// Eine wartende Bitte, gleich in der Liste und auf der Seite der Website
-export const wartetKarte = e =>
-    h(
-        'div',
-        { class: 'bp-karte eng wartet-karte', id: 'bitte-' + e.id },
-        h(
-            'div',
-            { class: 'zeile-text' },
-            h('b', {}, e.art + ': ' + e.website),
-            h('span', {}, e.grund),
-            h('span', { class: 'leise' }, e.von + ', ' + e.wann)
-        ),
-        h(
-            'div',
-            { class: 'zeile-knopf' },
-            h('button', { class: 'bp-btn bp-btn-o', type: 'button', onclick: () => entscheiden(e, false) }, 'Ablehnen'),
-            h(
-                'button',
-                {
-                    class: 'bp-btn bp-btn-p',
-                    type: 'button',
-                    id: 'freigeben-' + e.id,
-                    onclick: () => entscheiden(e, true)
-                },
-                'Freigeben'
-            )
-        )
-    );
-
-export const seiteWartet = () => {
-    if (!DATEN.wartet.length) {
-        return h(
-            'div',
-            { class: 'bp-karte' },
-            leer('haken', 'Alles erledigt', 'Wenn ein KI-Helfer dich um etwas bittet, steht es hier.')
-        );
-    }
-    return h('div', { class: 'stapel wartet-liste' }, DATEN.wartet.map(wartetKarte));
-};
 
 const helferVerbindenOeffnen = () =>
     dialog(({ zu }) => [
