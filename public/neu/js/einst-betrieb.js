@@ -2,7 +2,8 @@
 // Alle Rechte prüft das Backend. Texte vom Backend nur als Text, nie als HTML.
 import { api } from '../../js/core/api.js';
 import { formatDate, timeAgo } from '../../js/core/format.js';
-import { customDomainInputProblem, customDomainStatusText, dnsNameHint } from '../../js/core/site.js';
+import { customDomainStatusText, dnsNameHint } from '../../js/core/site.js';
+import { domainAnleitungOeffnen } from './domain-anleitung.js';
 import { invalidateObjects } from '../../js/core/objects.js';
 import { h, leer, kopierZeile, meldung } from './ui.js';
 import { DATEN } from './daten.js';
@@ -28,7 +29,7 @@ const klein = (text, onclick, klasse = 'bp-btn-o') =>
 
 // ---- Eigene Domain ----
 
-const domainZeile = (site, d, schluessel) => {
+const domainZeile = (site, d, schluessel, cnameZiel) => {
     const zustand = customDomainStatusText(d.status);
     const adresse = pfad(site.uuid) + '/custom-domains/' + encodeURIComponent(d.hostname);
     return h(
@@ -72,6 +73,11 @@ const domainZeile = (site, d, schluessel) => {
             { class: 'zeile-knopf' },
             d.status === 'active'
                 ? null
+                : klein('Anleitung fortsetzen', () =>
+                      domainAnleitungOeffnen({ site, schluessel, cnameZiel, domain: d })
+                  ),
+            d.status === 'active'
+                ? null
                 : klein('Jetzt prüfen', async () => {
                       const antwort = await api.post(adresse + '/check', {});
                       if (!antwort.ok) return meldung('Hat nicht geklappt', antwort.error, 'kreuz');
@@ -105,43 +111,24 @@ export const bereichDomain = (w, site) => {
         bereichKopf(
             w,
             'Eigene Domain',
-            'Die Website unter deiner Adresse zeigen, z.B. www.meinladen.ch. Das Zertifikat kommt von selbst.',
+            'Die Website unter deiner Adresse zeigen, z.B. www.meinladen.ch. Wir führen dich Schritt für Schritt durch, das Zertifikat kommt von selbst.',
             knopf
         );
     if (istGast()) return [kopf(), nurMitKonto('Eigene Domains können nur angemeldete Menschen verbinden.')];
     const schluessel = 'domain:' + site.uuid;
     const eintrag = geladen(schluessel, () => api.get(pfad(site.uuid) + '/custom-domains'));
-    const hinzufuegen = () =>
-        formular({
-            titel: 'Domain verbinden',
-            felder: [
-                {
-                    name: 'hostname',
-                    label: 'Domain',
-                    platzhalter: 'www.meinladen.ch',
-                    mono: true,
-                    fokus: true,
-                    hilfe: 'Eine Unterdomain wie www.meinladen.ch. Die nackte Domain leitest du bei deinem Anbieter dorthin um.'
-                }
-            ],
-            knopf: 'Verbinden',
-            tun: async ({ hostname }) => {
-                const problem = customDomainInputProblem(hostname);
-                if (problem) return problem;
-                const antwort = await api.post(pfad(site.uuid) + '/custom-domains', { hostname: hostname.trim() });
-                if (!antwort.ok) return antwort.error;
-                meldung('Domain angemeldet', 'Jetzt fehlt noch der Eintrag bei deinem Anbieter.');
-                await nochmals(schluessel);
-                return '';
-            }
-        });
     const daten = eintrag.daten;
     return [
         kopf(
             daten?.enabled && daten.domains.length < daten.maxPerSite
                 ? h(
                       'button',
-                      { class: 'bp-btn bp-btn-p', id: 'domain-neu', type: 'button', onclick: hinzufuegen },
+                      {
+                          class: 'bp-btn bp-btn-p',
+                          id: 'domain-neu',
+                          type: 'button',
+                          onclick: () => domainAnleitungOeffnen({ site, schluessel, cnameZiel: daten.cnameTarget })
+                      },
                       'Domain verbinden'
                   )
                 : null
@@ -158,11 +145,17 @@ export const bereichDomain = (w, site) => {
                           'Eigene Domains sind auf diesem Server noch nicht eingerichtet.'
                       ),
                 d.domains.length
-                    ? d.domains.map(x => domainZeile(site, x, schluessel))
+                    ? d.domains.map(x => domainZeile(site, x, schluessel, d.cnameTarget))
                     : h(
                           'div',
                           { class: 'bp-karte' },
-                          leer('kugel', 'Noch keine eigene Domain', 'Deine Website läuft unter ' + w.adresse + '.')
+                          leer(
+                              'kugel',
+                              'Noch keine eigene Domain',
+                              'Deine Website läuft unter ' +
+                                  w.adresse +
+                                  '. Mit «Domain verbinden» startest du die Anleitung.'
+                          )
                       )
             )
         )

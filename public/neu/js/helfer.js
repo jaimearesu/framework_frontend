@@ -4,26 +4,10 @@ import { api } from '../../js/core/api.js';
 import { invalidateObjects } from '../../js/core/objects.js';
 import { h, ikon, leer, dialog, meldung } from './ui.js';
 import { DATEN } from './daten.js';
-import { anleitungListe } from './neue-website.js';
 import { helferNeuLaden } from './websites.js';
 import { formular } from './einst-hilfe.js';
+import { helferVerbindenOeffnen, websitesZuordnenOeffnen } from './helfer-zuordnen.js';
 import { HELFER_KURZ, alleTrennen, verbindungsNamen } from './helfer-werte.js';
-
-const helferVerbindenOeffnen = name =>
-    dialog(({ zu }) => [
-        h('h3', {}, name ? name + ' verbinden' : 'KI-Helfer verbinden'),
-        anleitungListe(name),
-        h(
-            'p',
-            { class: 'leise' },
-            'Ein KI-Helfer arbeitet mit seinen eigenen Rechten, nie mit deinen. Veröffentlichen kann er nie, er bittet dich darum.'
-        ),
-        h(
-            'div',
-            { class: 'bp-dialog-fuss' },
-            h('button', { class: 'bp-btn bp-btn-p', type: 'button', onclick: zu }, 'Fertig')
-        )
-    ]);
 
 // Trennen wirkt sofort. Die Rechte bleiben, mit «Erlauben» geht es später weiter
 const trennenOeffnen = x =>
@@ -205,6 +189,11 @@ const helferKarte = x =>
                       },
                       'Verbinden'
                   ),
+            h(
+                'button',
+                { class: 'bp-btn bp-btn-o bp-btn-klein', type: 'button', onclick: () => websitesZuordnenOeffnen(x) },
+                'Website zuordnen'
+            ),
             h(
                 'button',
                 { class: 'bp-btn bp-btn-o bp-btn-klein', type: 'button', onclick: () => loeschenOeffnen(x) },

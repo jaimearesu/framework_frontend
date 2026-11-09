@@ -4,6 +4,7 @@ import { api } from '../../js/core/api.js';
 import { timeAgo, formatNumber } from '../../js/core/format.js';
 import { h, ikon, leer, dialog, meldung, huelle, laedtKarte } from './ui.js';
 import { DATEN } from './daten.js';
+import { helferZuordnenOeffnen } from './helfer-zuordnen.js';
 import { zugriffGebenOeffnen } from './zugriff.js';
 import {
     RECHTE,
@@ -629,15 +630,31 @@ export const reiterPersonen = (w, site) => {
                 { class: 'abschnitt-kopf' },
                 h('h3', {}, 'Wer hat Zugriff'),
                 h(
-                    'button',
-                    {
-                        class: 'bp-btn bp-btn-p',
-                        id: 'zugriff-geben',
-                        type: 'button',
-                        onclick: () => zugriffGebenOeffnen({ w, site, besucher, gast, nachher: nachher(site) })
-                    },
-                    ikon('plus'),
-                    'Zugriff geben'
+                    'div',
+                    { class: 'abschnitt-wahl' },
+                    gast
+                        ? null
+                        : h(
+                              'button',
+                              {
+                                  class: 'bp-btn bp-btn-o',
+                                  id: 'helfer-zuordnen',
+                                  type: 'button',
+                                  onclick: () => helferZuordnenOeffnen(site, nachher(site))
+                              },
+                              'KI-Helfer zuordnen'
+                          ),
+                    h(
+                        'button',
+                        {
+                            class: 'bp-btn bp-btn-p',
+                            id: 'zugriff-geben',
+                            type: 'button',
+                            onclick: () => zugriffGebenOeffnen({ w, site, besucher, gast, nachher: nachher(site) })
+                        },
+                        ikon('plus'),
+                        'Zugriff geben'
+                    )
                 )
             ),
             personenTabelle(site, personen)

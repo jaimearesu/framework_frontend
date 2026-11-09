@@ -1281,3 +1281,47 @@ body.ueber-baum {
     flex-wrap: wrap;
     gap: var(--space-2);
 }
+
+/* Einen Helfer antippen und er ist zugeordnet */
+.bp .zuordnen-zeile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    text-align: left;
+    color: inherit;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+}
+.bp .zuordnen-zeile:hover:not(:disabled) {
+    background: var(--surface-2);
+}
+.bp .zuordnen-zeile:disabled {
+    cursor: default;
+}
+.zuordnen-neu {
+    display: flex;
+    gap: var(--space-2);
+}
+.zuordnen-neu .bp-in {
+    flex: 1;
+    min-width: 0;
+}
+.zuordnen-haken {
+    padding: var(--space-1) 0;
+}
+
+/* Anleitung Eigene Domain */
+.bp .domain-schritte {
+    flex-wrap: wrap;
+}
+.domain-liste {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding-left: var(--space-5);
+}
