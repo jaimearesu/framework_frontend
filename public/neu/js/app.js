@@ -15,7 +15,7 @@ import { ladeSeite, fehlerSeite, anmeldeSeite, gastHinweis } from './anmelden.js
 import { api } from '../../js/core/api.js';
 import { ALTES_COCKPIT, alteAdresse } from './adressen-werte.js';
 import { anmeldungHolen } from './landing-werte.js';
-import { alsGastWeiter, nachAnmeldung, startseitenBaum } from './verwandlung.js';
+import { insCockpit, nachAnmeldung, startseitenBaum, startseitenBaumWeg } from './verwandlung.js';
 
 const MENUE = [
     { pfad: '#/', text: 'Start', symbol: 'start', seite: seiteStart },
@@ -236,23 +236,31 @@ const starten = async () => {
     modusAnwenden();
     // Wer von der Anmeldung zurückkommt, sieht sofort wieder die Startseite, der Übergang beginnt dort
     const vomLogin = anmeldungHolen();
-    vorStartZeigen(vomLogin ? anmeldeSeite(dunkel, () => {}) : ladeSeite(dunkel));
+    let beispielBaum = null;
+    const alsGast = () => insCockpit(beispielBaum, cockpitStarten);
+    if (vomLogin) {
+        vorStartZeigen(anmeldeSeite(dunkel, alsGast));
+        beispielBaum = startseitenBaum({ fertig: true });
+    } else {
+        vorStartZeigen(ladeSeite(dunkel));
+    }
     const sitzung = await sitzungLaden();
     if (!sitzung.erreichbar) {
+        startseitenBaumWeg(beispielBaum);
         vorStartZeigen(fehlerSeite(dunkel, sitzung.fehler, starten));
         return;
     }
     if (sitzung.art === 'anon') {
-        let beispielBaum = null;
-        vorStartZeigen(anmeldeSeite(dunkel, () => alsGastWeiter(beispielBaum, cockpitStarten)));
-        beispielBaum = startseitenBaum();
+        // Neu zeichnen, erst jetzt ist die Adresse fürs Anmelden bekannt
+        vorStartZeigen(anmeldeSeite(dunkel, alsGast));
+        if (!beispielBaum) beispielBaum = startseitenBaum();
         return;
     }
     if (await alteAdresseFolgen()) return;
     // Gleich beim Start laden, so stimmt schon das erste Bild (auch bei einem Link direkt auf eine Website)
     await Promise.all([datenLaden(), helferLaden()]);
     if (vomLogin) {
-        nachAnmeldung(cockpitStarten);
+        nachAnmeldung(beispielBaum, cockpitStarten);
         return;
     }
     cockpitStarten();

@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { anmeldungHolen, anmeldungMerken } from '../public/neu/js/landing-werte.js';
+import { filmPfade, sanft } from '../public/neu/js/baum-film.js';
 
 const lies = datei => readFileSync(new URL('../public/neu/' + datei, import.meta.url), 'utf8');
 
@@ -43,6 +44,41 @@ test('Beide Anmelde-Links der Startseite merken sich den Klick', () => {
 
 test('Der Beispiel-Baum überschreibt nie den gemerkten eigenen Baum', () => {
     assert.match(lies('js/hintergrund.js'), /MUSTER\.kennung, true, MUSTER\.tage/);
+});
+
+const LINIEN = [
+    { klasse: 'a', pa: [0, 0], pb: [0, 10] },
+    { klasse: 'b', pa: [0, 10], pb: [10, 10] },
+    { klasse: 'a', pa: [10, 10], pb: [10, 20] }
+];
+
+test('Der Baum wächst von der Wurzel aus, in seiner Reihenfolge', () => {
+    assert.deepEqual(filmPfade(LINIEN, 0), {});
+    assert.deepEqual(filmPfade(LINIEN, 1), { a: 'M0.0 0.0L0.0 10.0' });
+    assert.deepEqual(filmPfade(LINIEN, 3), {
+        a: 'M0.0 0.0L0.0 10.0M10.0 10.0L10.0 20.0',
+        b: 'M0.0 10.0L10.0 10.0'
+    });
+});
+
+test('Die letzte Linie darf halb gezeichnet sein, zu viel schadet nicht', () => {
+    assert.deepEqual(filmPfade(LINIEN, 1.5), { a: 'M0.0 0.0L0.0 10.0', b: 'M0.0 10.0L5.0 10.0' });
+    assert.deepEqual(filmPfade(LINIEN, 99), filmPfade(LINIEN, 3));
+});
+
+test('Der Zeitraffer beginnt und endet genau', () => {
+    assert.equal(sanft(0), 0);
+    assert.equal(sanft(1), 1);
+    assert.equal(sanft(0.5), 0.5);
+});
+
+test('Nach dem Login steht derselbe Baum sofort da, ohne Warten aufs Backend', () => {
+    const app = lies('js/app.js');
+    assert.ok(app.indexOf('startseitenBaum({ fertig: true })') < app.indexOf('await sitzungLaden()'));
+});
+
+test('Der eigene Baum übernimmt das Gitter des Beispiel-Baums', () => {
+    assert.match(lies('js/verwandlung.js'), /hintergrundStarten\(\{ vorgaenger: beispielBaum \}\)/);
 });
 
 test('Wer keine Bewegung will, bekommt keine', () => {

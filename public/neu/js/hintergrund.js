@@ -7,6 +7,7 @@
 import { huelle } from './ui.js';
 import { DATEN } from './daten.js';
 import { baumBuehneOeffnen } from './baum-buehne.js';
+import { filmPfade, sanft } from './baum-film.js';
 
 // Macht aus einem Text eine Zahl: gleicher Text, gleiche Zahl
 const textZuZahl = text => {
@@ -112,7 +113,7 @@ const herausnehmen = (liste, stelle) => {
 };
 
 // Pflanzt den Baum und gibt die Funktion zurück, mit der man sein Alter wechselt
-const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen, startTage) => {
+const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen, startTage, spaeterWachsen) => {
     const ruhig = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let tage, ziel, trieb, basis, hoehe, breite;
     let belegt, dichte, straenge, haken, stamm, stuecke, wuerfel, sammlung, uhr;
@@ -206,7 +207,15 @@ const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen, startTage) =>
         const b = abbilden(nach);
         const klasse = 'baum-linie baum-r' + rang + ' baum-t' + tiefenStufe((a.tiefe + b.tiefe) / 2);
         const d = 'M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + 'L' + b.x.toFixed(1) + ' ' + b.y.toFixed(1);
-        linien.push({ a: von, b: nach, rang, seit: sammlung ? 0 : performance.now() });
+        linien.push({
+            a: von,
+            b: nach,
+            rang,
+            seit: sammlung ? 0 : performance.now(),
+            klasse,
+            pa: [a.x, a.y],
+            pb: [b.x, b.y]
+        });
         if (sammlung) {
             sammlung[klasse] = (sammlung[klasse] || '') + d;
             return;
@@ -336,54 +345,149 @@ const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen, startTage) =>
         hoehe = Math.round(2.4 * Math.pow(ziel, 0.4));
         breite = hoehe * 1.0;
         aufbauen(ruhig ? trieb : gewachsen === null ? Math.max(0, trieb - 20) : gewachsen);
-        if (!ruhig) weiter();
+        if (!ruhig && !spaeterWachsen) weiter();
     };
 
     const gemerkt = nurAnschauen ? null : baumLesen(kennung);
     if (gemerkt) triebNummer = gemerkt.nummer;
     // Die Grösse kommt immer vom echten Alter. Der gemerkte Stand gilt nur am selben Tag, danach ist der Baum grösser
     pflanzen(startTage, gemerkt && gemerkt.tage === startTage ? gemerkt.gewachsen : null);
-    return { alter: () => tage, linien: () => linien, stoppen: () => clearTimeout(uhr) };
+    return {
+        alter: () => tage,
+        linien: () => linien,
+        stoppen: () => clearTimeout(uhr),
+        wachsenLassen: () => {
+            if (!ruhig) weiter();
+        }
+    };
 };
 
-// Der Baum auf der Startseite: Wer nicht angemeldet ist, hat noch keinen eigenen. Er merkt sich nichts
-const MUSTER = { kennung: 'vindelis', tage: 365 };
+// Lässt den Baum im Zeitraffer wachsen oder sich abbauen. Solange das läuft, sind die normalen Ebenen versteckt
+const filmFuer = (baum, altEbene, triebEbene, filmEbene) => {
+    const pfade = new Map();
+    let stand = 1;
+    let abbrechen = null;
 
-// Steht ausserhalb von #app, so wächst der Baum beim Seitenwechsel einfach weiter. Auf dem Handy gibt es ihn nicht
-export const hintergrundStarten = ({ muster = false } = {}) => {
-    if (window.matchMedia('(max-width: 760px)').matches) return null;
+    const bild = wert => {
+        stand = wert;
+        const neu = filmPfade(baum.linien(), wert * baum.linien().length);
+        pfade.forEach((pfad, klasse) => {
+            if (!(klasse in neu)) pfad.setAttribute('d', '');
+        });
+        Object.entries(neu).forEach(([klasse, d]) => {
+            if (!pfade.has(klasse)) {
+                pfade.set(klasse, svgTeil('path', { class: klasse }));
+                filmEbene.append(pfade.get(klasse));
+            }
+            pfade.get(klasse).setAttribute('d', d);
+        });
+    };
+
+    const spielen = ({ von = stand, bis, dauer }) =>
+        new Promise(fertig => {
+            abbrechen?.();
+            baum.stoppen();
+            altEbene.style.display = 'none';
+            triebEbene.style.display = 'none';
+            bild(von);
+            const beginn = performance.now();
+            let vorbei = false;
+            let wache = null;
+            const aufhoeren = () => {
+                vorbei = true;
+                clearTimeout(wache);
+                abbrechen = null;
+                fertig();
+            };
+            const ende = () => {
+                if (vorbei) return;
+                bild(bis);
+                if (bis === 1) {
+                    filmEbene.replaceChildren();
+                    pfade.clear();
+                    altEbene.style.display = '';
+                    triebEbene.style.display = '';
+                    baum.wachsenLassen();
+                }
+                aufhoeren();
+            };
+            const schritt = jetzt => {
+                if (vorbei) return;
+                const t = Math.min(1, (jetzt - beginn) / dauer);
+                if (t >= 1) {
+                    ende();
+                    return;
+                }
+                bild(von + (bis - von) * sanft(t));
+                requestAnimationFrame(schritt);
+            };
+            // In einem Tab im Hintergrund steht requestAnimationFrame still, der Ablauf darf trotzdem nicht hängen
+            wache = setTimeout(ende, dauer + 300);
+            abbrechen = aufhoeren;
+            requestAnimationFrame(schritt);
+        });
+
+    return { spielen };
+};
+
+// Zeichenfläche mit Gitter und drei Ebenen für den Baum
+const rahmenBauen = () => {
     const gitter = svgFlaeche('hg-gitter');
     gitter.append(svgTeil('path', { d: gitterLinien() }));
     const bild = svgFlaeche('hg-baum');
     const altEbene = svgTeil('g', {});
     const triebEbene = svgTeil('g', {});
-    bild.append(altEbene, triebEbene);
+    const filmEbene = svgTeil('g', {});
+    bild.append(altEbene, triebEbene, filmEbene);
     const rahmen = document.createElement('div');
     rahmen.className = 'hintergrund';
     rahmen.append(gitter, bild);
     document.body.prepend(rahmen);
+    return { rahmen, altEbene, triebEbene, filmEbene };
+};
+
+// Der Baum auf der Startseite: Wer nicht angemeldet ist, hat noch keinen eigenen. Er merkt sich nichts
+const MUSTER = { kennung: 'vindelis', tage: 365 };
+const MUSTER_WACHSEN_MS = 3500;
+// Ein junger Baum mit wenigen Stücken ist schneller fertig als ein alter
+const eigenerBaumMs = stuecke => Math.min(1800, 400 + stuecke * 20);
+
+// Steht ausserhalb von #app, so wächst der Baum beim Seitenwechsel einfach weiter. Auf dem Handy gibt es ihn nicht
+// muster: der grosse Baum der Startseite. fertig: steht sofort da, statt zu wachsen.
+// vorgaenger: übernimmt dessen Gitter und wächst aus der Wurzel, dort wo sich der Vorgänger abgebaut hat
+export const hintergrundStarten = ({ muster = false, fertig = false, vorgaenger = null } = {}) => {
+    if (window.matchMedia('(max-width: 760px)').matches) return null;
+    const ruhig = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const teile = vorgaenger ? vorgaenger.teile : rahmenBauen();
+    const { rahmen, altEbene, triebEbene, filmEbene } = teile;
+    filmEbene.replaceChildren();
     // Nur zum Anschauen: ?id=irgendwas zeigt den Baum einer anderen ID und merkt sich nichts
     const andereId = new URLSearchParams(location.search).get('id');
     const baum = muster
-        ? baumPflanzen(altEbene, triebEbene, MUSTER.kennung, true, MUSTER.tage)
+        ? baumPflanzen(altEbene, triebEbene, MUSTER.kennung, true, MUSTER.tage, !fertig && !ruhig)
         : baumPflanzen(
               altEbene,
               triebEbene,
               andereId || DATEN.mensch.id || 'gast',
               Boolean(andereId),
-              DATEN.mensch.tage
+              DATEN.mensch.tage,
+              Boolean(vorgaenger)
           );
+    const film = filmFuer(baum, altEbene, triebEbene, filmEbene);
 
     // Auf der Startseite gibt es keine grosse Ansicht, der Baum muss nur wieder verschwinden können
     if (muster) {
+        if (!fertig && !ruhig) film.spielen({ von: 0, bis: 1, dauer: MUSTER_WACHSEN_MS });
         return {
-            wegblenden: () => {
+            teile,
+            abbauen: dauer => film.spielen({ bis: 0, dauer }),
+            entfernen: () => {
                 baum.stoppen();
-                rahmen.classList.add('hg-weg');
-                setTimeout(() => rahmen.remove(), 1000);
+                rahmen.remove();
             }
         };
     }
+    if (vorgaenger) film.spielen({ von: 0, bis: 1, dauer: eigenerBaumMs(baum.linien().length) });
 
     // Öffnet die grosse Ansicht. Sie beginnt genau dort, wo der Baum gerade im Hintergrund steht
     huelle.baumOeffnen = () => {
