@@ -3,9 +3,10 @@ import { h, ikon, huelle, LOGOS } from './ui.js';
 import { sucheOeffnen } from './suche.js';
 import { DATEN } from './daten.js';
 import { neueWebsiteOeffnen } from './neue-website.js';
-import { seiteStart, seiteWebsites, seiteHelfer, seiteVerlauf, seiteKonto, seiteWerkstatt } from './seiten.js';
+import { seiteStart, seiteWebsites, seiteVerlauf, seiteKonto, seiteWerkstatt } from './seiten.js';
+import { seiteHelfer } from './helfer.js';
 import { seiteWartet } from './wartet.js';
-import { datenLaden } from './websites.js';
+import { datenLaden, helferLaden } from './websites.js';
 import { seiteWebsite, websiteTitel } from './website.js';
 import { hintergrundStarten } from './hintergrund.js';
 import { sitzungLaden } from './sitzung.js';
@@ -164,8 +165,9 @@ function zeichnen() {
 // Holt im Hintergrund den neusten Stand der Listen. Auf der Seite einer Website wird nicht
 // neu gezeichnet, damit dort nichts unter den Fingern wegspringt
 const auffrischen = async () => {
-    const geaendert = await datenLaden();
-    if (geaendert && !location.hash.startsWith('#/website/')) zeichnen();
+    const aufHelferSeite = location.hash.startsWith('#/helfer');
+    const [geaendert, helferGeaendert] = await Promise.all([datenLaden(), aufHelferSeite ? helferLaden() : false]);
+    if ((geaendert || helferGeaendert) && !location.hash.startsWith('#/website/')) zeichnen();
 };
 
 // Stellt das Cockpit auf. Läuft genau einmal, erst wenn feststeht, wer am Cockpit sitzt
@@ -208,7 +210,7 @@ const starten = async () => {
         return;
     }
     // Gleich beim Start laden, so stimmt schon das erste Bild (auch bei einem Link direkt auf eine Website)
-    await datenLaden();
+    await Promise.all([datenLaden(), helferLaden()]);
     cockpitStarten();
 };
 

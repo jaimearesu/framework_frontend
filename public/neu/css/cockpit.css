@@ -475,6 +475,17 @@ body.bp {
     margin-top: var(--space-3);
     border-radius: var(--radius-sm);
 }
+.helfer-arbeit {
+    display: grid;
+    gap: var(--space-1);
+}
+.helfer-arbeit a {
+    color: inherit;
+    text-decoration: none;
+}
+.helfer-arbeit a:hover span:first-child {
+    text-decoration: underline;
+}
 .code-karte {
     padding: 0;
     overflow: hidden;
