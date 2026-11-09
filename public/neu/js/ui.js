@@ -103,11 +103,11 @@ export const dialog = (zeichne, { kreuz = true } = {}) => {
     const box = h('div', { class: 'bp-dialog dlg-box', role: 'dialog', 'aria-modal': 'true' });
     const grund = h('div', { class: 'dlg-grund' }, box);
     // Solange der Dialog offen ist, bewegt sich die Seite dahinter nicht
-    const vorher = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const zu = () => {
         grund.remove();
-        document.body.style.overflow = vorher;
+        // Erst wenn kein anderer Dialog mehr offen ist, darf die Seite wieder rollen
+        if (!document.querySelector('.dlg-grund')) document.body.style.overflow = '';
         document.removeEventListener('keydown', taste);
     };
     const taste = e => {

@@ -1185,3 +1185,12 @@ body.ueber-baum {
         flex: 1 1 0;
     }
 }
+
+/* Einstellungen: eine ganze Zeile ist der Weg in ihren Bereich */
+.zeile-link {
+    color: inherit;
+    text-decoration: none;
+}
+.zeile-link:hover b {
+    text-decoration: underline;
+}
