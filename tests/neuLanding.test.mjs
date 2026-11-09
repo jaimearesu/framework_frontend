@@ -66,6 +66,16 @@ test('Die letzte Linie darf halb gezeichnet sein, zu viel schadet nicht', () => 
     assert.deepEqual(filmPfade(LINIEN, 99), filmPfade(LINIEN, 3));
 });
 
+test('Dreht sich der Baum, zählt die neue Blickrichtung samt ihrer Tiefe', () => {
+    const gedreht = linie => ({ klasse: 'tief', pa: [linie.pa[0] + 1, 0], pb: [linie.pb[0] + 1, 0] });
+    assert.deepEqual(filmPfade(LINIEN.slice(0, 1), 1, gedreht), { tief: 'M1.0 0.0L1.0 0.0' });
+    assert.deepEqual(filmPfade(LINIEN.slice(0, 1), 0.5, gedreht), { tief: 'M1.0 0.0L1.0 0.0' });
+});
+
+test('Oben auf der Startseite steht nur das V', () => {
+    assert.match(lies('js/anmelden.js'), /h\('img', \{ src: LOGOS\.v, alt: 'vindelis' \}\)/);
+});
+
 test('Der Zeitraffer beginnt und endet genau', () => {
     assert.equal(sanft(0), 0);
     assert.equal(sanft(1), 1);

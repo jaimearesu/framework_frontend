@@ -35,14 +35,14 @@ export const fehlerSeite = (dunkel, fehler, nochmals) =>
 
 // Die Startseite für alle ohne Anmeldung. Der Baum dahinter kommt aus verwandlung.js.
 // Wer als Gast weitermacht, wird erst beim ersten Anlegen wirklich zum Gast.
-export const anmeldeSeite = (dunkel, alsGast) =>
+export const anmeldeSeite = alsGast =>
     h(
         'div',
         { class: 'landing', id: 'landing' },
         h(
             'header',
             { class: 'landing-kopf' },
-            h('img', { src: dunkel ? LOGOS.dunkel : LOGOS.hell, alt: 'vindelis' }),
+            h('img', { src: LOGOS.v, alt: 'vindelis' }),
             h(
                 'a',
                 {
