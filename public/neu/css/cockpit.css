@@ -1406,14 +1406,14 @@ body.ueber-baum {
 .hintergrund {
     transform-origin: 74.55% 87.5%;
     transition:
-        transform 1800ms cubic-bezier(0.65, 0, 0.35, 1),
+        transform 2400ms cubic-bezier(0.65, 0, 0.35, 1),
         opacity 900ms ease;
     animation: hg-auf 500ms ease backwards;
 }
 /* Die Wurzel kommt auf 64 % der Breite und 76 % der Höhe, egal wie gross der Bildschirm ist */
 body.landing-baum .hintergrund {
     --breite: min(60vw, 1100px);
-    transform: translate(calc(var(--breite) * 0.2545 - 36vw), calc(var(--breite) * 0.0636 - 24vh)) scale(1.5);
+    transform: translate(calc(var(--breite) * 0.2545 - 36vw), calc(var(--breite) * 0.0636 - 24vh)) scale(1.85);
 }
 @media (min-width: 761px) {
     .landing-text {
@@ -1421,26 +1421,41 @@ body.landing-baum .hintergrund {
         padding-bottom: 8vh;
     }
 }
-/* Auf der Startseite ist der Baum die Hauptsache, im Cockpit tritt er zurück */
+/* Auf der Startseite so fein wie in der grossen Ansicht. Die Stärken sind durch die Vergrösserung geteilt */
 .baum-linie {
     transition:
-        stroke 1000ms ease,
+        stroke-width 1000ms ease,
         opacity 1000ms ease;
 }
-body.landing-baum .baum-linie {
-    stroke: var(--text);
+body.landing-baum .baum-r0 {
+    stroke-width: 0.92;
+}
+body.landing-baum .baum-r1 {
+    stroke-width: 0.65;
+}
+body.landing-baum .baum-r2 {
+    stroke-width: 0.43;
+}
+body.landing-baum .baum-r3 {
+    stroke-width: 0.3;
 }
 body.landing-baum .baum-t0 {
-    opacity: 0.95;
+    opacity: 0.72;
 }
 body.landing-baum .baum-t1 {
-    opacity: 0.8;
+    opacity: 0.56;
 }
 body.landing-baum .baum-t2 {
-    opacity: 0.62;
+    opacity: 0.42;
 }
 body.landing-baum .baum-t3 {
-    opacity: 0.45;
+    opacity: 0.28;
+}
+.landing-kopf img {
+    height: 28px;
+}
+body[data-modus='dunkel'] .landing-kopf img {
+    filter: invert(1);
 }
 #app.cockpit-kommt {
     animation: cockpit-auf 600ms ease backwards;

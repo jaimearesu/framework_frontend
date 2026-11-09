@@ -2,7 +2,11 @@
 // Text läuft immer über textContent, nie über innerHTML (Schutz vor eingeschleustem Code).
 
 // Feste Pfade der Logos, weil das Cockpit unter / und unter /neu/ läuft
-export const LOGOS = { hell: '/neu/marke/logos/logo.svg', dunkel: '/neu/marke/logos/logo-dunkel.svg' };
+export const LOGOS = {
+    hell: '/neu/marke/logos/logo.svg',
+    dunkel: '/neu/marke/logos/logo-dunkel.svg',
+    v: '/neu/marke/logos/bildmarke.svg'
+};
 
 // Die Hülle (app.js) trägt hier ihre Zeichnen-Funktion ein, damit Seiten neu zeichnen können
 export const huelle = { neu() {} };

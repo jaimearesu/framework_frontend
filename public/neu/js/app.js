@@ -239,7 +239,7 @@ const starten = async () => {
     let beispielBaum = null;
     const alsGast = () => insCockpit(beispielBaum, cockpitStarten);
     if (vomLogin) {
-        vorStartZeigen(anmeldeSeite(dunkel, alsGast));
+        vorStartZeigen(anmeldeSeite(alsGast));
         beispielBaum = startseitenBaum({ fertig: true });
     } else {
         vorStartZeigen(ladeSeite(dunkel));
@@ -252,7 +252,7 @@ const starten = async () => {
     }
     if (sitzung.art === 'anon') {
         // Neu zeichnen, erst jetzt ist die Adresse fürs Anmelden bekannt
-        vorStartZeigen(anmeldeSeite(dunkel, alsGast));
+        vorStartZeigen(anmeldeSeite(alsGast));
         if (!beispielBaum) beispielBaum = startseitenBaum();
         return;
     }

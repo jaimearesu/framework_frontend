@@ -113,7 +113,15 @@ const herausnehmen = (liste, stelle) => {
 };
 
 // Pflanzt den Baum und gibt die Funktion zurück, mit der man sein Alter wechselt
-const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen, startTage, spaeterWachsen) => {
+const baumPflanzen = (
+    altEbene,
+    triebEbene,
+    kennung,
+    nurAnschauen,
+    startTage,
+    spaeterWachsen,
+    dichteGrenze = DICHTE_GRENZE
+) => {
     const ruhig = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let tage, ziel, trieb, basis, hoehe, breite;
     let belegt, dichte, straenge, haken, stamm, stuecke, wuerfel, sammlung, uhr;
@@ -130,9 +138,9 @@ const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen, startTage, sp
     const wuerfelFeld = ([i, j, k]) => (i >> 2) + ',' + (j >> 2) + ',' + (k >> 2);
 
     // Rechnet einen Punkt des Modells auf die Zeichenfläche um und liefert auch, wie weit hinten er liegt
-    const abbilden = ([i, j, k]) => {
-        const quer = i * Math.cos(BLICK.dreh) - k * Math.sin(BLICK.dreh);
-        const tiefe = i * Math.sin(BLICK.dreh) + k * Math.cos(BLICK.dreh);
+    const abbilden = ([i, j, k], dreh = BLICK.dreh) => {
+        const quer = i * Math.cos(dreh) - k * Math.sin(dreh);
+        const tiefe = i * Math.sin(dreh) + k * Math.cos(dreh);
         const nah = BLICK.abstand / (BLICK.abstand + tiefe);
         return {
             x: WURZEL.x + quer * BAUM_RASTER * nah,
@@ -150,7 +158,7 @@ const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen, startTage, sp
     // Passt das nächste Stück? Geprüft werden Platz, Dichte und Abstand zu den Nachbarn
     const passt = (von, richtung, rang) => {
         const nach = dazu(von, richtung);
-        if (!frei(nach) || (dichte.get(wuerfelFeld(nach)) || 0) >= DICHTE_GRENZE[rang]) return false;
+        if (!frei(nach) || (dichte.get(wuerfelFeld(nach)) || 0) >= dichteGrenze[rang]) return false;
         if (istSchraeg(richtung)) return !belegt.has(mitte(von, richtung));
         for (let achse = 0; achse < 3; achse++) {
             if (richtung[achse] !== 0) continue;
@@ -202,10 +210,12 @@ const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen, startTage, sp
     // Hinten blasser als vorne: Das gibt dem Baum seine Tiefe
     const tiefenStufe = tiefe => Math.max(0, Math.min(3, Math.floor(((tiefe + breite) / (2 * breite + 1)) * 4)));
 
+    const klasseFuer = (rang, a, b) => 'baum-linie baum-r' + rang + ' baum-t' + tiefenStufe((a.tiefe + b.tiefe) / 2);
+
     const zeichne = (von, nach, rang) => {
         const a = abbilden(von);
         const b = abbilden(nach);
-        const klasse = 'baum-linie baum-r' + rang + ' baum-t' + tiefenStufe((a.tiefe + b.tiefe) / 2);
+        const klasse = klasseFuer(rang, a, b);
         const d = 'M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + 'L' + b.x.toFixed(1) + ' ' + b.y.toFixed(1);
         linien.push({
             a: von,
@@ -356,21 +366,37 @@ const baumPflanzen = (altEbene, triebEbene, kennung, nurAnschauen, startTage, sp
         alter: () => tage,
         linien: () => linien,
         stoppen: () => clearTimeout(uhr),
+        // Wie die Stücke aussehen, wenn man den Baum von einer anderen Seite ansieht
+        ansicht: dreh => linie => {
+            const a = abbilden(linie.a, dreh);
+            const b = abbilden(linie.b, dreh);
+            return { klasse: klasseFuer(linie.rang, a, b), pa: [a.x, a.y], pb: [b.x, b.y] };
+        },
         wachsenLassen: () => {
             if (!ruhig) weiter();
         }
     };
 };
 
-// Lässt den Baum im Zeitraffer wachsen oder sich abbauen. Solange das läuft, sind die normalen Ebenen versteckt
-const filmFuer = (baum, altEbene, triebEbene, filmEbene) => {
+// Lässt den Baum im Zeitraffer wachsen oder sich abbauen. Solange das läuft, sind die normalen Ebenen versteckt.
+// drehen: Er dreht sich dabei langsam um den Stamm, gleich schnell wie in der grossen Ansicht
+const filmFuer = (baum, altEbene, triebEbene, filmEbene, drehen = false) => {
     const pfade = new Map();
     let stand = 1;
-    let abbrechen = null;
+    let dreh = BLICK.dreh;
+    let lauf = null;
+    let letztesBild = null;
+    let tickLaeuft = false;
+    let aus = false;
 
-    const bild = wert => {
-        stand = wert;
-        const neu = filmPfade(baum.linien(), wert * baum.linien().length);
+    const ebenenVerstecken = ja => {
+        altEbene.style.display = ja ? 'none' : '';
+        triebEbene.style.display = ja ? 'none' : '';
+    };
+
+    const bild = () => {
+        const linien = baum.linien();
+        const neu = filmPfade(linien, stand * linien.length, drehen ? baum.ansicht(dreh) : undefined);
         pfade.forEach((pfad, klasse) => {
             if (!(klasse in neu)) pfad.setAttribute('d', '');
         });
@@ -383,51 +409,79 @@ const filmFuer = (baum, altEbene, triebEbene, filmEbene) => {
         });
     };
 
+    const laufBeenden = () => {
+        const { bis, fertig, wache } = lauf;
+        clearTimeout(wache);
+        stand = bis;
+        lauf = null;
+        if (bis === 1 && !drehen) {
+            // Der eigene Baum ist da: zurück zu den normalen Ebenen, ab jetzt wächst er in seinem echten Tempo
+            filmEbene.replaceChildren();
+            pfade.clear();
+            ebenenVerstecken(false);
+            baum.wachsenLassen();
+        } else {
+            bild();
+        }
+        if (bis === 0) aus = true;
+        fertig();
+    };
+
+    const tick = jetzt => {
+        if (aus) {
+            tickLaeuft = false;
+            return;
+        }
+        if (drehen) {
+            if (letztesBild !== null) dreh += Math.min(100, jetzt - letztesBild) * DREH_TEMPO;
+            letztesBild = jetzt;
+        }
+        if (lauf) {
+            const t = Math.min(1, (jetzt - lauf.beginn) / lauf.dauer);
+            if (t >= 1) laufBeenden();
+            else stand = lauf.von + (lauf.bis - lauf.von) * sanft(t);
+        }
+        if (aus || (!drehen && !lauf)) {
+            tickLaeuft = false;
+            return;
+        }
+        bild();
+        requestAnimationFrame(tick);
+    };
+
+    const loslegen = () => {
+        if (tickLaeuft) return;
+        tickLaeuft = true;
+        requestAnimationFrame(tick);
+    };
+
     const spielen = ({ von = stand, bis, dauer }) =>
         new Promise(fertig => {
-            abbrechen?.();
+            if (lauf) {
+                clearTimeout(lauf.wache);
+                lauf.fertig();
+            }
             baum.stoppen();
-            altEbene.style.display = 'none';
-            triebEbene.style.display = 'none';
-            bild(von);
-            const beginn = performance.now();
-            let vorbei = false;
-            let wache = null;
-            const aufhoeren = () => {
-                vorbei = true;
-                clearTimeout(wache);
-                abbrechen = null;
-                fertig();
-            };
-            const ende = () => {
-                if (vorbei) return;
-                bild(bis);
-                if (bis === 1) {
-                    filmEbene.replaceChildren();
-                    pfade.clear();
-                    altEbene.style.display = '';
-                    triebEbene.style.display = '';
-                    baum.wachsenLassen();
-                }
-                aufhoeren();
-            };
-            const schritt = jetzt => {
-                if (vorbei) return;
-                const t = Math.min(1, (jetzt - beginn) / dauer);
-                if (t >= 1) {
-                    ende();
-                    return;
-                }
-                bild(von + (bis - von) * sanft(t));
-                requestAnimationFrame(schritt);
-            };
+            ebenenVerstecken(true);
+            stand = von;
+            const meiner = { von, bis, dauer, beginn: performance.now(), fertig, wache: null };
             // In einem Tab im Hintergrund steht requestAnimationFrame still, der Ablauf darf trotzdem nicht hängen
-            wache = setTimeout(ende, dauer + 300);
-            abbrechen = aufhoeren;
-            requestAnimationFrame(schritt);
+            meiner.wache = setTimeout(() => {
+                if (lauf === meiner) laufBeenden();
+            }, dauer + 300);
+            lauf = meiner;
+            bild();
+            loslegen();
         });
 
-    return { spielen };
+    // Steht sofort fertig da und dreht sich nur noch
+    const stehen = () => {
+        ebenenVerstecken(true);
+        bild();
+        loslegen();
+    };
+
+    return { spielen, stehen, anhalten: () => (aus = true) };
 };
 
 // Zeichenfläche mit Gitter und drei Ebenen für den Baum
@@ -447,10 +501,13 @@ const rahmenBauen = () => {
 };
 
 // Der Baum auf der Startseite: Wer nicht angemeldet ist, hat noch keinen eigenen. Er merkt sich nichts
-const MUSTER = { kennung: 'vindelis', tage: 365 };
-const MUSTER_WACHSEN_MS = 3500;
+// Weniger Stücke und weniger Gedränge als ein echter Baum in diesem Alter, damit er luftig bleibt
+const MUSTER = { kennung: 'vindelis', tage: 150, dichte: [99, 12, 7, 5] };
+const MUSTER_WACHSEN_MS = 10000;
+// Gleich schnell wie in der grossen Ansicht, eine Umdrehung dauert gut zweieinhalb Minuten
+const DREH_TEMPO = 0.00004;
 // Ein junger Baum mit wenigen Stücken ist schneller fertig als ein alter
-const eigenerBaumMs = stuecke => Math.min(1800, 400 + stuecke * 20);
+const eigenerBaumMs = stuecke => Math.min(3000, 800 + stuecke * 30);
 
 // Steht ausserhalb von #app, so wächst der Baum beim Seitenwechsel einfach weiter. Auf dem Handy gibt es ihn nicht
 // muster: der grosse Baum der Startseite. fertig: steht sofort da, statt zu wachsen.
@@ -464,7 +521,7 @@ export const hintergrundStarten = ({ muster = false, fertig = false, vorgaenger 
     // Nur zum Anschauen: ?id=irgendwas zeigt den Baum einer anderen ID und merkt sich nichts
     const andereId = new URLSearchParams(location.search).get('id');
     const baum = muster
-        ? baumPflanzen(altEbene, triebEbene, MUSTER.kennung, true, MUSTER.tage, !fertig && !ruhig)
+        ? baumPflanzen(altEbene, triebEbene, MUSTER.kennung, true, MUSTER.tage, true, MUSTER.dichte)
         : baumPflanzen(
               altEbene,
               triebEbene,
@@ -473,15 +530,19 @@ export const hintergrundStarten = ({ muster = false, fertig = false, vorgaenger 
               DATEN.mensch.tage,
               Boolean(vorgaenger)
           );
-    const film = filmFuer(baum, altEbene, triebEbene, filmEbene);
+    const film = filmFuer(baum, altEbene, triebEbene, filmEbene, muster && !ruhig);
 
     // Auf der Startseite gibt es keine grosse Ansicht, der Baum muss nur wieder verschwinden können
     if (muster) {
-        if (!fertig && !ruhig) film.spielen({ von: 0, bis: 1, dauer: MUSTER_WACHSEN_MS });
+        if (!ruhig) {
+            if (fertig) film.stehen();
+            else film.spielen({ von: 0, bis: 1, dauer: MUSTER_WACHSEN_MS });
+        }
         return {
             teile,
             abbauen: dauer => film.spielen({ bis: 0, dauer }),
             entfernen: () => {
+                film.anhalten();
                 baum.stoppen();
                 rahmen.remove();
             }

@@ -5,7 +5,7 @@ import { hintergrundStarten } from './hintergrund.js';
 
 const STARTSEITE_ZEIGEN_MS = 400;
 const TEXT_VORLAUF_MS = 300;
-const ABBAU_MS = 1800;
+const ABBAU_MS = 2400;
 const COCKPIT_NACH_MS = 350;
 const COCKPIT_AUF_MS = 700;
 
