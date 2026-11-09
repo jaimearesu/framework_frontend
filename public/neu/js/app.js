@@ -124,7 +124,13 @@ function zeichnen() {
                         h('div', { class: 'kopf-titel' }, h('h2', {}, seite.titel || ''), seite.unter),
                         h(
                             'button',
-                            { class: 'such-knopf', type: 'button', id: 'such-knopf', onclick: sucheStarten },
+                            {
+                                class: 'such-knopf',
+                                type: 'button',
+                                id: 'such-knopf',
+                                'aria-label': 'Suchen',
+                                onclick: sucheStarten
+                            },
                             ikon('suche'),
                             'Suchen…',
                             h('kbd', {}, 'Strg K')

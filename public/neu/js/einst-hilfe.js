@@ -1,6 +1,6 @@
 // Bausteine für die Bereiche der Einstellungen: Laden, Formular-Dialog, Teil-Auswahl.
 // Eingaben stehen immer in einem Dialog. So gehen sie nicht verloren, wenn die Seite neu zeichnet.
-import { h, ikon, leer, dialog, huelle } from './ui.js';
+import { h, ikon, leer, dialog, huelle, laedtKarte } from './ui.js';
 import { hinweiseFuerMenschen } from './einstellungen-werte.js';
 
 const FRISCH_MS = 30000;
@@ -40,7 +40,7 @@ export const nochmals = async schluessel => {
 
 // Zeigt Laden und Fehler. Sind die Daten da, zeichnet zeichne() sie
 export const mitDaten = (eintrag, zeichne, { symbol = 'werkstatt' } = {}) => {
-    if (!eintrag.da) return h('div', { class: 'bp-karte' }, h('span', { class: 'leise' }, 'Wird geladen…'));
+    if (!eintrag.da) return laedtKarte();
     if (eintrag.fehler) {
         const rechte = eintrag.status === 403 || eintrag.status === 404;
         return h(

@@ -27,7 +27,7 @@ import { emit } from './events.js';
 
 // Verständliche Texte, falls das Backend keine eigene Meldung schickt
 const STATUS_TEXT = {
-    0: 'Backend nicht erreichbar. Läuft der Server?',
+    0: 'Keine Verbindung zum Server. Versuch es gleich nochmals.',
     400: 'Ungültige Eingabe.',
     401: 'Bitte zuerst einloggen.',
     403: 'Kein Zugriff.',

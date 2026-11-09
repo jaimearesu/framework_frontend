@@ -3,7 +3,7 @@
 import { api } from '../../js/core/api.js';
 import { timeAgo } from '../../js/core/format.js';
 import { loadObjectNames, loadObjects, objectLabel } from '../../js/core/objects.js';
-import { h, ikon, huelle } from './ui.js';
+import { h, ikon, huelle, laedtBalken } from './ui.js';
 import {
     MAX_CODE_ZEILEN,
     artenAusVersionen,
@@ -59,7 +59,7 @@ const codeZeilen = zeilen =>
 const rechtsFuellen = async (flaeche, uuid, zuletzt) => {
     const dieser = ++zuletzt.lauf;
     const aktuell = () => dieser === zuletzt.lauf;
-    flaeche.replaceChildren(hinweisKarte('Wird geladen…'));
+    flaeche.replaceChildren(h('div', { class: 'bp-karte code-karte' }, laedtBalken()));
     if (!zuletzt.versionen) {
         const geholt = await versionenHolen(uuid);
         if (!aktuell()) return;

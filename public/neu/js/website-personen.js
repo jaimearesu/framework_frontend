@@ -2,7 +2,7 @@
 // Alle Rechte prüft das Backend. Adressen sind Text von Fremden: nur über h(), nie als HTML.
 import { api } from '../../js/core/api.js';
 import { timeAgo, formatNumber } from '../../js/core/format.js';
-import { h, ikon, leer, dialog, meldung, huelle } from './ui.js';
+import { h, ikon, leer, dialog, meldung, huelle, laedtKarte } from './ui.js';
 import { DATEN } from './daten.js';
 import { zugriffGebenOeffnen } from './zugriff.js';
 import {
@@ -614,7 +614,7 @@ export const reiterPersonen = (w, site) => {
         );
     }
     if (!ablage.inhalt) {
-        return h('div', { class: 'bp-karte', id: 'personen-laedt' }, h('span', { class: 'leise' }, 'Wird geladen…'));
+        return laedtKarte('personen-laedt');
     }
     const { personen, einladungen, besucher } = ablage.inhalt;
     const gast = DATEN.mensch.art !== 'user';
