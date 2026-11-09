@@ -1,6 +1,7 @@
 // Grosse Ansicht des eigenen Baums: Alles andere blendet aus, der Baum wandert in die Mitte,
 // spult zurück bis zum Keimling und wächst im Zeitraffer bis heute, die Ansicht zoomt dabei heraus.
-// Danach wächst er in Echtzeit weiter. Mit der Maus lässt er sich drehen.
+// Danach wächst er in Echtzeit weiter. Mit «Live» entfällt das Zurückspulen, man schaut ihm direkt beim Wachsen zu.
+// Mit der Maus lässt er sich drehen.
 // Gezeichnet wird auf eine Leinwand (canvas), dafür braucht es keine fremde Bibliothek.
 import { h, ikon } from './ui.js';
 
@@ -8,14 +9,19 @@ const BUEHNE_BREITE = [1.7, 1.2, 0.8, 0.55];
 const BUEHNE_DECKKRAFT = [0.72, 0.56, 0.42, 0.28];
 const DAUER_MITTE = 1400;
 const DAUER_ZURUECK = 1800;
+// «Live» spult nicht zurück, der Baum wächst in seinem echten Tempo
+const LIVE = 'live';
 // Wie lange der Zeitraffer dauert, in Minuten. 0 heisst: kurz, je nach Grösse des Baums höchstens 20 Sekunden
 const ZEITRAFFER = [
     [0, 'Kurz'],
     [5, '5 Min'],
     [15, '15 Min'],
     [30, '30 Min'],
-    [60, '1 Std']
+    [60, '1 Std'],
+    [LIVE, 'Live']
 ];
+// So lange leuchtet ein neues Stück nach. Ein Stück allein wäre in einem grossen Baum kaum zu sehen
+const LEUCHTEN = 45000;
 // Bleibt erhalten, wenn man die Ansicht schliesst und wieder öffnet
 const BUEHNE_WAHL = { minuten: 0, drehen: true };
 
@@ -97,8 +103,8 @@ export const baumBuehneOeffnen = baum => {
             h(
                 'div',
                 { class: 'bb-raffer' },
-                h('span', { class: 'leise' }, 'Zeitraffer'),
-                h('div', { class: 'bp-segment', role: 'tablist', 'aria-label': 'Dauer des Zeitraffers' }, raffKnoepfe)
+                h('span', { class: 'leise' }, 'Tempo'),
+                h('div', { class: 'bp-segment', role: 'tablist', 'aria-label': 'Tempo' }, raffKnoepfe)
             ),
             h('div', { class: 'bb-knoepfe' }, drehKnopf, knopf)
         )
@@ -107,6 +113,7 @@ export const baumBuehneOeffnen = baum => {
     const farben = getComputedStyle(document.body);
     const farbeBaum = farben.getPropertyValue('--muted').trim();
     const farbeGitter = farben.getPropertyValue('--border-strong').trim();
+    const farbeFrisch = farben.getPropertyValue('--text').trim() || farbeBaum;
 
     let breite, hoehe, punktDichte;
     const groesseSetzen = () => {
@@ -161,15 +168,17 @@ export const baumBuehneOeffnen = baum => {
         abschnitt = neu;
         abschnittStart = performance.now();
         knopf.textContent = neu === 'jetzt' ? 'Nochmals ansehen' : 'Überspringen';
+        // Im Live-Tempo gibt es nichts zum nochmals Ansehen
+        knopf.style.display = neu === 'jetzt' && BUEHNE_WAHL.minuten === LIVE ? 'none' : '';
     };
     abschnittSetzen(abschnitt);
     const knopfGedrueckt = () => abschnittSetzen(abschnitt === 'jetzt' ? 'zurueck' : 'jetzt');
 
-    // Eine neue Dauer spult zurück und lässt den Baum im gewählten Tempo neu wachsen
+    // Eine neue Dauer spult zurück und lässt den Baum im gewählten Tempo neu wachsen. «Live» springt zum heutigen Stand
     const zeitrafferWaehlen = minuten => {
         BUEHNE_WAHL.minuten = minuten;
         raffKnoepfe.forEach((k, i) => k.setAttribute('aria-selected', ZEITRAFFER[i][0] === minuten ? 'true' : 'false'));
-        abschnittSetzen('zurueck');
+        abschnittSetzen(minuten === LIVE ? 'jetzt' : 'zurueck');
     };
 
     const drehKnopfBeschriften = () => {
@@ -213,7 +222,7 @@ export const baumBuehneOeffnen = baum => {
                 y: baum.start.y + (ziel.y - baum.start.y) * f,
                 zoom: baum.start.zoom + (ziel.zoom - baum.start.zoom) * f
             };
-            if (f >= 1) abschnittSetzen('zurueck');
+            if (f >= 1) abschnittSetzen(BUEHNE_WAHL.minuten === LIVE ? 'jetzt' : 'zurueck');
         } else {
             if (abschnitt === 'zurueck') {
                 const f = sanft(Math.min(1, zeit / DAUER_ZURUECK));
@@ -273,6 +282,7 @@ export const baumBuehneOeffnen = baum => {
         pinsel.strokeStyle = farbeBaum;
         const radius = Math.max(4, masse[Math.min(sichtbar, masse.length - 1)].r);
         const wege = new Map();
+        const frisch = [];
         const zeichnenBis = Math.min(gesamt, sichtbar + (teilStueck > 0 ? 1 : 0));
         for (let n = 0; n < zeichnenBis; n++) {
             const stueck = liste[n];
@@ -283,6 +293,9 @@ export const baumBuehneOeffnen = baum => {
             if (abschnitt === 'jetzt' && stueck.seit && jetzt - stueck.seit < baum.takt)
                 anteil = (jetzt - stueck.seit) / baum.takt;
             if (anteil < 1) q = [p[0] + (q[0] - p[0]) * anteil, p[1] + (q[1] - p[1]) * anteil];
+            if (abschnitt === 'jetzt' && stueck.seit && jetzt - stueck.seit < LEUCHTEN) {
+                frisch.push({ p, q, alter: (jetzt - stueck.seit) / LEUCHTEN });
+            }
             const stufe = Math.max(0, Math.min(3, Math.floor(((p[2] + radius) / (2 * radius + 1)) * 4)));
             const schluessel = stueck.rang * 4 + stufe;
             if (!wege.has(schluessel)) wege.set(schluessel, new Path2D());
@@ -294,6 +307,16 @@ export const baumBuehneOeffnen = baum => {
             pinsel.lineWidth = BUEHNE_BREITE[Math.floor(schluessel / 4)];
             pinsel.globalAlpha = BUEHNE_DECKKRAFT[schluessel % 4];
             pinsel.stroke(weg);
+        });
+        // Neue Stücke leuchten und werden langsam zu normalen Ästen
+        pinsel.strokeStyle = farbeFrisch;
+        pinsel.lineWidth = 2;
+        frisch.forEach(({ p, q, alter }) => {
+            pinsel.globalAlpha = 1 - alter;
+            pinsel.beginPath();
+            pinsel.moveTo(p[0], p[1]);
+            pinsel.lineTo(q[0], q[1]);
+            pinsel.stroke();
         });
         pinsel.globalAlpha = 1;
 

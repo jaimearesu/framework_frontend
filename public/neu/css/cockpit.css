@@ -1257,3 +1257,27 @@ body.ueber-baum {
     background: var(--danger-soft-strong);
     color: var(--on-danger-soft);
 }
+
+/* --- Änderungsliste von Jaime --- */
+
+/* Jede Helfer-Karte ist nur so hoch wie ihr Inhalt */
+.kacheln.helfer-kacheln {
+    align-items: start;
+}
+.bp-karte.helfer-karte {
+    gap: var(--space-3);
+}
+.bp .helfer-mehr {
+    justify-self: start;
+    margin-top: var(--space-1);
+}
+
+/* Filter und Reihenfolge rechts neben dem Titel, auf schmalen Bildschirmen darunter */
+.abschnitt-kopf {
+    flex-wrap: wrap;
+}
+.abschnitt-wahl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}

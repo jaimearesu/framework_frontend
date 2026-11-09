@@ -7,6 +7,7 @@ import { abmeldeAdresse } from './sitzung.js';
 import { neuLaden } from './websites.js';
 import { papierkorbAbschnitt } from './papierkorb.js';
 import { werkzeugGruppen } from './werkstatt-werte.js';
+import { hatBeideHerkuenfte, nachHerkunft } from './websites-werte.js';
 
 // Vorschaubild einer Website. Nur öffentliche Websites haben ein echtes Bild, die anderen behalten die Skizze
 export const vorschauBild = (gross, website) => {
@@ -45,23 +46,23 @@ const websiteKachel = w =>
 // Wie viele Kacheln auf einer Seite stehen
 const PRO_SEITE = 9;
 
-// Websites in der gewählten Reihenfolge: zuletzt geändert oder neuste zuerst
+// Websites nach Herkunft gefiltert und in der gewählten Reihenfolge: zuletzt geändert oder neuste zuerst
 const sortierteWebsites = () => {
     const feld = DATEN.startAnsicht.sortierung === 'neu' ? 'erstelltVor' : 'geaendertVor';
-    return [...DATEN.websites].sort((a, b) => a[feld] - b[feld]);
+    return [...nachHerkunft(DATEN.websites, DATEN.startAnsicht.herkunft)].sort((a, b) => a[feld] - b[feld]);
 };
 
-// Umschalter für die Reihenfolge, wechselt zurück auf Seite 1
-const sortierKnopf = (wert, text) =>
+// Umschalter für Reihenfolge und Herkunft, wechselt zurück auf Seite 1
+const wahlKnopf = (feld, praefix, wert, text) =>
     h(
         'button',
         {
             type: 'button',
-            id: 'sort-' + wert,
+            id: praefix + wert,
             role: 'tab',
-            'aria-selected': DATEN.startAnsicht.sortierung === wert ? 'true' : 'false',
+            'aria-selected': DATEN.startAnsicht[feld] === wert ? 'true' : 'false',
             onclick: () => {
-                DATEN.startAnsicht.sortierung = wert;
+                DATEN.startAnsicht[feld] = wert;
                 DATEN.startAnsicht.seite = 1;
                 huelle.neu();
             }
@@ -136,15 +137,28 @@ const websitesAbschnitt = ueberschrift => {
         h(
             'div',
             { class: 'abschnitt-kopf' },
-            h('h3', {}, ueberschrift),
-            alle.length > 1
-                ? h(
-                      'div',
-                      { class: 'bp-segment', role: 'tablist', 'aria-label': 'Reihenfolge' },
-                      sortierKnopf('geaendert', 'Zuletzt geändert'),
-                      sortierKnopf('neu', 'Neuste')
-                  )
-                : null
+            h('h3', {}, typeof ueberschrift === 'function' ? ueberschrift(alle.length) : ueberschrift),
+            h(
+                'div',
+                { class: 'abschnitt-wahl' },
+                hatBeideHerkuenfte(DATEN.websites)
+                    ? h(
+                          'div',
+                          { class: 'bp-segment', role: 'tablist', 'aria-label': 'Herkunft' },
+                          wahlKnopf('herkunft', 'herkunft-', 'alle', 'Alle'),
+                          wahlKnopf('herkunft', 'herkunft-', 'mein', 'Von mir'),
+                          wahlKnopf('herkunft', 'herkunft-', 'geteilt', 'Mit mir geteilt')
+                      )
+                    : null,
+                alle.length > 1
+                    ? h(
+                          'div',
+                          { class: 'bp-segment', role: 'tablist', 'aria-label': 'Reihenfolge' },
+                          wahlKnopf('sortierung', 'sort-', 'geaendert', 'Zuletzt geändert'),
+                          wahlKnopf('sortierung', 'sort-', 'neu', 'Neuste')
+                      )
+                    : null
+            )
         ),
         alle.length
             ? [
@@ -171,7 +185,7 @@ const websitesAbschnitt = ueberschrift => {
 
 // Eigene Seite im Menü: nur die Websites, ohne alles andere von Start
 export const seiteWebsites = () => [
-    websitesAbschnitt(DATEN.websites.length === 1 ? '1 Website' : DATEN.websites.length + ' Websites'),
+    websitesAbschnitt(anzahl => (anzahl === 1 ? '1 Website' : anzahl + ' Websites')),
     papierkorbAbschnitt()
 ];
 
