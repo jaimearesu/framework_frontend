@@ -27,6 +27,7 @@ export const anmeldungHolen = (speicher = tabSpeicher) => {
 export const VERBINDEN = [
     {
         name: 'Claude',
+        logo: '/neu/bilder/claude.svg',
         schritte: [
             'Öffne Customize und dann Connectors.',
             'Klicke auf + und wähle «Add custom connector».',
@@ -36,6 +37,7 @@ export const VERBINDEN = [
     },
     {
         name: 'ChatGPT',
+        logo: '/neu/bilder/openai.svg',
         schritte: [
             'Öffne Plugins.',
             'Klicke auf + und wähle «Add custom MCP server».',
@@ -70,3 +72,11 @@ export const RECHTLICHES = [
     { text: 'Datenschutz', href: null },
     { text: 'Impressum', href: null }
 ];
+
+// Wie weit der Inhalt des Footers noch unten liegt, solange er erst teilweise zu sehen ist.
+// sichtbar = wie viele Pixel des Footers man schon sieht, hoehe = seine Höhe, weg = grösster Versatz
+export const fussVersatz = (sichtbar, hoehe, weg) => {
+    if (hoehe <= 0) return 0;
+    const anteil = Math.min(1, Math.max(0, sichtbar / hoehe));
+    return Math.round(weg * (1 - anteil));
+};

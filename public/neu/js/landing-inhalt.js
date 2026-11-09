@@ -1,14 +1,14 @@
 // Was auf der Startseite unter dem Baum steht: KI verbinden, Aufbau von vindelis und der Footer.
 // Die Texte stehen in landing-werte.js
-import { h, LOGOS, kopierZeile } from './ui.js';
+import { h, kopierZeile } from './ui.js';
 import { mcpAdresseLive } from './sitzung.js';
-import { AUFBAU, RECHTLICHES, VERBINDEN } from './landing-werte.js';
+import { AUFBAU, RECHTLICHES, VERBINDEN, fussVersatz } from './landing-werte.js';
 
-const karteVerbinden = ({ name, schritte }) =>
+const karteVerbinden = ({ name, logo, schritte }) =>
     h(
         'div',
         { class: 'bp-karte landing-karte' },
-        h('h3', {}, name),
+        h('h3', { class: 'landing-marke' }, h('img', { src: logo, alt: '' }), name),
         h(
             'ol',
             { class: 'anleitung' },
@@ -54,18 +54,47 @@ const abschnittAufbau = () =>
 const rechtlichEintrag = ({ text, href }) =>
     h('li', {}, href ? h('a', { href }, text) : h('span', {}, text, h('small', {}, 'folgt')));
 
-const fuss = () =>
-    h(
-        'footer',
-        { class: 'landing-fuss', id: 'fuss' },
+// Der Footer liegt hinter der Seite und kommt hervor, wenn sie sich beim Scrollen weghebt.
+// Sein Inhalt steigt dabei noch ein Stück auf. Wer keine Bewegung will, bekommt nur das Hervorkommen
+const FUSS_WEG_PX = 120;
+
+const fussBewegen = (fuss, inhalt) => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const anpassen = () => {
+        // Die Seite wurde ersetzt (Cockpit): nicht mehr mithören
+        if (!fuss.isConnected) {
+            window.removeEventListener('scroll', anpassen);
+            window.removeEventListener('resize', anpassen);
+            return;
+        }
+        const ueber = fuss.previousElementSibling.getBoundingClientRect().bottom;
+        const versatz = fussVersatz(window.innerHeight - ueber, fuss.offsetHeight, FUSS_WEG_PX);
+        inhalt.style.transform = 'translateY(' + versatz + 'px)';
+    };
+    window.addEventListener('scroll', anpassen, { passive: true });
+    window.addEventListener('resize', anpassen);
+    requestAnimationFrame(anpassen);
+};
+
+const fussBauen = () => {
+    const inhalt = h(
+        'div',
+        { class: 'landing-innen landing-fuss-innen' },
+        h('img', { class: 'landing-fuss-logo', src: '/neu/bilder/wortmarke.svg', alt: 'vindelis' }),
         h(
             'div',
-            { class: 'landing-innen landing-fuss-zeile' },
-            h('p', {}, 'Smart to build. Safe to ship. Reliable to run.'),
+            { class: 'landing-fuss-zeile' },
+            h('p', {}, '© ' + new Date().getFullYear() + ' vindelis'),
             h('ul', {}, RECHTLICHES.map(rechtlichEintrag))
-        ),
-        h('img', { class: 'landing-fuss-logo', src: LOGOS.dunkel, alt: 'vindelis' }),
-        h('p', { class: 'landing-fuss-recht' }, '© ' + new Date().getFullYear() + ' vindelis')
+        )
     );
+    const fuss = h('footer', { class: 'landing-fuss', id: 'fuss' }, inhalt);
+    fussBewegen(fuss, inhalt);
+    return fuss;
+};
 
-export const landingInhalt = () => [abschnittVerbinden(), abschnittAufbau(), fuss()];
+// Der letzte Abschnitt und der Footer gehören zusammen: So bleibt der Footer versteckt, bis man unten ankommt
+export const landingInhalt = () => [
+    abschnittVerbinden(),
+    h('div', { class: 'landing-ende' }, abschnittAufbau(), fussBauen())
+];
