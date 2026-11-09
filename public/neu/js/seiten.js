@@ -27,20 +27,6 @@ export const vorschauBild = (gross, website) => {
     return flaeche;
 };
 
-// Eine Zeile «wer hat was wo gemacht»
-export const ereignisZeile = (e, mitOrt) =>
-    h(
-        'div',
-        { class: 'zeile' },
-        h('span', { class: 'rund', 'aria-hidden': 'true' }, e.wer.charAt(0)),
-        h(
-            'div',
-            { class: 'zeile-text' },
-            h('span', {}, h('b', {}, e.wer), ' ' + e.was),
-            h('span', { class: 'leise' }, (mitOrt ? e.wo + ', ' : '') + e.wann)
-        )
-    );
-
 const websiteKachel = w =>
     h(
         'a',

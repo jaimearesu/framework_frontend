@@ -1,5 +1,5 @@
 // Was die Seiten anzeigen. Mensch, Konto, Websites, Wartet und Papierkorb füllt das Backend beim Start,
-// der Rest sind noch Beispiele und wird Etappe für Etappe (U4c bis U4e) ersetzt.
+// der Rest sind noch Beispiele und wird Etappe für Etappe (U4d bis U4f) ersetzt.
 
 export const DATEN = {
     // tage: wie lange die Person schon auf vindelis ist, bestimmt die Grösse ihres Baums
@@ -33,81 +33,11 @@ export const DATEN = {
         }
     ],
     wartet: [],
-    ereignisse: [],
     personen: [
         { name: 'Jaime', art: 'Mensch', darf: 'Besitzer', seit: 'März' },
         { name: 'Claude', art: 'KI-Helfer', darf: 'Bauen und ändern', seit: 'Juni' },
         { name: 'Lea Meier', art: 'Mensch', darf: 'Inhalte pflegen', seit: 'Oktober' },
         { name: 'Stammkunden', art: 'Besucher mit E-Mail-Login', darf: 'Bereich «Vorbestellen» sehen', seit: 'Oktober' }
-    ],
-    datensaetze: [
-        { kunde: 'R. Keller', produkt: 'Butterzopf gross', abholung: 'Sa 08:00', stand: 'Offen' },
-        { kunde: 'M. Frei', produkt: 'Nussgipfel, 6 Stück', abholung: 'Sa 09:30', stand: 'Offen' },
-        { kunde: 'T. Graf', produkt: 'Butterzopf klein', abholung: 'So 08:30', stand: 'Abgeholt' }
-    ],
-    // Teile einer Website für den Reiter Code, mit zwei Versionen pro Teil
-    codeTeile: [
-        {
-            name: 'Wurzel',
-            art: 'html',
-            versionen: [
-                {
-                    nr: 3,
-                    wann: 'vor 12 Minuten',
-                    von: 'Claude',
-                    code: '<body>\n  <div data-slot="kopf"></div>\n  <div data-slot="angebot"></div>\n  <div data-slot="zeiten"></div>\n</body>'
-                },
-                {
-                    nr: 2,
-                    wann: 'vor 2 Tagen',
-                    von: 'Claude',
-                    code: '<body>\n  <div data-slot="kopf"></div>\n  <div data-slot="zeiten"></div>\n</body>'
-                }
-            ]
-        },
-        {
-            name: 'kopf',
-            art: 'html',
-            versionen: [
-                {
-                    nr: 2,
-                    wann: 'vor 2 Tagen',
-                    von: 'Lea Meier',
-                    code: '<header>\n  <h1>Bäckerei Sonne</h1>\n  <p>Frisch seit 1962</p>\n</header>'
-                },
-                { nr: 1, wann: 'vor 1 Woche', von: 'Claude', code: '<header>\n  <h1>Bäckerei Sonne</h1>\n</header>' }
-            ]
-        },
-        {
-            name: 'angebot',
-            art: 'ssf',
-            versionen: [
-                {
-                    nr: 4,
-                    wann: 'vor 12 Minuten',
-                    von: 'Claude',
-                    code: "const heute = new Date().getDay();\nconst liste = await api.data.find('angebot', { tag: heute });\nreturn { liste, stand: 'aktuell' };"
-                },
-                {
-                    nr: 3,
-                    wann: 'vor 2 Tagen',
-                    von: 'Claude',
-                    code: "const heute = new Date().getDay();\nconst liste = await api.data.find('angebot', { tag: heute });\nreturn { liste };"
-                }
-            ]
-        },
-        {
-            name: 'zeiten',
-            art: 'html',
-            versionen: [
-                {
-                    nr: 1,
-                    wann: 'vor 1 Woche',
-                    von: 'Claude',
-                    code: '<section>\n  <h2>Öffnungszeiten</h2>\n  <p>Mo bis Sa, 06:30 bis 18:00</p>\n</section>'
-                }
-            ]
-        }
     ],
     konto: [
         { name: 'Speicher', wert: '374 MB von 1 GB', anteil: 37 },

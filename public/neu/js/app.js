@@ -6,7 +6,7 @@ import { neueWebsiteOeffnen } from './neue-website.js';
 import { seiteStart, seiteWebsites, seiteHelfer, seiteVerlauf, seiteKonto, seiteWerkstatt } from './seiten.js';
 import { seiteWartet } from './wartet.js';
 import { datenLaden } from './websites.js';
-import { seiteWebsite } from './website.js';
+import { seiteWebsite, websiteTitel } from './website.js';
 import { hintergrundStarten } from './hintergrund.js';
 import { sitzungLaden } from './sitzung.js';
 import { ladeSeite, fehlerSeite, anmeldeSeite, gastHinweis } from './anmelden.js';
@@ -53,8 +53,8 @@ const sucheStarten = () => sucheOeffnen([...MENUE, WERKSTATT]);
 const aktuelleSeite = () => {
     const teile = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
     if (teile[0] === 'website') {
-        const w = DATEN.websites.find(x => x.id === teile[1]);
-        return { menue: '#/websites', titel: null, inhalt: seiteWebsite(teile[1], teile[2], teile[3]), name: w?.titel };
+        const inhalt = seiteWebsite(teile[1], teile[2], teile[3]);
+        return { menue: '#/websites', titel: null, inhalt, name: websiteTitel(teile[1]) };
     }
     const pfad = '#/' + (teile[0] || '');
     const eintrag = [...MENUE, WERKSTATT].find(m => m.pfad === pfad) || MENUE[0];
