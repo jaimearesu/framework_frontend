@@ -1,4 +1,4 @@
-// Die Seiten des Hauptmenüs: Start, Websites, Verlauf, Konto, Werkstatt
+// Die Seiten des Hauptmenüs: Start, Websites, Konto, Werkstatt
 import { h, ikon, zustandPlakette, leer, huelle, kopierKnopf, kopierZeile } from './ui.js';
 import { loadThumbnail } from '../../js/core/objects.js';
 import { DATEN } from './daten.js';
@@ -233,20 +233,6 @@ seiteStart.unter = () =>
             'Mein Baum'
         )
     );
-
-// Platz ist reserviert, Jaimes Idee zum Verlauf kommt noch
-export const verlaufPlatzhalter = () =>
-    h(
-        'div',
-        { class: 'bp-karte' },
-        leer(
-            'verlauf',
-            'Hier kommt der Verlauf',
-            'Wer hat wann was gemacht. Dieser Bereich wird nach Jaimes Idee gebaut.'
-        )
-    );
-
-export const seiteVerlauf = () => verlaufPlatzhalter();
 
 export const seiteKonto = () =>
     h(

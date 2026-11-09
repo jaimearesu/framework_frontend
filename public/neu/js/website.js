@@ -3,7 +3,7 @@
 import { api } from '../../js/core/api.js';
 import { h, ikon, zustandPlakette, huelle, leer, laedtKarte } from './ui.js';
 import { DATEN } from './daten.js';
-import { verlaufPlatzhalter } from './seiten.js';
+import { reiterVerlauf } from './verlauf.js';
 import { neuLaden } from './websites.js';
 import { wartetKarte } from './wartet.js';
 import { reiterPersonen } from './website-personen.js';
@@ -113,11 +113,14 @@ export const seiteWebsite = (id, reiter, teil) => {
     const namenMitBitte = new Set(bitten.filter(e => e.typ === 'bitte').map(e => e.website));
     const w = websiteAus(site, namenMitBitte);
     // Code sieht nur, wer ändern darf. Das Backend zeigt frühere Versionen sonst auch nicht
-    const sichtbareReiter = REITER.filter(([k]) => k !== 'code' || site.rights?.write);
+    // Den Verlauf sieht nur, wer die Website verwalten darf (blue)
+    const sichtbareReiter = REITER.filter(
+        ([k]) => (k !== 'code' || site.rights?.write) && (k !== 'verlauf' || site.rights?.grant)
+    );
     const aktiv = sichtbareReiter.some(([k]) => k === reiter) ? reiter : 'uebersicht';
     const inhalt = {
         uebersicht: () => reiterUebersicht(w, site, sofortNeu),
-        verlauf: () => verlaufPlatzhalter(),
+        verlauf: () => reiterVerlauf(site),
         code: () => reiterCode(w, site, teil),
         daten: () => reiterDaten(w, site, teil),
         personen: () => reiterPersonen(w, site),
