@@ -20,7 +20,9 @@ export const helferAusApi = (agent, jetzt = Date.now()) => {
         arbeit: arbeit.sites,
         kaesten: arbeit.toolboxes,
         versteckt: arbeit.hidden,
-        verbindungen: activeConnections(agent).map(c => ({ id: c.uuid, name: clientLabel(c) }))
+        verbindungen: activeConnections(agent).map(c => ({ id: c.uuid, name: clientLabel(c) })),
+        // Worauf er schon Rechte hat, auch Werkzeugkästen. Damit nichts doppelt angeboten wird
+        zugeordnet: (agent.rights || []).map(r => r.rootUuid)
     };
 };
 
@@ -38,6 +40,14 @@ export const alleTrennen = async ({ api, verbindungen }) => {
     return gescheitert ? gescheitert.error : null;
 };
 
+// Die Zeile unter dem Namen in den Auswahl-Listen
+export const helferKurztext = x =>
+    x.zustand === 'aktiv'
+        ? x.status + ', zuletzt aktiv: ' + x.aktiv
+        : x.zustand === 'neu'
+          ? 'Wartet auf Verbindung'
+          : 'Nicht verbunden';
+
 // Aus dem, was man eintippt, wird der Name des Agenten. So erkennt man ihn beim «Erlauben» wieder
 export const helferNameAus = (eingabe, zuAdresse) => {
     const teil = zuAdresse(String(eingabe ?? ''));
@@ -54,11 +64,47 @@ const HELFER_ROLLEN = ['black', 'red', 'blue'];
 // Als Agent gilt, was einen Schlüssel hatte. Mit «Erlauben» bekommt er danach eigene Schlüssel.
 // Dieser hier wird sofort widerrufen, sein Wert wird nirgends gezeigt oder gespeichert.
 // Klappt das Widerrufen nicht, läuft er nach einer Stunde von selbst ab.
-const neuenHelferAnlegen = async (api, name) => {
+export const neuenHelferAnlegen = async (api, name) => {
     const ergebnis = await createAgent({ api, name, boxes: [], hours: 1 });
     if (!ergebnis.ok) return { fehler: ergebnis.error };
     if (ergebnis.token?.uuid) await api.del('/api/tokens/' + encodeURIComponent(ergebnis.token.uuid));
     return { uuid: ergebnis.agentUuid };
+};
+
+// Gibt einem Helfer die Rechte auf ein Objekt. Liefert null oder die Fehlermeldung.
+// Schon vorhandene Rechte stören nicht, darum darf man es nochmals versuchen
+export const rechteGeben = async ({ api, ziel, helfer, rollen = HELFER_ROLLEN }) => {
+    const pfad = '/api/objects/' + encodeURIComponent(ziel) + '/members/' + encodeURIComponent(helfer);
+    for (const rolle of rollen) {
+        const recht = await api.put(pfad, { roleType: rolle });
+        if (!recht.ok) return recht.error || 'Das Recht liess sich nicht vergeben.';
+    }
+    return null;
+};
+
+// Was man einem Helfer geben kann: nur, wo ich selbst Rechte vergeben darf.
+// Einen Werkzeugkasten soll er nur benutzen, nicht verändern
+export const zuordnungsZiele = (websites, kaesten) =>
+    [
+        ...websites
+            .filter(w => w.darfVerwalten)
+            .map(w => ({
+                id: w.id,
+                titel: w.titel,
+                text: w.art === 'speicher' ? 'Speicher' : 'Website',
+                rollen: HELFER_ROLLEN
+            })),
+        ...kaesten.map(k => ({ id: k.id, titel: k.titel, text: 'Werkzeugkasten, nur benutzen', rollen: ['black'] }))
+    ].sort((a, b) => a.titel.localeCompare(b.titel, 'de'));
+
+// Ordnet einen Helfer mehreren Zielen zu. Was klappt, bleibt, auch wenn ein anderes scheitert
+export const mehrereZuordnen = async ({ api, helfer, ziele }) => {
+    const fehler = [];
+    for (const z of ziele) {
+        const problem = await rechteGeben({ api, ziel: z.id, helfer, rollen: z.rollen });
+        if (problem) fehler.push({ titel: z.titel, problem });
+    }
+    return { fehler };
 };
 
 /**
@@ -95,11 +141,7 @@ export const websiteAnlegen = async ({ api, adresse, beschreibung, helfer, forts
         fortschritt.helfer = neu.uuid;
     }
     const helferUuid = helfer.neu ? fortschritt.helfer : helfer.uuid;
-    for (const rolle of HELFER_ROLLEN) {
-        const recht = await api.put(pfad + '/members/' + encodeURIComponent(helferUuid), { roleType: rolle });
-        if (!recht.ok) {
-            return { ok: false, schritt: 'rechte', error: recht.error || 'Das Recht liess sich nicht vergeben.' };
-        }
-    }
+    const problem = await rechteGeben({ api, ziel: site, helfer: helferUuid });
+    if (problem) return { ok: false, schritt: 'rechte', error: problem };
     return { ok: true, uuid: site, warnung };
 };

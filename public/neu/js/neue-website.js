@@ -9,7 +9,7 @@ import { h, dialog, meldung, zuAdresse, kopierZeile } from './ui.js';
 import { DATEN } from './daten.js';
 import { datenLaden, helferLaden } from './websites.js';
 import { sitzungLaden } from './sitzung.js';
-import { helferNameAus, websiteAnlegen } from './helfer-werte.js';
+import { helferKurztext, helferNameAus, websiteAnlegen } from './helfer-werte.js';
 
 // Kopfzeile mit den zwei Schritten
 const schrittAnzeige = aktuell =>
@@ -208,15 +208,7 @@ export const neueWebsiteOeffnen = async () => {
                             'span',
                             { class: 'zeile-text' },
                             h('b', {}, x.name),
-                            h(
-                                'span',
-                                { class: 'leise' },
-                                x.zustand === 'aktiv'
-                                    ? x.status + ', zuletzt aktiv: ' + x.aktiv
-                                    : x.zustand === 'neu'
-                                      ? 'Wartet auf Verbindung'
-                                      : 'Nicht verbunden'
-                            )
+                            h('span', { class: 'leise' }, helferKurztext(x))
                         )
                     )
                 ),

@@ -6,6 +6,7 @@ export const DATEN = {
     // Adresse zum Verbinden. Leer, solange das Backend sie nicht gemeldet hat
     mcpAdresse: null,
     websites: [],
+    kaesten: [],
     helfer: [],
     helferFehler: false,
     wartet: [],

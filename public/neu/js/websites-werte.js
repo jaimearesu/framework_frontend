@@ -48,7 +48,9 @@ export const websiteAus = (w, namenMitBitte, jetzt = Date.now()) => ({
     geaendertVor: alterMs(w.lastChange, jetzt),
     erstelltVor: alterMs(w.createdAt, jetzt),
     thumbAt: w.thumbAt || null,
-    probleme: w.problems24h || 0
+    probleme: w.problems24h || 0,
+    art: w.art,
+    darfVerwalten: Boolean(w.rights?.grant)
 });
 
 // Werkzeugkästen gehören in die Werkstatt, auf den Kacheln stehen nur Websites und noch leere Domains
@@ -58,6 +60,12 @@ export const websitesAusApi = (liste, bitten, jetzt = Date.now()) => {
         .filter(w => w && w.uuid && w.name && w.art !== 'werkzeugkasten')
         .map(w => ({ ...websiteAus(w, namenMitBitte, jetzt), mein: w.mine !== false }));
 };
+
+// Werkzeugkästen stehen nicht auf den Kacheln, einem Helfer kann man sie trotzdem geben
+export const kaestenAusApi = liste =>
+    (Array.isArray(liste) ? liste : [])
+        .filter(w => w && w.uuid && w.name && w.art === 'werkzeugkasten' && w.rights?.grant)
+        .map(w => ({ id: w.uuid, titel: String(w.name) }));
 
 // Den Umschalter braucht es nur, wenn es beides gibt
 export const hatBeideHerkuenfte = websites => websites.some(w => w.mein) && websites.some(w => !w.mein);

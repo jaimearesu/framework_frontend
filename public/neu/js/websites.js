@@ -3,7 +3,7 @@ import { api } from '../../js/core/api.js';
 import { loadObjects, loadObjectNames, objectLabel } from '../../js/core/objects.js';
 import { DATEN } from './daten.js';
 import { huelle } from './ui.js';
-import { websitesAusApi, bitteAusApi, uploadAusApi, papierkorbAusApi } from './websites-werte.js';
+import { websitesAusApi, kaestenAusApi, bitteAusApi, uploadAusApi, papierkorbAusApi } from './websites-werte.js';
 import { helferAusApi } from './helfer-werte.js';
 
 const liste = antwort => (antwort.ok && Array.isArray(antwort.data?.data) ? antwort.data.data : []);
@@ -49,6 +49,7 @@ export const datenLaden = async () => {
     DATEN.websitesFehler = !websites.ok;
     if (websites.ok) {
         DATEN.websites = websitesAusApi(websites.data?.data, liste(bitten));
+        DATEN.kaesten = kaestenAusApi(websites.data?.data);
         DATEN.websitesGekappt = Boolean(websites.data?.meta?.capped);
     }
     DATEN.wartetFehler = fehlgeschlagen(bitten) || fehlgeschlagen(uploads);
