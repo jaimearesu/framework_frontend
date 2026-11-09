@@ -1537,6 +1537,25 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
         }
     },
     {
+        // Plan U: der Verlauf einer Website (blue, nur Menschen)
+        id: 'website-history',
+        group: 'SSF',
+        title: 'Verlauf: nur Änderungen, zur richtigen Website, ohne Schlüssel-Angaben',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.get(`/api/audit/website/${ctx.root}`, { query: { limit: 20 } });
+            expectStatus(r, 200, 'Verlauf der Website');
+            const list = Array.isArray(r.data?.data) ? r.data.data : [];
+            expect(!list.some(e => e.action === 'ssf.ausfuehren'), 'Ausführungen gehören nicht in den Verlauf', r);
+            expect(!list.some(e => 'tokenUuid' in e), 'der Verlauf darf keine Schlüssel-Angaben enthalten', r);
+            expect(
+                list.every(e => e.websiteUuid === ctx.root),
+                'ein Eintrag gehört zu einer anderen Website',
+                r
+            );
+        }
+    },
+    {
         // Punkt 5, D3: "Meine Websites" – die Wurzel des Checks steht drin, ihr Kind nicht
         id: 'websites-list',
         group: 'SSF',
