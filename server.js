@@ -88,8 +88,12 @@ const live = createLive({
     trustProxyHops: Number.isInteger(hops) && hops >= 1 ? hops : 1
 });
 
-// 2. Das Cockpit
-app.use(express.static(path.join(__dirname, 'public')));
+// 2. Das Cockpit. Unter "/" steht seit dem Umstellen (Plan U, U6) das neue. Das alte bleibt
+//    für die Werkstatt unter /alt. index: false, damit "/" nicht automatisch public/index.html
+//    (das alte Cockpit) ausliefert.
+const COCKPIT_NEU = path.join(__dirname, 'public', 'neu', 'index.html');
+const COCKPIT_ALT = path.join(__dirname, 'public', 'index.html');
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // Das Frontend braucht nur die Adressen vom Backend.
 //   apiUrl      = das normale Backend (echte Datenbank)
@@ -108,11 +112,15 @@ app.get('/config.json', (req, res) => {
 
 // Frühere Adresse der Daten-Seite -> neue Seite im Cockpit
 app.get('/bigdata', (req, res) => {
-    res.redirect('/#/daten');
+    res.redirect('/alt/#/daten');
+});
+
+app.get('/alt', (req, res) => {
+    res.sendFile(COCKPIT_ALT);
 });
 
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(COCKPIT_NEU);
 });
 
 const server = app.listen(PORT, () => {

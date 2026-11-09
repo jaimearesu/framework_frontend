@@ -11,7 +11,7 @@ test('Jedes Werkzeug zeigt auf eine Seite des alten Cockpits', () => {
 });
 
 test('Jeder Link öffnet die Technik in den neuen Farben', () => {
-    for (const w of WERKZEUGE) assert.equal(w.adresse, '/?werkstatt=1#/' + w.id);
+    for (const w of WERKZEUGE) assert.equal(w.adresse, '/alt/?werkstatt=1#/' + w.id);
 });
 
 test('Die Gruppen enthalten jedes Werkzeug genau einmal', () => {
