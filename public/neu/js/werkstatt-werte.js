@@ -1,5 +1,7 @@
 // Die Werkstatt: die bestehende Technik-Ansicht des alten Cockpits, nur in den neuen Farben.
 // Geprüft in tests/neuWerkstatt.test.mjs: Jede id muss eine Seite des alten Cockpits sein.
+import { ALTES_COCKPIT } from './adressen-werte.js';
+
 export const WERKZEUGE = [
     ['Bauen', 'objekte', 'Objekte', 'Alle Objekte mit Baum, Klonen, Zügeln und Kind anhängen.'],
     ['Bauen', 'code', 'Code & DNA', 'Code und Aufbau bearbeiten.'],
@@ -10,7 +12,7 @@ export const WERKZEUGE = [
     ['Sicherheit', 'agenten', 'Agenten', 'Agenten im Detail und Testpersonen.'],
     ['Sicherheit', 'ki', 'KI-Zugänge', 'Schlüssel für KI-Helfer.'],
     ['Prüfen', 'systemcheck', 'Systemcheck', 'Alle Prüfungen gegen das laufende Backend.']
-].map(([gruppe, id, titel, text]) => ({ gruppe, id, titel, text, adresse: '/?werkstatt=1#/' + id }));
+].map(([gruppe, id, titel, text]) => ({ gruppe, id, titel, text, adresse: ALTES_COCKPIT + '?werkstatt=1#/' + id }));
 
 // Nach Thema gruppiert, in der Reihenfolge der Liste
 export const werkzeugGruppen = () =>

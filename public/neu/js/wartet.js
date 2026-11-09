@@ -7,7 +7,7 @@ import { h, ikon, meldung, leer, dialog } from './ui.js';
 import { DATEN } from './daten.js';
 import { neuLaden } from './websites.js';
 
-// Solange die Website-Seite noch nicht fertig ist (U4c), führt «Ansehen» ins alte Cockpit
+// Die alte Adresse wird beim Öffnen übersetzt: Website = neues Cockpit, einzelner Teil = altes
 const ansehenLink = e =>
     h(
         'a',

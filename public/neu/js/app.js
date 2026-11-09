@@ -12,6 +12,8 @@ import { seiteWebsite, websiteTitel } from './website.js';
 import { hintergrundStarten } from './hintergrund.js';
 import { sitzungLaden } from './sitzung.js';
 import { ladeSeite, fehlerSeite, anmeldeSeite, gastHinweis } from './anmelden.js';
+import { api } from '../../js/core/api.js';
+import { ALTES_COCKPIT, alteAdresse } from './adressen-werte.js';
 
 const MENUE = [
     { pfad: '#/', text: 'Start', symbol: 'start', seite: seiteStart },
@@ -177,11 +179,35 @@ const auffrischen = async () => {
     if ((geaendert || helferGeaendert) && !location.hash.startsWith('#/website/')) zeichnen();
 };
 
+// Führt alte Adressen ans richtige Ziel. true = wir verlassen die Seite, nichts mehr zeichnen.
+// replaceState, damit «Zurück» im Browser nicht wieder auf die alte Adresse führt
+const alteAdresseFolgen = async () => {
+    const ziel = alteAdresse(location.hash);
+    if (!ziel) return false;
+    if (ziel.hash) {
+        history.replaceState(null, '', ziel.hash);
+        return false;
+    }
+    if (ziel.objekt) {
+        // Das Backend kennt unter dieser Adresse nur ganze Websites, ein einzelner Teil gibt 404
+        const antwort = await api.get('/api/websites/' + encodeURIComponent(ziel.objekt));
+        if (antwort.ok) {
+            history.replaceState(null, '', '#/website/' + ziel.objekt);
+            return false;
+        }
+        location.replace(ALTES_COCKPIT + location.hash);
+        return true;
+    }
+    location.replace(ziel.weg);
+    return true;
+};
+
 // Stellt das Cockpit auf. Läuft genau einmal, erst wenn feststeht, wer am Cockpit sitzt
 const cockpitStarten = () => {
     hintergrundStarten();
     huelle.neu = zeichnen;
-    window.addEventListener('hashchange', () => {
+    window.addEventListener('hashchange', async () => {
+        if (await alteAdresseFolgen()) return;
         zeichnen();
         window.scrollTo(0, 0);
         auffrischen();
@@ -216,6 +242,7 @@ const starten = async () => {
         vorStartZeigen(anmeldeSeite(dunkel, cockpitStarten));
         return;
     }
+    if (await alteAdresseFolgen()) return;
     // Gleich beim Start laden, so stimmt schon das erste Bild (auch bei einem Link direkt auf eine Website)
     await Promise.all([datenLaden(), helferLaden()]);
     cockpitStarten();
