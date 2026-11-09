@@ -22,3 +22,51 @@ export const anmeldungHolen = (speicher = tabSpeicher) => {
         return false;
     }
 };
+
+// Inhalt der Startseite unter dem Baum. Die Menünamen stammen aus den Hilfeseiten von Claude und OpenAI
+export const VERBINDEN = [
+    {
+        name: 'Claude',
+        schritte: [
+            'Öffne Customize und dann Connectors.',
+            'Klicke auf + und wähle «Add custom connector».',
+            'Gib einen Namen ein und füge die Adresse ein.',
+            'Melde dich bei vindelis an und klicke auf «Erlauben».'
+        ]
+    },
+    {
+        name: 'ChatGPT',
+        schritte: [
+            'Öffne Plugins.',
+            'Klicke auf + und wähle «Add custom MCP server».',
+            'Gib einen Namen ein, füge die Adresse ein und bestätige den Hinweis.',
+            'Melde dich bei vindelis an und klicke auf «Erlauben».'
+        ]
+    }
+];
+
+export const AUFBAU = [
+    {
+        titel: 'Alles ist ein Baustein',
+        text: 'Seiten, Daten und Funktionen sind einzelne Objekte. Jedes hat seinen Platz im Baum und seine eigenen Rechte.'
+    },
+    {
+        titel: 'Die KI baut, du gibst frei',
+        text: 'Deine KI baut und ändert Websites. Online geht nur, was du selbst freigibst.'
+    },
+    {
+        titel: 'Jeder Schritt bleibt sichtbar',
+        text: 'Alles, was eine KI ändert, steht im Protokoll. So siehst du jederzeit, wer was getan hat.'
+    },
+    {
+        titel: 'Ein Fehler ist kein Drama',
+        text: 'Frühere Stände bleiben erhalten. Geht etwas schief, holst du sie mit wenigen Klicks zurück.'
+    }
+];
+
+// Sobald es eine Seite dazu gibt, hier die Adresse eintragen. Ohne Adresse steht «folgt» daneben
+export const RECHTLICHES = [
+    { text: 'AGB', href: null },
+    { text: 'Datenschutz', href: null },
+    { text: 'Impressum', href: null }
+];

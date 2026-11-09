@@ -8,6 +8,8 @@ import { kontoZeilen, tageSeit, vornameAus } from './konto-werte.js';
 
 // Login und Logout laufen immer über das Live-Backend, nur dort ist die Anmeldung eingerichtet
 export const anmeldeAdresse = () => liveBase() + '/login';
+// Die Adresse, die man in Claude oder ChatGPT einträgt
+export const mcpAdresseLive = () => liveBase() + '/mcp';
 export const abmeldeAdresse = () => liveBase() + '/logout';
 
 // Liefert { erreichbar: true, art } oder { erreichbar: false, fehler }

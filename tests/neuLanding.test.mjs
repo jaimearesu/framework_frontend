@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { anmeldungHolen, anmeldungMerken } from '../public/neu/js/landing-werte.js';
+import { RECHTLICHES, VERBINDEN, anmeldungHolen, anmeldungMerken } from '../public/neu/js/landing-werte.js';
 import { filmPfade, sanft } from '../public/neu/js/baum-film.js';
 
 const lies = datei => readFileSync(new URL('../public/neu/' + datei, import.meta.url), 'utf8');
@@ -84,6 +84,24 @@ test('Text und Baum stehen als ein Block in der Mitte, auch auf breiten Bildschi
     const baum = css.slice(css.indexOf('body.landing-baum .hintergrund {'));
     assert.match(baum.slice(0, 200), /var\(--landing-versatz\) - 50vw/);
     assert.match(css, /calc\(50vw - var\(--landing-versatz\) - var\(--landing-breite\) \* 0\.41/);
+});
+
+test('Unter dem Baum steht zuerst, wie man Claude und ChatGPT verbindet', () => {
+    assert.deepEqual(
+        VERBINDEN.map(k => k.name),
+        ['Claude', 'ChatGPT']
+    );
+    for (const k of VERBINDEN) assert.match(k.schritte.at(-1), /Erlauben/);
+    const code = lies('js/landing-inhalt.js');
+    assert.ok(code.indexOf('abschnittVerbinden(), abschnittAufbau(), fuss()') > 0);
+});
+
+test('Rechtliche Seiten ohne Adresse sind keine toten Links', () => {
+    for (const eintrag of RECHTLICHES) assert.equal(eintrag.href, null, eintrag.text);
+    assert.match(
+        lies('js/landing-inhalt.js'),
+        /href \? h\('a', \{ href \}, text\) : h\('span', \{\}, text, h\('small'/
+    );
 });
 
 test('Oben auf der Startseite steht nur das V', () => {
