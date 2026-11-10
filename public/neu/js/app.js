@@ -140,17 +140,6 @@ function zeichnen() {
                             'Suchen…',
                             h('kbd', {}, 'Strg K')
                         ),
-                        h(
-                            'button',
-                            {
-                                class: 'bp-ikonknopf',
-                                id: 'modus-knopf',
-                                type: 'button',
-                                'aria-label': modus === 'dunkel' ? 'Heller Modus' : 'Dunkler Modus',
-                                onclick: modusWechseln
-                            },
-                            ikon(modus === 'dunkel' ? 'sonne' : 'mond')
-                        ),
                         seite.knopf
                             ? seite.knopf()
                             : h(
@@ -163,7 +152,19 @@ function zeichnen() {
                                   },
                                   ikon('plus'),
                                   'Neue Website'
-                              )
+                              ),
+                        // Hell/Dunkel steht immer ganz rechts in der Kopfzeile (Wunsch Jaime 10.11.)
+                        h(
+                            'button',
+                            {
+                                class: 'bp-ikonknopf',
+                                id: 'modus-knopf',
+                                type: 'button',
+                                'aria-label': modus === 'dunkel' ? 'Heller Modus' : 'Dunkler Modus',
+                                onclick: modusWechseln
+                            },
+                            ikon(modus === 'dunkel' ? 'sonne' : 'mond')
+                        )
                     ),
                     gastHinweis(),
                     seite.inhalt

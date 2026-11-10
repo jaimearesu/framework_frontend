@@ -7,9 +7,9 @@ import { abmeldeAdresse } from './sitzung.js';
 import { neuLaden } from './websites.js';
 import { papierkorbAbschnitt } from './papierkorb.js';
 import { werkzeugGruppen } from './werkstatt-werte.js';
-import { hatBeideHerkuenfte, nachHerkunft } from './websites-werte.js';
+import { hatBeideHerkuenfte, hatMehrereSichtbarkeiten, nachHerkunft, nachSichtbarkeit } from './websites-werte.js';
 
-// Vorschaubild einer Website. Nur öffentliche Websites haben ein echtes Bild, die anderen behalten die Skizze
+// Vorschaubild einer Website. Solange es noch kein Foto gibt, steht dort die Skizze
 export const vorschauBild = (gross, website) => {
     const flaeche = h(
         'div',
@@ -46,10 +46,13 @@ const websiteKachel = w =>
 // Wie viele Kacheln auf einer Seite stehen
 const PRO_SEITE = 9;
 
-// Websites nach Herkunft gefiltert und in der gewählten Reihenfolge: zuletzt geändert oder neuste zuerst
+// Websites nach Herkunft und Sichtbarkeit gefiltert und in der gewählten Reihenfolge: zuletzt geändert oder neuste zuerst
 const sortierteWebsites = () => {
-    const feld = DATEN.startAnsicht.sortierung === 'neu' ? 'erstelltVor' : 'geaendertVor';
-    return [...nachHerkunft(DATEN.websites, DATEN.startAnsicht.herkunft)].sort((a, b) => a[feld] - b[feld]);
+    const { sortierung, herkunft, sichtbarkeit } = DATEN.startAnsicht;
+    const feld = sortierung === 'neu' ? 'erstelltVor' : 'geaendertVor';
+    return [...nachSichtbarkeit(nachHerkunft(DATEN.websites, herkunft), sichtbarkeit)].sort(
+        (a, b) => a[feld] - b[feld]
+    );
 };
 
 // Umschalter für Reihenfolge und Herkunft, wechselt zurück auf Seite 1
@@ -150,6 +153,16 @@ const websitesAbschnitt = ueberschrift => {
                           wahlKnopf('herkunft', 'herkunft-', 'geteilt', 'Mit mir geteilt')
                       )
                     : null,
+                hatMehrereSichtbarkeiten(DATEN.websites)
+                    ? h(
+                          'div',
+                          { class: 'bp-segment', role: 'tablist', 'aria-label': 'Sichtbarkeit' },
+                          wahlKnopf('sichtbarkeit', 'sichtbar-', 'alle', 'Alle'),
+                          wahlKnopf('sichtbarkeit', 'sichtbar-', 'public', 'Online'),
+                          wahlKnopf('sichtbarkeit', 'sichtbar-', 'members', 'Nur Angemeldete'),
+                          wahlKnopf('sichtbarkeit', 'sichtbar-', 'private', 'Privat')
+                      )
+                    : null,
                 alle.length > 1
                     ? h(
                           'div',
@@ -166,20 +179,27 @@ const websitesAbschnitt = ueberschrift => {
                   alle.length > PRO_SEITE ? blaettern(seite, letzte, alle.length) : null,
                   DATEN.websitesGekappt ? h('span', { class: 'leise' }, 'Es werden die ersten 200 gezeigt.') : null
               ]
-            : h(
-                  'div',
-                  { class: 'bp-karte' },
-                  leer(
-                      'kugel',
-                      'Noch keine Website',
-                      'Lege deine erste Website an, dein KI-Helfer baut sie.',
-                      h(
-                          'button',
-                          { class: 'bp-btn bp-btn-p', type: 'button', onclick: neueWebsiteOeffnen },
-                          'Neue Website'
-                      )
-                  )
-              )
+            : DATEN.websites.length
+              ? // Es gibt Websites, nur passt keine zu den gewählten Filtern
+                h(
+                    'div',
+                    { class: 'bp-karte', id: 'filter-leer' },
+                    leer('kugel', 'Keine Website passt', 'Wähle bei den Filtern oben etwas anderes.')
+                )
+              : h(
+                    'div',
+                    { class: 'bp-karte' },
+                    leer(
+                        'kugel',
+                        'Noch keine Website',
+                        'Lege deine erste Website an, dein KI-Helfer baut sie.',
+                        h(
+                            'button',
+                            { class: 'bp-btn bp-btn-p', type: 'button', onclick: neueWebsiteOeffnen },
+                            'Neue Website'
+                        )
+                    )
+                )
     );
 };
 

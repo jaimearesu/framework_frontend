@@ -21,5 +21,5 @@ export const DATEN = {
     websitesGekappt: false,
     wartetFehler: false,
     // Sortierung, Filter und Seite der Kacheln auf Start
-    startAnsicht: { sortierung: 'geaendert', herkunft: 'alle', seite: 1 }
+    startAnsicht: { sortierung: 'geaendert', herkunft: 'alle', sichtbarkeit: 'alle', seite: 1 }
 };

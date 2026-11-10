@@ -14,11 +14,14 @@ import {
     darfText,
     einladenText,
     einladungenAus,
+    empfaengerName,
     personenAus,
     rollenAenderung,
     teilPersonenAus,
-    teileZumFragen
+    teileZumFragen,
+    uebergabeKandidaten
 } from './personen-werte.js';
+import { neuLaden } from './websites.js';
 
 // Der geladene Stand. Gehört zu genau einer Website
 const FRISCH_MS = 30000;
@@ -63,7 +66,10 @@ const laden = async site => {
                   ...(einladungen.ok ? einladungenAus(einladungen.data?.data, site.uuid) : []),
                   ...teile.flatMap(t => t.einladungen)
               ],
-              besucher: besucher?.ok ? besucher.data?.data : null
+              besucher: besucher?.ok ? besucher.data?.data : null,
+              // Frisch vom Backend, damit ein neues Angebot sofort sichtbar ist
+              meine: Boolean(stand.mine),
+              uebergabe: stand.handover || null
           }
         : null;
     // Nur neu zeichnen, wenn sich etwas geändert hat. Sonst springt beim Tippen nichts weg
@@ -338,6 +344,183 @@ const einladungenAbschnitt = (site, einladungen) =>
           )
         : null;
 
+// ---- Rechte abgeben und Website übergeben ----
+
+// Nach dem Abgeben gehört die Website nicht mehr zu mir: zurück zur Liste
+const rechteAbgeben = site =>
+    fragen({
+        titel: 'Deine Rechte abgeben?',
+        text:
+            'Du siehst «' +
+            site.name +
+            '» danach nicht mehr im Cockpit. Auch deine KI-Helfer verlieren hier ihren Zugriff. Zurückgeben kann dir das nur jemand, der die Website verwaltet.',
+        knopf: 'Rechte abgeben',
+        tun: async () => {
+            const antwort = await api.post('/api/websites/' + site.uuid + '/verlassen', {});
+            if (!antwort.ok) return antwort.error;
+            meldung('Rechte abgegeben', site.name);
+            await neuLaden();
+            location.hash = '#/websites';
+            return '';
+        }
+    });
+
+// Steht bei Websites, die mir jemand gegeben hat. Auch ohne «Verwalten» sichtbar
+const rechteAbgebenAbschnitt = site =>
+    h(
+        'div',
+        { class: 'abschnitt', id: 'rechte-abgeben' },
+        h('div', { class: 'abschnitt-kopf' }, h('h3', {}, 'Deine Rechte')),
+        h(
+            'div',
+            { class: 'bp-karte stapel' },
+            h('p', { class: 'leise' }, 'Du brauchst diese Website nicht mehr? Dann gib deine Rechte ab.'),
+            h(
+                'div',
+                {},
+                h(
+                    'button',
+                    {
+                        class: 'bp-btn bp-btn-o',
+                        id: 'rechte-abgeben-knopf',
+                        type: 'button',
+                        onclick: () => rechteAbgeben(site)
+                    },
+                    'Meine Rechte abgeben'
+                )
+            )
+        )
+    );
+
+const uebergebenOeffnen = (site, kandidaten) => {
+    let wahl = kandidaten[0].id;
+    dialog(({ zu }) => {
+        const fehler = h('div', {});
+        const senden = h(
+            'button',
+            {
+                class: 'bp-btn bp-btn-p',
+                id: 'uebergeben-ja',
+                type: 'button',
+                onclick: async () => {
+                    senden.disabled = true;
+                    const antwort = await api.post('/api/websites/' + site.uuid + '/uebergeben', { to: wahl });
+                    if (!antwort.ok) {
+                        senden.disabled = false;
+                        fehler.replaceChildren(h('div', { class: 'bp-hinweis bp-h-gefahr' }, antwort.error));
+                        return;
+                    }
+                    zu();
+                    meldung('Angebot verschickt', 'Die Person muss es noch annehmen.');
+                    await nachher(site)();
+                }
+            },
+            'Angebot schicken'
+        );
+        return [
+            h('h3', {}, 'Website übergeben'),
+            h(
+                'p',
+                {},
+                'Die Person bekommt unter «Wartet auf mich» eine Anfrage. Nimmt sie an, zählt «' +
+                    site.name +
+                    '» auf ihr Kontingent, und du und deine KI-Helfer verlieren den Zugriff.'
+            ),
+            h(
+                'div',
+                { class: 'wahl-liste' },
+                kandidaten.map(p =>
+                    h(
+                        'label',
+                        { class: 'wahl' },
+                        h('input', {
+                            type: 'radio',
+                            name: 'uebergabe-an',
+                            value: p.id,
+                            checked: wahl === p.id,
+                            onchange: () => (wahl = p.id)
+                        }),
+                        h('span', { class: 'zeile-text' }, h('b', {}, p.name))
+                    )
+                )
+            ),
+            fehler,
+            h(
+                'div',
+                { class: 'bp-dialog-fuss' },
+                h('button', { class: 'bp-btn bp-btn-o', type: 'button', onclick: zu }, 'Abbrechen'),
+                senden
+            )
+        ];
+    });
+};
+
+const uebergabeZurueckziehen = (site, uebergabe) =>
+    fragen({
+        titel: 'Angebot zurückziehen?',
+        text: 'Die Website bleibt bei dir.',
+        knopf: 'Zurückziehen',
+        tun: async () => {
+            const antwort = await api.post('/api/websites/uebergaben/' + uebergabe.uuid + '/zurueckziehen', {});
+            if (!antwort.ok) return antwort.error;
+            meldung('Angebot zurückgezogen', site.name);
+            await nachher(site)();
+            return '';
+        }
+    });
+
+// Steht bei Websites, die auf mein Konto zählen
+const uebergebenAbschnitt = (site, personen, uebergabe) => {
+    const kandidaten = uebergabeKandidaten(personen);
+    const inhalt = uebergabe
+        ? [
+              h('p', {}, 'Wartet darauf, dass ' + empfaengerName(personen, uebergabe.to) + ' annimmt.'),
+              h(
+                  'div',
+                  {},
+                  h(
+                      'button',
+                      {
+                          class: 'bp-btn bp-btn-o',
+                          id: 'uebergabe-zurueck',
+                          type: 'button',
+                          onclick: () => uebergabeZurueckziehen(site, uebergabe)
+                      },
+                      'Angebot zurückziehen'
+                  )
+              )
+          ]
+        : [
+              h('p', { class: 'leise' }, 'Hast du die Website für jemanden gebaut? Dann übergib sie dieser Person.'),
+              kandidaten.length
+                  ? h(
+                        'div',
+                        {},
+                        h(
+                            'button',
+                            {
+                                class: 'bp-btn bp-btn-o',
+                                id: 'uebergeben-knopf',
+                                type: 'button',
+                                onclick: () => uebergebenOeffnen(site, kandidaten)
+                            },
+                            'An jemanden übergeben'
+                        )
+                    )
+                  : h(
+                        'div',
+                        { class: 'bp-hinweis bp-h-info', id: 'uebergeben-niemand' },
+                        'Gib der Person zuerst «Verwalten». Danach kannst du ihr die Website übergeben.'
+                    )
+          ];
+    return h(
+        'div',
+        { class: 'abschnitt', id: 'website-uebergeben' },
+        h('div', { class: 'abschnitt-kopf' }, h('h3', {}, 'Website übergeben')),
+        h('div', { class: 'bp-karte stapel' }, inhalt)
+    );
+};
+
 // ---- Besucher mit E-Mail-Anmeldung ----
 
 const anmeldungSetzen = async (site, enabled, open) => {
@@ -586,8 +769,14 @@ export const reiterPersonen = (w, site) => {
     if (!site.rights?.grant) {
         return h(
             'div',
-            { class: 'bp-karte', id: 'personen-keine-rechte' },
-            leer('konto', 'Nur für Verwalter', 'Wer Zugriff hat, sehen nur Menschen, die diese Website verwalten.')
+            { class: 'stapel' },
+            h(
+                'div',
+                { class: 'bp-karte', id: 'personen-keine-rechte' },
+                leer('konto', 'Nur für Verwalter', 'Wer Zugriff hat, sehen nur Menschen, die diese Website verwalten.')
+            ),
+            // Auch wer nur ansehen darf, soll seine Rechte wieder loswerden können
+            site.mine ? null : rechteAbgebenAbschnitt(site)
         );
     }
     if (ablage.id !== site.uuid)
@@ -617,7 +806,7 @@ export const reiterPersonen = (w, site) => {
     if (!ablage.inhalt) {
         return laedtKarte('personen-laedt');
     }
-    const { personen, einladungen, besucher } = ablage.inhalt;
+    const { personen, einladungen, besucher, meine, uebergabe } = ablage.inhalt;
     const gast = DATEN.mensch.art !== 'user';
     return h(
         'div',
@@ -668,6 +857,8 @@ export const reiterPersonen = (w, site) => {
                     { class: 'bp-hinweis bp-h-info', id: 'personen-gast' },
                     'Mit einem Konto kannst du auch Einladungs-Links verschicken und Besucher per E-Mail anmelden lassen.'
                 )
-              : null
+              : null,
+        // Geschenkt bekommen: abgeben. Auf meinem Konto: übergeben (nur mit Konto, Gäste leben 24 Stunden)
+        !meine ? rechteAbgebenAbschnitt(site) : gast ? null : uebergebenAbschnitt(site, personen, uebergabe)
     );
 };

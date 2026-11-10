@@ -1,4 +1,5 @@
-// «Wartet auf mich»: Bitten von KI-Helfern ums Veröffentlichen und neue Uploads von Besuchern.
+// «Wartet auf mich»: Bitten von KI-Helfern ums Veröffentlichen, neue Uploads von Besuchern
+// und Websites, die mir jemand übergeben möchte.
 // Eine KI veröffentlicht nie selbst, hier entscheidet ein Mensch.
 // Begründungen und Dateinamen stammen von einer KI oder von Fremden: Sie laufen nur als Text durch h().
 import { api } from '../../js/core/api.js';
@@ -253,8 +254,91 @@ const uploadKarte = e =>
         )
     );
 
+// Annehmen ändert, auf wessen Kontingent die Website zählt: darum eine Rückfrage, die das genau sagt
+const uebergabeAnnehmenOeffnen = e =>
+    dialog(({ zu }) => {
+        const knopf = h(
+            'button',
+            {
+                class: 'bp-btn bp-btn-p',
+                id: 'uebergabe-annehmen-ja',
+                type: 'button',
+                onclick: async () => {
+                    zu();
+                    await uploadAktion(
+                        knopf,
+                        e,
+                        () => api.post('/api/websites/uebergaben/' + e.id + '/annehmen', {}),
+                        'Übernommen'
+                    );
+                }
+            },
+            'Ja, übernehmen'
+        );
+        return [
+            h('h3', {}, 'Website übernehmen?'),
+            h(
+                'p',
+                {},
+                '«' +
+                    e.website +
+                    '» zählt danach auf dein Kontingent. Die Person, die sie dir gibt, und ihre KI-Helfer verlieren den Zugriff.'
+            ),
+            h(
+                'div',
+                { class: 'bp-dialog-fuss' },
+                h('button', { class: 'bp-btn bp-btn-o', type: 'button', onclick: zu }, 'Abbrechen'),
+                knopf
+            )
+        ];
+    });
+
+const uebergabeKarte = e =>
+    h(
+        'div',
+        { class: 'bp-karte eng wartet-karte', id: 'bitte-' + e.id },
+        h(
+            'div',
+            { class: 'zeile-text' },
+            h('b', {}, e.was),
+            h('span', { class: 'leise' }, 'Anfrage von ' + e.von + ', ' + e.wann)
+        ),
+        h(
+            'div',
+            { class: 'zeile-knopf' },
+            h('a', { class: 'bp-btn bp-btn-o', id: 'ansehen-' + e.id, href: '#/website/' + e.ziel }, 'Ansehen'),
+            h(
+                'button',
+                {
+                    class: 'bp-btn bp-btn-o',
+                    id: 'ablehnen-' + e.id,
+                    type: 'button',
+                    onclick: ereignis =>
+                        uploadAktion(
+                            ereignis.currentTarget,
+                            e,
+                            () => api.post('/api/websites/uebergaben/' + e.id + '/ablehnen', {}),
+                            'Abgelehnt'
+                        )
+                },
+                'Ablehnen'
+            ),
+            h(
+                'button',
+                {
+                    class: 'bp-btn bp-btn-p',
+                    id: 'annehmen-' + e.id,
+                    type: 'button',
+                    onclick: () => uebergabeAnnehmenOeffnen(e)
+                },
+                'Annehmen'
+            )
+        )
+    );
+
 // Eine wartende Entscheidung, gleich in der Liste und auf der Seite der Website
-export const wartetKarte = e => (e.typ === 'upload' ? uploadKarte(e) : bitteKarte(e));
+export const wartetKarte = e =>
+    e.typ === 'upload' ? uploadKarte(e) : e.typ === 'uebergabe' ? uebergabeKarte(e) : bitteKarte(e);
 
 const ladeFehler = () =>
     h(

@@ -11,11 +11,64 @@ import {
     websitesAusApi,
     bitteAusApi,
     uploadAusApi,
-    papierkorbAusApi
+    uebergabeAusApi,
+    papierkorbAusApi,
+    hatMehrereSichtbarkeiten,
+    nachSichtbarkeit
 } from '../public/neu/js/websites-werte.js';
 
 const jetzt = Date.parse('2026-11-09T12:00:00Z');
 const keine = new Set();
+
+describe('Filter nach Sichtbarkeit', () => {
+    const roh = (uuid, visibility, extra = {}) => ({ uuid, name: uuid, art: 'website', visibility, ...extra });
+    const liste = websitesAusApi([roh('a', 'public'), roh('b', 'members'), roh('c', 'private')], [], jetzt);
+
+    test('zeigt nur die gewählte Art, «alle» zeigt alles', () => {
+        assert.deepEqual(
+            nachSichtbarkeit(liste, 'public').map(w => w.id),
+            ['a']
+        );
+        assert.deepEqual(
+            nachSichtbarkeit(liste, 'members').map(w => w.id),
+            ['b']
+        );
+        assert.equal(nachSichtbarkeit(liste, 'alle').length, 3);
+    });
+
+    test('eine Website mit Problem bleibt bei ihrer echten Sichtbarkeit', () => {
+        const [w] = websitesAusApi([roh('p', 'public', { problems24h: 3 })], [], jetzt);
+        assert.equal(w.zustand, 'problem');
+        assert.equal(w.sichtbarkeit, 'public');
+    });
+
+    test('gibt es nur eine Art, fällt der Filter weg und niemand sitzt auf einer leeren Liste', () => {
+        const nurPrivat = websitesAusApi([roh('x', 'private')], [], jetzt);
+        assert.equal(hatMehrereSichtbarkeiten(nurPrivat), false);
+        assert.equal(nachSichtbarkeit(nurPrivat, 'public').length, 1);
+        assert.equal(hatMehrereSichtbarkeiten(liste), true);
+    });
+});
+
+describe('uebergabeAusApi', () => {
+    test('eine Website, die mir jemand übergeben möchte, ohne Namen', () => {
+        const e = uebergabeAusApi(
+            {
+                uuid: 'h1',
+                rootUuid: 'r1',
+                siteName: 'bäckerei',
+                fromUser: '12345678-aaaa',
+                createdAt: '2026-11-09T09:00:00Z'
+            },
+            jetzt
+        );
+        assert.equal(e.typ, 'uebergabe');
+        assert.equal(e.website, 'bäckerei');
+        assert.equal(e.ziel, 'r1');
+        assert.equal(e.von, 'Mensch 12345678…');
+        assert.match(e.was, /bäckerei/);
+    });
+});
 
 describe('zustandAus', () => {
     test('öffentlich ist online, privat ist Entwurf, Mitglieder bekommen eine eigene Plakette', () => {
