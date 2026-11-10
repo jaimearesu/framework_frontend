@@ -1394,7 +1394,8 @@ body.ueber-baum {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
 }
 .landing-vier {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+    /* Fünf Karten: auf breiten Bildschirmen alle fünf in einer Reihe */
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
     column-gap: var(--space-6);
 }
 .landing-vier > div {
@@ -1491,6 +1492,38 @@ body[data-modus='dunkel'] .landing-marke img {
     display: block;
     height: 16.32px;
     margin-left: -0.16px;
+}
+/* Rechts oben: DE / EN und «Anmelden» nebeneinander */
+.landing-kopf-rechts {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+.landing-sprache {
+    display: flex;
+    gap: 2px;
+}
+.landing-sprache button {
+    padding: 4px 6px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: var(--text-klein);
+    font-weight: 600;
+    cursor: pointer;
+}
+.landing-sprache button:hover {
+    color: var(--text);
+}
+.landing-sprache button.aktiv {
+    color: var(--text);
+    background: var(--surface-2);
+}
+.landing-sprache button:focus-visible {
+    outline: var(--focus-width) solid var(--primary-soft-strong);
+    outline-offset: 2px;
 }
 @media (max-width: 760px) {
     .landing-kopf {

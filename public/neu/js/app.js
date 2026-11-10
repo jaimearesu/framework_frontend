@@ -208,6 +208,8 @@ const alteAdresseFolgen = async () => {
 // Stellt das Cockpit auf. Läuft genau einmal, erst wenn feststeht, wer am Cockpit sitzt
 const cockpitStarten = ({ baumSteht = false } = {}) => {
     if (!baumSteht) hintergrundStarten();
+    // Die Startseite kann Englisch sein, das Cockpit ist Deutsch
+    document.documentElement.lang = 'de-CH';
     huelle.neu = zeichnen;
     window.addEventListener('hashchange', async () => {
         if (await alteAdresseFolgen()) return;

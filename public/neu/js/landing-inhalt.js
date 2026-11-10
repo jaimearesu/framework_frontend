@@ -1,8 +1,8 @@
 // Was auf der Startseite unter dem Baum steht: KI verbinden, Aufbau von vindelis und der Footer.
-// Die Texte stehen in landing-werte.js
+// Die Texte stehen in landing-werte.js (Deutsch und Englisch), t = die Texte der gewählten Sprache
 import { h, kopierZeile } from './ui.js';
 import { mcpAdresseLive } from './sitzung.js';
-import { AUFBAU, RECHTLICHES, VERBINDEN, fussVersatz } from './landing-werte.js';
+import { RECHTLICHES, fussVersatz } from './landing-werte.js';
 
 const karteVerbinden = ({ name, logo, schritte }) =>
     h(
@@ -16,43 +16,39 @@ const karteVerbinden = ({ name, logo, schritte }) =>
         )
     );
 
-const abschnittVerbinden = () =>
+const abschnittVerbinden = t =>
     h(
         'section',
         { class: 'landing-abschnitt', id: 'verbinden' },
         h(
             'div',
             { class: 'landing-innen' },
-            h('h2', {}, 'Verbinde deine KI mit vindelis.'),
-            h(
-                'p',
-                { class: 'landing-lead' },
-                'Du arbeitest weiter in Claude oder ChatGPT. Dafür brauchst du nur diese Adresse:'
-            ),
-            kopierZeile(mcpAdresseLive()),
-            h('div', { class: 'landing-zwei' }, VERBINDEN.map(karteVerbinden)),
-            h('p', { class: 'leise' }, 'Heisst ein Menü bei dir anders? Such nach «Connector» oder «MCP».')
+            h('h2', {}, t.verbindenTitel),
+            h('p', { class: 'landing-lead' }, t.verbindenLead),
+            kopierZeile(mcpAdresseLive(), t.kopieren),
+            h('div', { class: 'landing-zwei' }, t.verbinden.map(karteVerbinden)),
+            h('p', { class: 'leise' }, t.verbindenHinweis)
         )
     );
 
-const abschnittAufbau = () =>
+const abschnittAufbau = t =>
     h(
         'section',
         { class: 'landing-abschnitt', id: 'aufbau' },
         h(
             'div',
             { class: 'landing-innen' },
-            h('h2', {}, 'So ist vindelis aufgebaut.'),
+            h('h2', {}, t.aufbauTitel),
             h(
                 'div',
                 { class: 'landing-vier' },
-                AUFBAU.map(({ titel, text }) => h('div', {}, h('h3', {}, titel), h('p', { class: 'leise' }, text)))
+                t.aufbau.map(({ titel, text }) => h('div', {}, h('h3', {}, titel), h('p', { class: 'leise' }, text)))
             )
         )
     );
 
-const rechtlichEintrag = ({ text, href }) =>
-    h('li', {}, href ? h('a', { href }, text) : h('span', {}, text, h('small', {}, 'folgt')));
+const rechtlichEintrag = (text, href, folgt) =>
+    h('li', {}, href ? h('a', { href }, text) : h('span', {}, text, h('small', {}, folgt)));
 
 // Der Footer liegt hinter der Seite und kommt hervor, wenn sie sich beim Scrollen weghebt.
 // Sein Inhalt steigt dabei noch ein Stück auf. Wer keine Bewegung will, bekommt nur das Hervorkommen
@@ -61,7 +57,7 @@ const FUSS_WEG_PX = 120;
 const fussBewegen = (fuss, inhalt) => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const anpassen = () => {
-        // Die Seite wurde ersetzt (Cockpit): nicht mehr mithören
+        // Die Seite wurde ersetzt (Cockpit oder andere Sprache): nicht mehr mithören
         if (!fuss.isConnected) {
             window.removeEventListener('scroll', anpassen);
             window.removeEventListener('resize', anpassen);
@@ -76,7 +72,7 @@ const fussBewegen = (fuss, inhalt) => {
     requestAnimationFrame(anpassen);
 };
 
-const fussBauen = () => {
+const fussBauen = t => {
     const inhalt = h(
         'div',
         { class: 'landing-innen landing-fuss-innen' },
@@ -85,7 +81,11 @@ const fussBauen = () => {
             'div',
             { class: 'landing-fuss-zeile' },
             h('p', {}, '© ' + new Date().getFullYear() + ' vindelis'),
-            h('ul', {}, RECHTLICHES.map(rechtlichEintrag))
+            h(
+                'ul',
+                {},
+                RECHTLICHES.map(({ href }, i) => rechtlichEintrag(t.rechtliches[i], href, t.folgt))
+            )
         )
     );
     const fuss = h('footer', { class: 'landing-fuss', id: 'fuss' }, inhalt);
@@ -94,7 +94,7 @@ const fussBauen = () => {
 };
 
 // Der letzte Abschnitt und der Footer gehören zusammen: So bleibt der Footer versteckt, bis man unten ankommt
-export const landingInhalt = () => [
-    abschnittVerbinden(),
-    h('div', { class: 'landing-ende' }, abschnittAufbau(), fussBauen())
+export const landingInhalt = t => [
+    abschnittVerbinden(t),
+    h('div', { class: 'landing-ende' }, abschnittAufbau(t), fussBauen(t))
 ];

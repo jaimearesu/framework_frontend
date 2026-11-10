@@ -151,20 +151,27 @@ export const dialog = (zeichne, { kreuz = true } = {}) => {
     return { zu, neu };
 };
 
-// Knopf, der einen Wert in die Zwischenablage legt
-export const kopierKnopf = wert =>
+// Knopf, der einen Wert in die Zwischenablage legt.
+// worte: andere Texte (die Startseite gibt es auch auf Englisch), sonst Deutsch
+const KOPIER_WORTE = {
+    knopf: 'Kopieren',
+    fertig: 'Kopiert',
+    fehler: 'Kopieren ging nicht',
+    fehlerText: 'Bitte von Hand markieren.'
+};
+export const kopierKnopf = (wert, worte = KOPIER_WORTE) =>
     h(
         'button',
         {
             class: 'bp-ikonknopf',
             type: 'button',
-            'aria-label': 'Kopieren',
+            'aria-label': worte.knopf,
             onclick: async () => {
                 try {
                     await navigator.clipboard.writeText(wert);
-                    meldung('Kopiert');
+                    meldung(worte.fertig);
                 } catch {
-                    meldung('Kopieren ging nicht', 'Bitte von Hand markieren.');
+                    meldung(worte.fehler, worte.fehlerText);
                 }
             }
         },
@@ -172,8 +179,8 @@ export const kopierKnopf = wert =>
     );
 
 // Zeile mit einem Wert zum Kopieren
-export const kopierZeile = wert =>
-    h('div', { class: 'kopier-zeile' }, h('code', { class: 'mono' }, wert), kopierKnopf(wert));
+export const kopierZeile = (wert, worte) =>
+    h('div', { class: 'kopier-zeile' }, h('code', { class: 'mono' }, wert), kopierKnopf(wert, worte));
 
 // Leerer Zustand: sagt, was hier hingehört
 export const leer = (symbol, titel, text, knopf) =>
