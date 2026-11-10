@@ -4,10 +4,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
     RECHTLICHES,
-    VERBINDEN,
+    TEXTE,
+    SPRACHEN,
     fussVersatz,
     anmeldungHolen,
-    anmeldungMerken
+    anmeldungMerken,
+    spracheWaehlen,
+    spracheMerken,
+    gemerkteSprache
 } from '../public/neu/js/landing-werte.js';
 import { filmPfade, sanft } from '../public/neu/js/baum-film.js';
 
@@ -93,21 +97,85 @@ test('Text und Baum stehen als ein Block in der Mitte, auch auf breiten Bildschi
 });
 
 test('Unter dem Baum steht zuerst, wie man Claude und ChatGPT verbindet', () => {
-    assert.deepEqual(
-        VERBINDEN.map(k => k.name),
-        ['Claude', 'ChatGPT']
-    );
-    for (const k of VERBINDEN) assert.match(k.schritte.at(-1), /Erlauben/);
+    for (const sprache of SPRACHEN) {
+        const verbinden = TEXTE[sprache].verbinden;
+        assert.deepEqual(
+            verbinden.map(k => k.name),
+            ['Claude', 'ChatGPT']
+        );
+        // Die Seite «Erlauben» ist nur Deutsch, also muss das Wort auch im Englischen stehen
+        for (const k of verbinden) assert.match(k.schritte.at(-1), /Erlauben/);
+    }
     const code = lies('js/landing-inhalt.js');
-    assert.ok(code.indexOf('abschnittVerbinden(),') < code.indexOf('abschnittAufbau(), fussBauen()'));
+    assert.ok(code.indexOf('abschnittVerbinden(t),') < code.indexOf('abschnittAufbau(t), fussBauen(t)'));
 });
 
 test('Rechtliche Seiten ohne Adresse sind keine toten Links', () => {
-    for (const eintrag of RECHTLICHES) assert.equal(eintrag.href, null, eintrag.text);
+    for (const eintrag of RECHTLICHES) assert.equal(eintrag.href, null);
+    for (const sprache of SPRACHEN) assert.equal(TEXTE[sprache].rechtliches.length, RECHTLICHES.length);
     assert.match(
         lies('js/landing-inhalt.js'),
         /href \? h\('a', \{ href \}, text\) : h\('span', \{\}, text, h\('small'/
     );
+});
+
+test('Deutsch nur für einen deutschen Browser, sonst Englisch', () => {
+    assert.equal(spracheWaehlen(['de-CH', 'en']), 'de');
+    assert.equal(spracheWaehlen(['DE']), 'de');
+    assert.equal(spracheWaehlen(['en-US', 'de']), 'en');
+    assert.equal(spracheWaehlen(['fr-CH', 'de-CH']), 'de');
+    assert.equal(spracheWaehlen(['fr', 'it']), 'en');
+    assert.equal(spracheWaehlen([]), 'en');
+    assert.equal(spracheWaehlen([undefined]), 'en');
+});
+
+test('Eine gemerkte Wahl gilt vor dem Browser, eine kaputte nicht', () => {
+    assert.equal(spracheWaehlen(['de-CH'], 'en'), 'en');
+    assert.equal(spracheWaehlen(['en'], 'de'), 'de');
+    assert.equal(spracheWaehlen(['de-CH'], 'xx'), 'de');
+    assert.equal(spracheWaehlen(['en'], null), 'en');
+});
+
+test('Die Wahl der Sprache bleibt gemerkt, ohne Speicher geht nichts kaputt', () => {
+    const speicher = speicherAttrappe();
+    assert.equal(gemerkteSprache(speicher), null);
+    spracheMerken('en', speicher);
+    assert.equal(gemerkteSprache(speicher), 'en');
+    const kaputt = () => {
+        throw new Error('gesperrt');
+    };
+    assert.doesNotThrow(() => spracheMerken('de', kaputt));
+    assert.equal(gemerkteSprache(kaputt), null);
+});
+
+test('Beide Sprachen haben dieselben Texte, keiner fehlt', () => {
+    const form = wert =>
+        Array.isArray(wert)
+            ? wert.map(form)
+            : wert && typeof wert === 'object'
+              ? Object.fromEntries(Object.entries(wert).map(([k, v]) => [k, form(v)]))
+              : typeof wert;
+    assert.deepEqual(form(TEXTE.en), form(TEXTE.de));
+    for (const sprache of SPRACHEN) {
+        assert.equal(TEXTE[sprache].verbinden[0].schritte.length, TEXTE.de.verbinden[0].schritte.length);
+        assert.equal(TEXTE[sprache].aufbau.length, TEXTE.de.aufbau.length);
+    }
+});
+
+test('Unter dem Titel steht kurz, was vindelis ist, und dass gebaut wird über MCP', () => {
+    for (const sprache of SPRACHEN) {
+        const lead = TEXTE[sprache].lead;
+        assert.match(lead, /MCP/);
+        assert.ok(lead.length < 200, sprache + ': ' + lead.length);
+    }
+    const seite = lies('js/anmelden.js');
+    assert.match(seite, /h\('p', \{ class: 'landing-lead' \}, t\.lead\)/);
+    assert.doesNotMatch(seite, /Deine KI baut die Website/);
+});
+
+test('Das Cockpit stellt die Sprache der Seite wieder auf Deutsch', () => {
+    assert.match(lies('js/anmelden.js'), /document\.documentElement\.lang = t\.lang/);
+    assert.match(lies('js/app.js'), /document\.documentElement\.lang = 'de-CH'/);
 });
 
 test('Der Inhalt des Footers steigt auf, solange der Footer erst teilweise zu sehen ist', () => {

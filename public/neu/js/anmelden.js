@@ -4,7 +4,7 @@ import { h, LOGOS } from './ui.js';
 import { GUEST_HINT } from '../../js/core/session.js';
 import { DATEN } from './daten.js';
 import { anmeldeAdresse } from './sitzung.js';
-import { anmeldungMerken } from './landing-werte.js';
+import { anmeldungMerken, TEXTE, SPRACHEN, spracheWaehlen, spracheMerken, gemerkteSprache } from './landing-werte.js';
 import { landingInhalt } from './landing-inhalt.js';
 
 // Gemeinsamer Rahmen: das Logo und darunter die Karte, mittig auf der Seite
@@ -34,10 +34,40 @@ export const fehlerSeite = (dunkel, fehler, nochmals) =>
         )
     );
 
+// Welche Sprache die Startseite gerade hat (Browser oder frühere Wahl, siehe landing-werte.js)
+const startSprache = () => spracheWaehlen(navigator.languages || [navigator.language], gemerkteSprache());
+
+// DE / EN oben rechts: merkt sich die Wahl und zeichnet die Startseite in der neuen Sprache neu
+const sprachUmschalter = (sprache, alsGast) =>
+    h(
+        'div',
+        { class: 'landing-sprache', role: 'group', 'aria-label': TEXTE[sprache].spracheWechseln },
+        SPRACHEN.map(s =>
+            h(
+                'button',
+                {
+                    type: 'button',
+                    class: s === sprache ? 'aktiv' : '',
+                    'aria-pressed': String(s === sprache),
+                    lang: TEXTE[s].lang,
+                    onclick: () => {
+                        if (s === sprache) return;
+                        spracheMerken(s);
+                        document.getElementById('landing')?.replaceWith(anmeldeSeite(alsGast, s));
+                    }
+                },
+                s.toUpperCase()
+            )
+        )
+    );
+
 // Die Startseite für alle ohne Anmeldung. Der Baum dahinter kommt aus verwandlung.js.
 // Wer als Gast weitermacht, wird erst beim ersten Anlegen wirklich zum Gast.
-export const anmeldeSeite = alsGast =>
-    h(
+export const anmeldeSeite = (alsGast, sprache = startSprache()) => {
+    const t = TEXTE[sprache];
+    // Vorlesen und Silbentrennung richten sich danach. Das Cockpit setzt es wieder auf Deutsch
+    document.documentElement.lang = t.lang;
+    return h(
         'div',
         { class: 'landing', id: 'landing' },
         h(
@@ -48,14 +78,19 @@ export const anmeldeSeite = alsGast =>
                 { class: 'landing-kopf' },
                 h('img', { src: LOGOS.v, alt: 'vindelis' }),
                 h(
-                    'a',
-                    {
-                        class: 'bp-btn bp-btn-o',
-                        id: 'anmelden-kopf',
-                        href: anmeldeAdresse(),
-                        onclick: () => anmeldungMerken()
-                    },
-                    'Anmelden'
+                    'div',
+                    { class: 'landing-kopf-rechts' },
+                    sprachUmschalter(sprache, alsGast),
+                    h(
+                        'a',
+                        {
+                            class: 'bp-btn bp-btn-o',
+                            id: 'anmelden-kopf',
+                            href: anmeldeAdresse(),
+                            onclick: () => anmeldungMerken()
+                        },
+                        t.anmelden
+                    )
                 )
             ),
             h(
@@ -68,7 +103,7 @@ export const anmeldeSeite = alsGast =>
                     h('span', {}, 'Safe to ship.'),
                     h('span', {}, 'Reliable to run.')
                 ),
-                h('p', { class: 'landing-lead' }, 'Deine KI baut die Website, du gibst sie frei.'),
+                h('p', { class: 'landing-lead' }, t.lead),
                 h(
                     'div',
                     { class: 'landing-knoepfe' },
@@ -80,18 +115,19 @@ export const anmeldeSeite = alsGast =>
                             href: anmeldeAdresse(),
                             onclick: () => anmeldungMerken()
                         },
-                        'Jetzt bauen'
+                        t.jetztBauen
                     ),
                     h(
                         'button',
                         { class: 'bp-btn bp-btn-o bp-btn-gross', id: 'als-gast', type: 'button', onclick: alsGast },
-                        'Ohne Konto ausprobieren'
+                        t.alsGast
                     )
                 )
             )
         ),
-        landingInhalt()
+        landingInhalt(t)
     );
+};
 
 // Steht oben auf jeder Seite, solange man nicht angemeldet ist
 export const gastHinweis = () => {

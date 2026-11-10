@@ -23,55 +23,174 @@ export const anmeldungHolen = (speicher = tabSpeicher) => {
     }
 };
 
-// Inhalt der Startseite unter dem Baum. Die Menünamen stammen aus den Hilfeseiten von Claude und OpenAI
-export const VERBINDEN = [
-    {
-        name: 'Claude',
-        logo: '/neu/bilder/claude.svg',
-        schritte: [
-            'Öffne Customize und dann Connectors.',
-            'Klicke auf + und wähle «Add custom connector».',
-            'Gib einen Namen ein und füge die Adresse ein.',
-            'Melde dich bei vindelis an und klicke auf «Erlauben».'
-        ]
-    },
-    {
-        name: 'ChatGPT',
-        logo: '/neu/bilder/openai.svg',
-        schritte: [
-            'Öffne Plugins.',
-            'Klicke auf + und wähle «Add custom MCP server».',
-            'Gib einen Namen ein, füge die Adresse ein und bestätige den Hinweis.',
-            'Melde dich bei vindelis an und klicke auf «Erlauben».'
-        ]
-    }
-];
+// ---------------------------------------------------------------------
+// SPRACHE DER STARTSEITE (10.11.2026)
+// Deutsch, wenn der Browser Deutsch will, sonst Englisch. Wer oben auf DE / EN klickt,
+// dessen Wahl merkt sich der Browser (localStorage, gilt auch beim nächsten Besuch).
+// Nur die Startseite ist zweisprachig, das Cockpit bleibt Deutsch.
+// ---------------------------------------------------------------------
+export const SPRACHEN = ['de', 'en'];
+const SPRACHE_SCHLUESSEL = 'vindelis-sprache';
+const dauerSpeicher = () => localStorage;
 
-export const AUFBAU = [
-    {
-        titel: 'Alles ist ein Baustein',
-        text: 'Seiten, Daten und Funktionen sind einzelne Objekte. Jedes hat seinen Platz im Baum und seine eigenen Rechte.'
-    },
-    {
-        titel: 'Die KI baut, du gibst frei',
-        text: 'Deine KI baut und ändert Websites. Online geht nur, was du selbst freigibst.'
-    },
-    {
-        titel: 'Jeder Schritt bleibt sichtbar',
-        text: 'Alles, was eine KI ändert, steht im Protokoll. So siehst du jederzeit, wer was getan hat.'
-    },
-    {
-        titel: 'Ein Fehler ist kein Drama',
-        text: 'Frühere Stände bleiben erhalten. Geht etwas schief, holst du sie mit wenigen Klicks zurück.'
+// browser = navigator.languages (z.B. ['de-CH', 'en']), gemerkt = frühere Wahl oder null
+export const spracheWaehlen = (browser = [], gemerkt = null) => {
+    if (SPRACHEN.includes(gemerkt)) return gemerkt;
+    // Die erste Sprache, die wir kennen, gewinnt. «fr, de» ergibt also Deutsch
+    for (const eintrag of browser) {
+        const kurz = String(eintrag).toLowerCase().slice(0, 2);
+        if (SPRACHEN.includes(kurz)) return kurz;
     }
-];
+    return 'en';
+};
 
-// Sobald es eine Seite dazu gibt, hier die Adresse eintragen. Ohne Adresse steht «folgt» daneben
-export const RECHTLICHES = [
-    { text: 'AGB', href: null },
-    { text: 'Datenschutz', href: null },
-    { text: 'Impressum', href: null }
-];
+export const spracheMerken = (sprache, speicher = dauerSpeicher) => {
+    try {
+        speicher().setItem(SPRACHE_SCHLUESSEL, sprache);
+    } catch {
+        // Ohne Speicher gilt die Wahl nur, bis man neu lädt
+    }
+};
+
+export const gemerkteSprache = (speicher = dauerSpeicher) => {
+    try {
+        return speicher().getItem(SPRACHE_SCHLUESSEL);
+    } catch {
+        return null;
+    }
+};
+
+// Die Logos sind in beiden Sprachen gleich
+const CLAUDE = { name: 'Claude', logo: '/neu/bilder/claude.svg' };
+const CHATGPT = { name: 'ChatGPT', logo: '/neu/bilder/openai.svg' };
+
+// Alle Texte der Startseite. Die Menünamen stammen aus den Hilfeseiten von Claude und OpenAI.
+// Die Seite «Erlauben» nach dem Anmelden ist nur Deutsch, darum steht im Englischen beides
+export const TEXTE = {
+    de: {
+        lang: 'de-CH',
+        anmelden: 'Anmelden',
+        lead: 'Die Plattform für Websites, Apps und Agenten-Werkzeuge, in der alles ein Objekt ist. Dein Coding-Agent baut über MCP, ein Mensch gibt frei, vindelis hält es am Laufen.',
+        jetztBauen: 'Jetzt bauen',
+        alsGast: 'Ohne Konto ausprobieren',
+        spracheWechseln: 'Sprache wählen',
+        verbindenTitel: 'Verbinde deine KI mit vindelis.',
+        verbindenLead: 'Du arbeitest weiter in Claude oder ChatGPT. Dafür brauchst du nur diese Adresse:',
+        verbindenHinweis: 'Heisst ein Menü bei dir anders? Such nach «Connector» oder «MCP».',
+        verbinden: [
+            {
+                ...CLAUDE,
+                schritte: [
+                    'Öffne Customize und dann Connectors.',
+                    'Klicke auf + und wähle «Add custom connector».',
+                    'Gib einen Namen ein und füge die Adresse ein.',
+                    'Melde dich bei vindelis an und klicke auf «Erlauben».'
+                ]
+            },
+            {
+                ...CHATGPT,
+                schritte: [
+                    'Öffne Plugins.',
+                    'Klicke auf + und wähle «Add custom MCP server».',
+                    'Gib einen Namen ein, füge die Adresse ein und bestätige den Hinweis.',
+                    'Melde dich bei vindelis an und klicke auf «Erlauben».'
+                ]
+            }
+        ],
+        aufbauTitel: 'So ist vindelis aufgebaut.',
+        aufbau: [
+            {
+                titel: 'Alles ist ein Baustein',
+                text: 'Seiten, Daten und Funktionen sind einzelne Objekte. Jedes hat seinen Platz im Baum und seine eigenen Rechte.'
+            },
+            {
+                titel: 'Die KI baut, du gibst frei',
+                text: 'Deine KI baut und ändert Websites. Online geht nur, was du selbst freigibst.'
+            },
+            {
+                titel: 'Läuft auch unter Last',
+                text: 'Daten stimmen auch bei vielen Besuchern, Aufträge wiederholen sich bei Fehlern von selbst, und klare Limits schützen vor Überraschungen.'
+            },
+            {
+                titel: 'Jeder Schritt bleibt sichtbar',
+                text: 'Alles, was eine KI ändert, steht im Protokoll. So siehst du jederzeit, wer was getan hat.'
+            },
+            {
+                titel: 'Ein Fehler ist kein Drama',
+                text: 'Frühere Stände bleiben erhalten. Geht etwas schief, holst du sie mit wenigen Klicks zurück.'
+            }
+        ],
+        rechtliches: ['AGB', 'Datenschutz', 'Impressum'],
+        folgt: 'folgt',
+        kopieren: {
+            knopf: 'Kopieren',
+            fertig: 'Kopiert',
+            fehler: 'Kopieren ging nicht',
+            fehlerText: 'Bitte von Hand markieren.'
+        }
+    },
+    en: {
+        lang: 'en',
+        anmelden: 'Sign in',
+        lead: 'The platform for websites, apps and agent tools, where everything is an object. Your coding agent builds via MCP, a human approves what goes live, vindelis keeps it running.',
+        jetztBauen: 'Start building',
+        alsGast: 'Try without an account',
+        spracheWechseln: 'Choose language',
+        verbindenTitel: 'Connect your AI to vindelis.',
+        verbindenLead: 'Keep working in Claude or ChatGPT. All you need is this address:',
+        verbindenHinweis: 'A menu is named differently for you? Look for "Connector" or "MCP".',
+        verbinden: [
+            {
+                ...CLAUDE,
+                schritte: [
+                    'Open Customize, then Connectors.',
+                    'Click + and choose "Add custom connector".',
+                    'Enter a name and paste the address.',
+                    'Sign in to vindelis and click "Erlauben" (Allow).'
+                ]
+            },
+            {
+                ...CHATGPT,
+                schritte: [
+                    'Open Plugins.',
+                    'Click + and choose "Add custom MCP server".',
+                    'Enter a name, paste the address and confirm the notice.',
+                    'Sign in to vindelis and click "Erlauben" (Allow).'
+                ]
+            }
+        ],
+        aufbauTitel: 'How vindelis works.',
+        aufbau: [
+            {
+                titel: 'Everything is a building block',
+                text: 'Pages, data and functions are separate objects. Each has its place in the tree and its own rights.'
+            },
+            {
+                titel: 'AI builds, you approve',
+                text: 'Your AI builds and changes websites. Only what you approve goes live.'
+            },
+            {
+                titel: 'Holds up under load',
+                text: 'Data stays correct with many visitors, jobs retry on their own after errors, and clear limits prevent surprises.'
+            },
+            {
+                titel: 'Every step stays visible',
+                text: 'Everything an AI changes is in the log. You always see who did what.'
+            },
+            {
+                titel: 'A mistake is no drama',
+                text: 'Earlier versions are kept. If something goes wrong, you bring them back in a few clicks.'
+            }
+        ],
+        rechtliches: ['Terms', 'Privacy', 'Legal notice'],
+        folgt: 'coming soon',
+        kopieren: { knopf: 'Copy', fertig: 'Copied', fehler: 'Copying failed', fehlerText: 'Please select it by hand.' }
+    }
+};
+
+// Sobald es eine Seite dazu gibt, hier die Adresse eintragen. Ohne Adresse steht «folgt» daneben.
+// Die Reihenfolge passt zu TEXTE.*.rechtliches
+export const RECHTLICHES = [{ href: null }, { href: null }, { href: null }];
 
 // Wie weit der Inhalt des Footers noch unten liegt, solange er erst teilweise zu sehen ist.
 // sichtbar = wie viele Pixel des Footers man schon sieht, hoehe = seine Höhe, weg = grösster Versatz
