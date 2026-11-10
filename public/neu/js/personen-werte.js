@@ -65,6 +65,14 @@ export const teilPersonenAus = (locks, teil, ichUuid) => {
     return eigenes ? echteMitglieder(eigenes.members).map(m => personAus(m, ichUuid, teil)) : [];
 };
 
+// Wem kann man eine Website übergeben? Nur anderen Menschen, die sie schon ganz verwalten dürfen
+export const uebergabeKandidaten = personen =>
+    personen.filter(p => !p.ich && !p.teil && p.art === 'Mensch' && p.darf === 'verwalten');
+
+// Name der Person, die ein Angebot bekommen hat. Steht sie nicht mehr in der Liste, bleibt die gekürzte ID
+export const empfaengerName = (personen, uuid) =>
+    personen.find(p => p.id === uuid && !p.teil)?.name || 'Mensch ' + kurzeId(uuid);
+
 export const darfText = person => RECHTE[person.darf].titel + (person.teil ? ', nur «' + person.teil.name + '»' : '');
 
 // Was muss sich ändern, damit jemand genau diese Stufe hat? Geben zuerst, damit nie eine Lücke entsteht

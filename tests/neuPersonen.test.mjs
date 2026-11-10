@@ -11,18 +11,38 @@ import {
     eingabeFehler,
     einladungKoerper,
     einladungenAus,
+    empfaengerName,
     nochText,
     personenAus,
     rechteFuer,
     rollenAenderung,
     teilPersonenAus,
     teileZumFragen,
+    uebergabeKandidaten,
     wegeFuer,
     zielAus
 } from '../public/neu/js/personen-werte.js';
 
 const ICH = 'aaaaaaaa-0000-4000-8000-000000000000';
 const ANDERER = 'bbbbbbbb-0000-4000-8000-000000000000';
+
+test('Übergeben geht nur an andere Menschen, die die ganze Website verwalten', () => {
+    const personen = personenAus(
+        [
+            { uuid: ICH, kind: 'mensch', name: null, roles: ['black', 'blue', 'red'] },
+            { uuid: ANDERER, kind: 'mensch', name: null, roles: ['black', 'blue', 'red'] },
+            { uuid: 'nur-sehen', kind: 'mensch', name: null, roles: ['black'] },
+            { uuid: 'helfer', kind: 'objekt', name: 'agent-mira', roles: ['black', 'blue', 'red'] }
+        ],
+        ICH
+    );
+    assert.deepEqual(
+        uebergabeKandidaten(personen).map(p => p.id),
+        [ANDERER]
+    );
+    assert.equal(empfaengerName(personen, ANDERER), 'Mensch bbbbbbbb…');
+    assert.equal(empfaengerName(personen, 'cccccccc-1111'), 'Mensch cccccccc…');
+});
 
 test('Menschen zeigen nie einen Namen: «Du» oder «Mensch» mit gekürzter ID', () => {
     const liste = personenAus(

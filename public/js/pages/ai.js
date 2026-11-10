@@ -126,6 +126,11 @@ export const AUDIT_ACTIONS = {
     'einladung.erstellen': 'Einladungs-Link erstellt',
     'einladung.widerrufen': 'Einladungs-Link widerrufen',
     'einladung.annehmen': 'Einladung angenommen',
+    'website.verlassen': 'Rechte auf Website abgegeben',
+    'website.uebergabe.anbieten': 'Website zur Übergabe angeboten',
+    'website.uebergabe.annehmen': 'Website übernommen',
+    'website.uebergabe.ablehnen': 'Übergabe abgelehnt',
+    'website.uebergabe.zurueckziehen': 'Übergabe zurückgezogen',
     'zeitplan.setzen': 'Zeitplan einer SSF gesetzt', // Plan "SSF-Ausbau", Teil C
     'zeitplan.entfernen': 'Zeitplan einer SSF entfernt',
     'auftrag.abbrechen': 'Hintergrund-Auftrag abgebrochen',

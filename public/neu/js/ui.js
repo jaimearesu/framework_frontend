@@ -71,9 +71,11 @@ export const ikon = name => {
 export const zustandPlakette = zustand => {
     const arten = {
         online: ['bp-st bp-st-ok', 'Online'],
-        wartet: ['bp-st bp-st-warn', 'Wartet auf Freigabe'],
+        // Blau wie der Hinweis «wartet auf dich»: Es ist eine Aufgabe, keine Warnung
+        wartet: ['bp-st bp-st-info', 'Wartet auf Freigabe'],
         problem: ['bp-st bp-st-stop', 'Problem'],
-        entwurf: ['bp-badge bp-badge-s', 'Entwurf'],
+        // Gleiches Wort wie beim Filter «Privat»
+        entwurf: ['bp-badge bp-badge-s', 'Privat'],
         mitglieder: ['bp-badge bp-badge-s', 'Nur Angemeldete'],
         leer: ['bp-badge bp-badge-s', 'Noch leer']
     };

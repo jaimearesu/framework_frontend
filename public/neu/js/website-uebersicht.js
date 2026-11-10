@@ -100,9 +100,9 @@ const problemeKarte = site => {
     return karte;
 };
 
-// Das Bild mit dem Knopf zum Aufnehmen. Fotografiert wird nur, was alle sehen, darum nur bei öffentlichen Websites
+// Das Bild mit dem Knopf zum Aufnehmen. Geht bei jeder Website, an der man bauen darf
 const vorschauBlock = (w, site, neuHolen) => {
-    if (!site.rights?.write || site.visibility !== 'public') return vorschauBild(true, w);
+    if (!site.rights?.write) return vorschauBild(true, w);
     const text = site.thumbAt ? 'Vorschau neu aufnehmen' : 'Vorschau aufnehmen';
     const knopf = h(
         'button',

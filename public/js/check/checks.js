@@ -1609,14 +1609,28 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
         // (kostet keine Cloudflare-Minuten)
         id: 'website-thumbnail',
         group: 'SSF',
-        title: 'Vorschaubild: private Website hat keins und bekommt keins (NOT_PUBLIC)',
+        title: 'Vorschaubild: eine neue Website hat noch keins',
         needs: ['root'],
         run: async ctx => {
+            // Bewusst kein Foto aufnehmen: Das würde Cloudflare-Zeit verbrauchen
             const get = await api.get(`/api/websites/${ctx.root}/vorschau`);
-            expectStatus(get, 404, 'Vorschaubild einer privaten Website');
-            const take = await api.post(`/api/websites/${ctx.root}/vorschau`, {});
-            expect(take.status === 409 || take.status === 404, `aufnehmen: Status ${take.status} statt 409`, take);
-            return take.status === 409 ? 'abgelehnt: nicht öffentlich' : 'Migration 030 fehlt?';
+            expectStatus(get, 404, 'Vorschaubild einer neuen Website');
+            return 'noch keins';
+        }
+    },
+    {
+        // Rechte abgeben und übergeben (Migration 039) – alles nur Absagen, es ändert sich nichts
+        id: 'website-access-rules',
+        group: 'SSF',
+        title: 'Eigene Website: Rechte abgeben geht nicht, nur übergeben',
+        needs: ['root'],
+        run: async ctx => {
+            const offen = await api.get('/api/websites/uebergaben/offen');
+            expectStatus(offen, 200, 'Angebote an mich (Migration 039 fehlt?)');
+            const gehen = await api.post(`/api/websites/${ctx.root}/verlassen`, {});
+            expectStatus(gehen, 409, 'eigene Website verlassen');
+            expect(gehen.data?.code === 'MUST_HAND_OVER', 'falscher Fehler-Code', gehen);
+            return `${offen.data.data.length} Angebot(e) offen, Abgeben richtig abgelehnt`;
         }
     },
     // Hintergrund-Aufträge (Plan "SSF-Ausbau", Teil C). Der Auftrag startet erst in einer

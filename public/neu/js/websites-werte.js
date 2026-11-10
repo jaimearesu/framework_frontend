@@ -44,6 +44,8 @@ export const websiteAus = (w, namenMitBitte, jetzt = Date.now()) => ({
     adresse: displayAddress(w),
     beschreibung: w.note || '',
     zustand: zustandAus(w, namenMitBitte),
+    // Für den Filter: die echte Sichtbarkeit, auch wenn die Plakette gerade «Problem» sagt
+    sichtbarkeit: w.visibility || 'private',
     zeile: kachelZeile(w, jetzt),
     geaendertVor: alterMs(w.lastChange, jetzt),
     erstelltVor: alterMs(w.createdAt, jetzt),
@@ -76,6 +78,16 @@ export const nachHerkunft = (websites, herkunft) => {
     return websites.filter(w => w.mein === (herkunft === 'mein'));
 };
 
+// Den Filter nach Sichtbarkeit braucht es nur, wenn es mindestens zwei Arten gibt
+export const hatMehrereSichtbarkeiten = websites => new Set(websites.map(w => w.sichtbarkeit)).size > 1;
+
+// «alle», «public», «members» oder «private». Gibt es nur noch eine Art, fällt der Filter weg:
+// Sonst sässe man auf einer leeren Liste fest, ohne Knopf zum Zurückstellen
+export const nachSichtbarkeit = (websites, sichtbarkeit) => {
+    if (sichtbarkeit === 'alle' || !hatMehrereSichtbarkeiten(websites)) return websites;
+    return websites.filter(w => w.sichtbarkeit === sichtbarkeit);
+};
+
 const SICHTBAR = { public: 'öffentlich', members: 'nur Angemeldete', private: 'privat' };
 
 // Eine Bitte um Veröffentlichung. «was» sagt genau, was beim Freigeben passiert,
@@ -105,6 +117,18 @@ export const uploadAusApi = (eintrag, jetzt = Date.now()) => ({
     hinweis: collectionHint(eintrag),
     name: eintrag.name || null,
     bild: IMAGE_KINDS.includes(eintrag.kind),
+    wann: timeAgo(eintrag.createdAt, jetzt)
+});
+
+// Jemand möchte mir eine Website übergeben. Bei Menschen kennt das Backend bewusst keinen Namen
+export const uebergabeAusApi = (eintrag, jetzt = Date.now()) => ({
+    id: eintrag.uuid,
+    typ: 'uebergabe',
+    art: 'Übergabe',
+    website: eintrag.siteName,
+    ziel: eintrag.rootUuid,
+    was: 'Möchtest du die Website «' + eintrag.siteName + '» übernehmen?',
+    von: 'Mensch ' + String(eintrag.fromUser).slice(0, 8) + '…',
     wann: timeAgo(eintrag.createdAt, jetzt)
 });
 
