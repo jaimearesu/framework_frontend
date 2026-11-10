@@ -6,6 +6,7 @@ import { DATEN } from './daten.js';
 import { anmeldeAdresse } from './sitzung.js';
 import { anmeldungMerken, TEXTE, SPRACHEN, spracheWaehlen, spracheMerken, gemerkteSprache } from './landing-werte.js';
 import { landingInhalt } from './landing-inhalt.js';
+import { objektZahl } from './landing-zahl.js';
 
 // Gemeinsamer Rahmen: das Logo und darunter die Karte, mittig auf der Seite
 const rahmen = (dunkel, ...inhalt) =>
@@ -122,7 +123,8 @@ export const anmeldeSeite = (alsGast, sprache = startSprache()) => {
                         { class: 'bp-btn bp-btn-o bp-btn-gross', id: 'als-gast', type: 'button', onclick: alsGast },
                         t.alsGast
                     )
-                )
+                ),
+                objektZahl(sprache, t)
             )
         ),
         landingInhalt(t)

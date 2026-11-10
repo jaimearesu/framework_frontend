@@ -11,7 +11,10 @@ import {
     anmeldungMerken,
     spracheWaehlen,
     spracheMerken,
-    gemerkteSprache
+    gemerkteSprache,
+    zahlSchreiben,
+    zahlAusAntwort,
+    zwischenWert
 } from '../public/neu/js/landing-werte.js';
 import { filmPfade, sanft } from '../public/neu/js/baum-film.js';
 
@@ -171,6 +174,39 @@ test('Unter dem Titel steht kurz, was vindelis ist, und dass gebaut wird über M
     const seite = lies('js/anmelden.js');
     assert.match(seite, /h\('p', \{ class: 'landing-lead' \}, t\.lead\)/);
     assert.doesNotMatch(seite, /Deine KI baut die Website/);
+});
+
+test('Die Objekt-Zahl ist in der Sprache der Seite geschrieben', () => {
+    assert.equal(TEXTE.de.zahl(zahlSchreiben(2307, 'de')), "Schon 2'307 Objekte gebaut.");
+    assert.equal(TEXTE.en.zahl(zahlSchreiben(2307, 'en')), '2,307 objects built so far.');
+    assert.equal(zahlSchreiben(999.6, 'de'), "1'000");
+    assert.equal(zahlSchreiben(1234567, 'de'), "1'234'567");
+});
+
+test('Nur eine echte Zahl vom Backend wird gezeigt, alles andere nicht', () => {
+    assert.equal(zahlAusAntwort({ ok: true, data: { data: { objects: 2307 } } }), 2307);
+    assert.equal(zahlAusAntwort({ ok: true, data: { data: { objects: null } } }), null);
+    assert.equal(zahlAusAntwort({ ok: false, status: 0, data: null }), null);
+    assert.equal(zahlAusAntwort({ ok: true, data: { data: { objects: '2307' } } }), null);
+    assert.equal(zahlAusAntwort({ ok: true, data: { data: { objects: -5 } } }), null);
+    assert.equal(zahlAusAntwort(undefined), null);
+});
+
+test('Die Zahl zählt von 0 hoch und hört genau beim Ziel auf', () => {
+    assert.equal(zwischenWert(2307, 0), 0);
+    assert.equal(zwischenWert(2307, 1), 2307);
+    assert.equal(zwischenWert(2307, 5), 2307);
+    assert.equal(zwischenWert(2307, -1), 0);
+    assert.ok(zwischenWert(2307, 0.5) > 2307 / 2, 'am Anfang schnell, am Ende langsam');
+});
+
+test('Die Objekt-Zahl steht unter den Knöpfen und ruht ohne Bewegung', () => {
+    const seite = lies('js/anmelden.js');
+    assert.ok(seite.indexOf("'landing-knoepfe'") < seite.indexOf('objektZahl(sprache, t)'));
+    const zahl = lies('js/landing-zahl.js');
+    assert.match(zahl, /'\/api\/stats', \{ anonymous: true \}/);
+    assert.match(zahl, /prefers-reduced-motion/);
+    assert.match(zahl, /textContent/);
 });
 
 test('Das Cockpit stellt die Sprache der Seite wieder auf Deutsch', () => {

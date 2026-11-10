@@ -120,6 +120,7 @@ export const TEXTE = {
                 text: 'Frühere Stände bleiben erhalten. Geht etwas schief, holst du sie mit wenigen Klicks zurück.'
             }
         ],
+        zahl: z => `Schon ${z} Objekte gebaut.`,
         rechtliches: ['AGB', 'Datenschutz', 'Impressum'],
         folgt: 'folgt',
         kopieren: {
@@ -182,10 +183,36 @@ export const TEXTE = {
                 text: 'Earlier versions are kept. If something goes wrong, you bring them back in a few clicks.'
             }
         ],
+        zahl: z => `${z} objects built so far.`,
         rechtliches: ['Terms', 'Privacy', 'Legal notice'],
         folgt: 'coming soon',
         kopieren: { knopf: 'Copy', fertig: 'Copied', fehler: 'Copying failed', fehlerText: 'Please select it by hand.' }
     }
+};
+
+// ---------------------------------------------------------------------
+// WIE VIELE OBJEKTE ES SCHON GIBT (10.11.2026)
+// Die Zahl kommt von GET /api/stats. Das Backend schickt erst ab 1000 eine Zahl,
+// sonst null – dann zeigt die Startseite gar nichts.
+// ---------------------------------------------------------------------
+
+// 2307 → «2'307» (Deutsch, Schweiz) bzw. «2,307» (Englisch). Das Trennzeichen setzen wir selbst,
+// denn Browser schreiben für de-CH mal ' und mal ’
+export const zahlSchreiben = (zahl, sprache) => {
+    const englisch = new Intl.NumberFormat('en-US').format(Math.round(zahl));
+    return sprache === 'de' ? englisch.replaceAll(',', "'") : englisch;
+};
+
+// Antwort des Backends → Zahl oder null (alles Unerwartete = null, nie ein Fehler)
+export const zahlAusAntwort = antwort => {
+    const zahl = antwort?.ok ? antwort.data?.data?.objects : null;
+    return Number.isInteger(zahl) && zahl > 0 ? zahl : null;
+};
+
+// Hochzählen: Wert nach anteil (0…1) der Zeit, am Ende langsamer (wie ein Zähler, der ausrollt)
+export const zwischenWert = (ziel, anteil) => {
+    const a = Math.min(1, Math.max(0, anteil));
+    return Math.round(ziel * (1 - Math.pow(1 - a, 3)));
 };
 
 // Sobald es eine Seite dazu gibt, hier die Adresse eintragen. Ohne Adresse steht «folgt» daneben.
