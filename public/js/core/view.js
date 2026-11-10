@@ -201,6 +201,7 @@ const PROBLEM_TEXT = {
     anfrage_ungueltig: 'Ungültige Anfrage',
     upload_abgelehnt: 'Upload abgelehnt',
     datei_fehlt: 'Bild oder Datei fehlt',
+    datei_weggelassen: 'Datei mit falscher Endung weggelassen',
     dienst_weg: 'Dienst kurz weg',
     webhook_fehler: 'Fehler bei einem Webhook',
     live_abgewiesen: 'Live-Verbindung abgewiesen',

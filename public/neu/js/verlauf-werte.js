@@ -51,6 +51,8 @@ const SAETZE = {
     },
     'code.buendel': e => mehrzahl(e.details?.teile || 0, 'Teil', 'Teile') + ' auf einmal gespeichert',
     'code.baum': () => 'Speicherart des Codes umgestellt',
+    'code.herausgeben': e =>
+        e.details?.website ? 'Ganze Website als Datei herausgeholt' : 'Code von ' + ort(e) + ' als Datei herausgeholt',
     'daten.schreiben': e =>
         mehrzahl(e.details?.count || 0, 'Datensatz', 'Datensätze') + ' ' + inOrt(e) + ' gespeichert',
     'daten.loeschen': e => 'Datensatz ' + inOrt(e) + ' gelöscht',

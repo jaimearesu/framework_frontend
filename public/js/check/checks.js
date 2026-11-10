@@ -2038,6 +2038,29 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             return 'gefüllt, zweites Mal abgelehnt (409), Inhalt identisch';
         }
     },
+    // 10.11.2026 (Wunsch Markenkern): Code als Datei HERAUS + Suche über die ganze Website
+    {
+        id: 'code-download',
+        group: 'Klonen & Zügeln',
+        title: 'Code herausgeben (create_download_link): ganze Website als Datei, Prüfsumme stimmt',
+        needs: ['root'],
+        run: async ctx => {
+            const r = await api.post(`/api/objects/${ctx.root}/download-link`, { website: true });
+            if (r.status === 403) return 'ohne red/Anmeldung abgelehnt (403) – richtig';
+            expectStatus(r, 201, 'POST /download-link');
+            const file = await fetch(r.data.data.url);
+            expect(file.status === 200, `Abholen antwortet mit ${file.status}`, r);
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            const digest = await crypto.subtle.digest('SHA-256', bytes);
+            const hex = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+            expect(hex === r.data.data.sha256, 'sha256 der Datei stimmt nicht', { hex, r });
+            const content = JSON.parse(new TextDecoder().decode(bytes));
+            expect(content.format === 'vindelis-export', 'falsches Format', content.format);
+            const search = await api.get(`/api/ast/search?uuid=${ctx.root}&text=a`);
+            expectStatus(search, 200, 'GET /api/ast/search');
+            return `${content.parts.length} Teile als eine Datei, sha256 stimmt; Suche antwortet`;
+        }
+    },
     // Plan "K", K6a: tiefer Klon – prüft nur die Ablehnungen (ein echter legt viele Teile an)
     {
         id: 'clone-deep-rules',
