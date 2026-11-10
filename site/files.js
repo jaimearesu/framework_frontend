@@ -19,7 +19,9 @@ const CONTENT_TYPES = {
     js: 'text/javascript; charset=utf-8',
     json: 'application/json; charset=utf-8',
     txt: 'text/plain; charset=utf-8',
-    svg: 'image/svg+xml; charset=utf-8'
+    svg: 'image/svg+xml; charset=utf-8',
+    // seit 10.11.2026: sitemap.xml, RSS-Feeds (Wunsch Markenkern)
+    xml: 'application/xml; charset=utf-8'
 };
 
 const extensionOf = path => {

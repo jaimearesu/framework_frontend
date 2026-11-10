@@ -124,6 +124,7 @@ describe('Adresse -> Datei im Bauplan', () => {
         assert.equal(contentTypeFor('a.md'), 'text/html; charset=utf-8');
         assert.equal(contentTypeFor('a.js'), 'text/javascript; charset=utf-8');
         assert.equal(contentTypeFor('a.svg'), 'image/svg+xml; charset=utf-8');
+        assert.equal(contentTypeFor('sitemap.xml'), 'application/xml; charset=utf-8');
         assert.equal(contentTypeFor('a.exe'), 'application/octet-stream');
     });
 });

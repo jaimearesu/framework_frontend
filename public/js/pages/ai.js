@@ -103,6 +103,7 @@ export const AUDIT_ACTIONS = {
     'objekt.loeschen': 'Objekt gelöscht',
     'objekt.sichtbarkeit': 'Sichtbarkeit geändert',
     'code.speichern': 'Code gespeichert',
+    'code.herausgeben': 'Code als Datei herausgegeben',
     'code.buendel': 'Viele Teile gespeichert (Bündel)',
     'daten.schreiben': 'Daten geschrieben',
     'daten.loeschen': 'Datensatz gelöscht',
