@@ -3,6 +3,61 @@
 import { h, kopierZeile } from './ui.js';
 import { mcpAdresseLive } from './sitzung.js';
 import { RECHTLICHES, fussVersatz } from './landing-werte.js';
+import { BEISPIELE, BEISPIEL_TEXTE, beispielAdresse } from './beispiele-werte.js';
+
+// «Gebaut mit vindelis»: eine Karte pro Beispiel, mit Bild und Weg zur Geschichte dahinter
+const karteBeispiel = (beispiel, sprache) => {
+    const b = beispiel.texte[sprache];
+    const s = BEISPIEL_TEXTE[sprache];
+    const seite = beispielAdresse(beispiel.id);
+    return h(
+        'article',
+        { class: 'bp-karte beispiel-karte', id: 'beispiel-' + beispiel.id },
+        h(
+            'a',
+            { class: 'beispiel-bild', href: seite, tabindex: '-1', 'aria-hidden': 'true' },
+            h('img', { src: beispiel.titelbild, alt: '', loading: 'lazy' })
+        ),
+        h(
+            'div',
+            { class: 'beispiel-text' },
+            h('h3', {}, b.name),
+            h('p', { class: 'leise' }, b.kurz),
+            h(
+                'ul',
+                { class: 'beispiel-stichworte' },
+                b.stichworte.map(w => h('li', {}, w))
+            ),
+            h(
+                'div',
+                { class: 'landing-knoepfe' },
+                h('a', { class: 'bp-btn bp-btn-p', href: seite }, s.soEntstand),
+                h(
+                    'a',
+                    { class: 'bp-btn bp-btn-o', href: beispiel.adresse, target: '_blank', rel: 'noopener' },
+                    s.liveOeffnen + ' ↗'
+                )
+            )
+        )
+    );
+};
+
+const abschnittBeispiele = sprache =>
+    h(
+        'section',
+        { class: 'landing-abschnitt', id: 'beispiele' },
+        h(
+            'div',
+            { class: 'landing-innen' },
+            h('h2', {}, BEISPIEL_TEXTE[sprache].abschnittTitel),
+            h('p', { class: 'landing-lead' }, BEISPIEL_TEXTE[sprache].abschnittLead),
+            h(
+                'div',
+                { class: 'beispiel-liste' },
+                BEISPIELE.map(b => karteBeispiel(b, sprache))
+            )
+        )
+    );
 
 const karteVerbinden = ({ name, logo, schritte }) =>
     h(
@@ -94,7 +149,9 @@ const fussBauen = t => {
 };
 
 // Der letzte Abschnitt und der Footer gehören zusammen: So bleibt der Footer versteckt, bis man unten ankommt
-export const landingInhalt = t => [
+// sprache = 'de' oder 'en' (für die Beispiele, deren Texte in beispiele-werte.js stehen)
+export const landingInhalt = (t, sprache) => [
     abschnittVerbinden(t),
+    abschnittBeispiele(sprache),
     h('div', { class: 'landing-ende' }, abschnittAufbau(t), fussBauen(t))
 ];

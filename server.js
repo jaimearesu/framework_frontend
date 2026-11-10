@@ -119,6 +119,13 @@ app.get('/alt', (req, res) => {
     res.sendFile(COCKPIT_ALT);
 });
 
+// «Gebaut mit vindelis» (10.11.2026): /beispiele/<name> ist eine eigene, offene Seite – ohne Cockpit.
+// Unbekannte Namen zeigt die Seite selbst als «gibt es nicht» (Liste in public/neu/js/beispiele-werte.js).
+const BEISPIEL_SEITE = path.join(__dirname, 'public', 'neu', 'beispiel.html');
+app.get(/^\/beispiele\/[a-z0-9-]{1,60}\/?$/, (req, res) => {
+    res.sendFile(BEISPIEL_SEITE);
+});
+
 app.get('*', (req, res) => {
     res.sendFile(COCKPIT_NEU);
 });
