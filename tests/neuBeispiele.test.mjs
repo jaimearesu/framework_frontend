@@ -8,7 +8,9 @@ import {
     ARTEN,
     beispielAusPfad,
     beispielFinden,
-    beispielAdresse
+    beispielAdresse,
+    BEISPIELE_ONLINE,
+    beispielOeffentlich
 } from '../public/neu/js/beispiele-werte.js';
 
 const SPRACHEN = ['de', 'en'];
@@ -99,8 +101,20 @@ test('Der Server liefert /beispiele/<name> als eigene Seite vor dem Cockpit aus'
     assert.ok(lies('public/neu/beispiel.html').includes('/neu/js/beispiel.js'));
 });
 
-test('Die Startseite zeigt die Beispiele und «Bau dein eigenes» führt zur Anleitung', () => {
-    assert.ok(lies('public/neu/js/landing-inhalt.js').includes('abschnittBeispiele(sprache)'));
+test('Die Startseite zeigt die Beispiele (wenn online) und «Bau dein eigenes» führt zur Anleitung', () => {
+    assert.ok(
+        lies('public/neu/js/landing-inhalt.js').includes('BEISPIELE_ONLINE ? abschnittBeispiele(sprache) : null')
+    );
     assert.ok(lies('public/neu/js/beispiel.js').includes("href: '/#verbinden'"));
     assert.ok(lies('public/neu/js/app.js').includes("location.hash === '#verbinden'"));
+});
+
+// Schalter (10.11.2026): Beispiele vorerst offline, bis es mehrere gute gibt
+test('Schalter: ohne BEISPIELE_ONLINE gibt es keine öffentliche Beispiel-Seite', () => {
+    assert.equal(typeof BEISPIELE_ONLINE, 'boolean');
+    for (const b of BEISPIELE) {
+        assert.equal(beispielOeffentlich(b.id), BEISPIELE_ONLINE ? beispielFinden(b.id) : null);
+    }
+    assert.equal(beispielOeffentlich('gibt-es-nicht'), null);
+    assert.ok(lies('public/neu/js/beispiel.js').includes('beispielOeffentlich(beispielAusPfad(location.pathname))'));
 });

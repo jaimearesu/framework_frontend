@@ -3,7 +3,7 @@
 import { h, kopierZeile } from './ui.js';
 import { mcpAdresseLive } from './sitzung.js';
 import { RECHTLICHES, fussVersatz } from './landing-werte.js';
-import { BEISPIELE, BEISPIEL_TEXTE, beispielAdresse } from './beispiele-werte.js';
+import { BEISPIELE, BEISPIEL_TEXTE, BEISPIELE_ONLINE, beispielAdresse } from './beispiele-werte.js';
 
 // «Gebaut mit vindelis»: eine Karte pro Beispiel, mit Bild und Weg zur Geschichte dahinter
 const karteBeispiel = (beispiel, sprache) => {
@@ -150,8 +150,10 @@ const fussBauen = t => {
 
 // Der letzte Abschnitt und der Footer gehören zusammen: So bleibt der Footer versteckt, bis man unten ankommt
 // sprache = 'de' oder 'en' (für die Beispiele, deren Texte in beispiele-werte.js stehen)
-export const landingInhalt = (t, sprache) => [
-    abschnittVerbinden(t),
-    abschnittBeispiele(sprache),
-    h('div', { class: 'landing-ende' }, abschnittAufbau(t), fussBauen(t))
-];
+// Die Beispiele erscheinen nur, wenn der Schalter BEISPIELE_ONLINE (beispiele-werte.js) an ist
+export const landingInhalt = (t, sprache) =>
+    [
+        abschnittVerbinden(t),
+        BEISPIELE_ONLINE ? abschnittBeispiele(sprache) : null,
+        h('div', { class: 'landing-ende' }, abschnittAufbau(t), fussBauen(t))
+    ].filter(Boolean);
