@@ -2,7 +2,7 @@
 // Offen für alle (kein Login, kein Backend nötig). Inhalt aus beispiele-werte.js, Sprache wie die Startseite.
 import { h, LOGOS } from './ui.js';
 import { TEXTE, SPRACHEN, spracheWaehlen, spracheMerken, gemerkteSprache } from './landing-werte.js';
-import { BEISPIEL_TEXTE, ARTEN, beispielAusPfad, beispielFinden } from './beispiele-werte.js';
+import { BEISPIEL_TEXTE, ARTEN, beispielAusPfad, beispielOeffentlich } from './beispiele-werte.js';
 
 // Hell oder dunkel wie im Cockpit (gleicher Schlüssel)
 try {
@@ -198,7 +198,7 @@ const nichtGefunden = sprache =>
 
 const zeichnen = sprache => {
     document.documentElement.lang = TEXTE[sprache].lang;
-    const beispiel = beispielFinden(beispielAusPfad(location.pathname));
+    const beispiel = beispielOeffentlich(beispielAusPfad(location.pathname));
     document.title = beispiel
         ? beispiel.texte[sprache].name + ' · ' + BEISPIEL_TEXTE[sprache].abschnittTitel.replace(/\.$/, '')
         : 'vindelis';

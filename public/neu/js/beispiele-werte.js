@@ -208,4 +208,11 @@ export const beispielAusPfad = pfad => {
 
 export const beispielFinden = id => BEISPIELE.find(b => b.id === id) || null;
 
+// SCHALTER (10.11.2026, Jaime): Die Beispiele sind vorerst NICHT online – erst, wenn es mehrere gute gibt.
+// false = kein Abschnitt auf der Startseite, /beispiele/<name> zeigt «gibt es nicht». Der Code bleibt bereit.
+export const BEISPIELE_ONLINE = false;
+
+// Für die Seite /beispiele/<name>: nur, wenn die Beispiele online sind
+export const beispielOeffentlich = id => (BEISPIELE_ONLINE ? beispielFinden(id) : null);
+
 export const beispielAdresse = id => '/beispiele/' + id;
