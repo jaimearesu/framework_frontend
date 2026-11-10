@@ -257,6 +257,8 @@ const starten = async () => {
         // Neu zeichnen, erst jetzt ist die Adresse fürs Anmelden bekannt
         vorStartZeigen(anmeldeSeite(alsGast));
         if (!beispielBaum) beispielBaum = startseitenBaum();
+        // Von einer Beispiel-Seite («Jetzt bauen» → /#verbinden): gleich zur Anleitung
+        if (location.hash === '#verbinden') document.getElementById('verbinden')?.scrollIntoView();
         return;
     }
     if (await alteAdresseFolgen()) return;

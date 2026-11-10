@@ -127,7 +127,7 @@ export const anmeldeSeite = (alsGast, sprache = startSprache()) => {
                 objektZahl(sprache, t)
             )
         ),
-        landingInhalt(t)
+        landingInhalt(t, sprache)
     );
 };
 
