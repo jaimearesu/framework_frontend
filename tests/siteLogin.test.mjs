@@ -348,6 +348,17 @@ describe('Angemeldet unterwegs', () => {
         assert.equal(cache.get('shop'), undefined);
     });
 
+    test('pausiert (Abrechnung P5): neutrale Seite, alter Stand wird nicht weiter gezeigt', async () => {
+        cache.setSite('shop', { files: { 'index.html': 'alt' }, cache: 0 });
+        backend.sites.shop = () => reply(503, { error: 'Diese Website ist pausiert.', code: 'SITE_PAUSED' });
+        const r = await request('shop.at0mic.site', '/');
+        assert.equal(r.status, 503);
+        assert.match(r.body, /Diese Website ist pausiert/);
+        assert.doesNotMatch(r.body, /alt/);
+        assert.equal(r.headers['cache-control'], 'no-store');
+        assert.equal(cache.get('shop'), undefined);
+    });
+
     test('Backend sagt "Ausweis ungültig": Cookie wird gelöscht', async () => {
         backend.sites.shop = () =>
             reply(

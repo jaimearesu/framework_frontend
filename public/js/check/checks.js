@@ -1649,6 +1649,7 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             // P4: ob die Sperre beim Veröffentlichen schon gilt, und «gekündigt auf» (Migration 041)
             expect(typeof d.enforced === 'boolean', 'enforced fehlt (P4)', stand);
             expect('cancelAt' in d, 'cancelAt fehlt (Migration 041)', stand);
+            expect(typeof d.sitesPaused === 'boolean', 'sitesPaused fehlt (P5)', stand);
             const falsch = await api.post('/api/billing/checkout', { currency: 'gbp' });
             if (!d.stripeEnabled) {
                 expectStatus(falsch, 503, 'Abo starten ohne Stripe');
