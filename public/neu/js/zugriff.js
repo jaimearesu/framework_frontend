@@ -340,7 +340,8 @@ export const zugriffGebenOeffnen = ({ w, site, besucher, gast, nachher }) => {
             neu,
             already ? 'Steht schon auf der Liste' : 'Hat geklappt!',
             adresse +
-                ' bekommt keine automatische Mail. Sag der Person die Adresse deiner Website, dort bekommt sie ihren Code.'
+                ' bekommt keine automatische Mail. Sag der Person die Adresse deiner Website, dort bekommt sie ihren Code.' +
+                ' Kommt der Code nicht, soll die Person auch im Spam-Ordner nachsehen.'
         );
         return '';
     };
@@ -437,7 +438,13 @@ export const zugriffGebenOeffnen = ({ w, site, besucher, gast, nachher }) => {
             stand.fehler = antwort.error;
             return neu();
         }
-        erfolg(neu, 'Gesendet!', 'Die Einladung ist unterwegs an ' + adresse + '.');
+        erfolg(
+            neu,
+            'Gesendet!',
+            'Die Einladung ist unterwegs an ' +
+                adresse +
+                '. Kommt sie nicht an, soll die Person auch im Spam-Ordner nachsehen.'
+        );
     };
 
     // Feld für die Adresse, erscheint nach dem Klick auf «E-Mail»

@@ -151,7 +151,7 @@ export const renderEmailLoginCard = async (box, o) => {
             field(
                 'Besucher einladen',
                 addresses,
-                'Eine oder mehrere Adressen. Es geht dabei keine Mail raus: Sag den Leuten einfach die Adresse der Website, dort bekommen sie ihren Code.'
+                'Eine oder mehrere Adressen. Es geht dabei keine Mail raus: Sag den Leuten einfach die Adresse der Website, dort bekommen sie ihren Code. Kommt er nicht, sollen sie auch im Spam-Ordner nachsehen.'
             ),
             busyButton(
                 'Auf die Liste setzen',
