@@ -200,7 +200,9 @@ export const stufenAnsicht = (u, stand) => {
                     ? 'Eigene Domains unbegrenzt'
                     : t.customDomains === 0
                       ? 'Keine eigene Domain'
-                      : t.customDomains + ' eigene Domains'
+                      : t.customDomains + ' eigene Domains',
+                // Komfort-Grenze (11.11.2026): wie gross eine Website sein darf
+                ...(t.siteBytes ? ['Websites bis ' + bytes(t.siteBytes)] : [])
             ],
             knopf,
             notiz

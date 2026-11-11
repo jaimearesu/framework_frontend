@@ -12,13 +12,28 @@
 //   missing  "diese Website gibt es nicht" – kurz gemerkt (Standard 10 s),
 //            damit Bots mit erfundenen Namen nicht jedes Mal das Backend fragen.
 //
-// Höchstens maxEntries Websites. Ist er voll, fliegt die am längsten
-// nicht mehr benutzte raus (Map merkt sich die Reihenfolge).
+// Höchstens maxEntries Websites UND höchstens maxBytes zusammen (Plan "T", 11.11.2026:
+// grössere Stufen dürfen bis 30 MB grosse Baupläne haben – 200 × 30 MB wären 6 GB).
+// Ist er voll, fliegt die am längsten nicht mehr benutzte raus (Map merkt sich die
+// Reihenfolge). Ein Bauplan, der allein grösser ist als ein Viertel davon, wird gar
+// nicht gemerkt (er würde alle anderen verdrängen) – er wird dann jedes Mal neu geholt.
 // Liegt nur im Arbeitsspeicher – reicht für einen Server.
 // ---------------------------------------------------------------------
+// Grösse eines Bauplans in Bytes (Text der Dateien, so wie er im Speicher liegt – grob)
+const bauplanBytes = bauplan => {
+    let n = 0;
+    const files = bauplan && bauplan.files;
+    if (files && typeof files === 'object') {
+        for (const text of Object.values(files)) if (typeof text === 'string') n += Buffer.byteLength(text, 'utf8');
+    }
+    return n;
+};
+
 class BauplanCache {
-    constructor({ maxEntries = 200, missingSeconds = 10, now = () => Date.now() } = {}) {
+    constructor({ maxEntries = 200, maxBytes = 300 * 1024 * 1024, missingSeconds = 10, now = () => Date.now() } = {}) {
         this.maxEntries = maxEntries;
+        this.maxBytes = maxBytes;
+        this.bytes = 0; // Summe aller gemerkten Baupläne
         this.missingSeconds = missingSeconds;
         this.now = now;
         this.entries = new Map();
@@ -44,8 +59,19 @@ class BauplanCache {
 
     setSite(name, bauplan) {
         const seconds = Number.isInteger(bauplan.cache) ? bauplan.cache : 60;
+        const size = bauplanBytes(bauplan);
+        if (size > this.maxBytes / 4) {
+            this.delete(name); // zu gross zum Merken – lieber jedes Mal neu holen
+            return;
+        }
         // savedAt: wann gemerkt (für "höchstens 1 Stunde alter Ersatz", Nachzügler N-B)
-        this._put(name, { kind: 'site', bauplan, savedAt: this.now(), freshUntil: this.now() + seconds * 1000 });
+        this._put(name, {
+            kind: 'site',
+            bauplan,
+            size,
+            savedAt: this.now(),
+            freshUntil: this.now() + seconds * 1000
+        });
     }
 
     setMissing(name) {
@@ -54,24 +80,32 @@ class BauplanCache {
 
     // Eine Website vergessen (z.B. wenn sie privat geworden ist)
     delete(name) {
-        this.entries.delete(name);
+        this._remove(name);
     }
 
     clear() {
         this.entries.clear();
+        this.bytes = 0;
     }
 
     get size() {
         return this.entries.size;
     }
 
-    _put(name, entry) {
+    _remove(name) {
+        const old = this.entries.get(name);
+        if (old) this.bytes -= old.size || 0;
         this.entries.delete(name);
+    }
+
+    _put(name, entry) {
+        this._remove(name);
         this.entries.set(name, entry);
-        while (this.entries.size > this.maxEntries) {
-            this.entries.delete(this.entries.keys().next().value); // der älteste
+        this.bytes += entry.size || 0;
+        while (this.entries.size > this.maxEntries || (this.bytes > this.maxBytes && this.entries.size > 1)) {
+            this._remove(this.entries.keys().next().value); // der älteste
         }
     }
 }
 
-module.exports = { BauplanCache };
+module.exports = { BauplanCache, bauplanBytes };

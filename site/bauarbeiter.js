@@ -212,7 +212,8 @@ const createBauarbeiter = ({
     fetchImpl = fetch,
     cache = new BauplanCache(),
     // Privater Speicher für angemeldete Besucher (eigener Speicher, nie mit "cache" gemischt)
-    personalCache = new BauplanCache({ maxEntries: 1000 }),
+    // angemeldete Besucher: viele kleine Einträge, zusammen höchstens 150 MB (Plan "T")
+    personalCache = new BauplanCache({ maxEntries: 1000, maxBytes: 150 * 1024 * 1024 }),
     renderMarkdown = defaultRenderMarkdown,
     log = console,
     loginUrl = null,
