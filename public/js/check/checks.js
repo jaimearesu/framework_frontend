@@ -370,6 +370,47 @@ export const CHECKS = [
             return `R2 ok: ${png.length} Bytes hin und zurück, auch über /datei/ der Website, CSV ok, HTML abgelehnt, entfernt`;
         }
     },
+    // Plan "Bildgrössen" (11.11.2026): ein Bild mit 400 Pixeln Breite hochladen und über die
+    // Website als ?w=160&format=webp holen – prüft sharp auf dem Server (Bilder-Werkstatt)
+    {
+        id: 'file-groessen',
+        group: 'Code',
+        title: 'Bildgrössen: ?w=160&format=webp rechnet ein kleineres WebP, ?w=abc wird abgelehnt',
+        needs: ['daten'],
+        run: async ctx => {
+            // Ein Testbild 400×20 Pixel mit einem Verlauf malen
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = 20;
+            const zeichnen = canvas.getContext('2d');
+            const verlauf = zeichnen.createLinearGradient(0, 0, 400, 0);
+            verlauf.addColorStop(0, '#000000');
+            verlauf.addColorStop(1, '#ffffff');
+            zeichnen.fillStyle = verlauf;
+            zeichnen.fillRect(0, 0, 400, 20);
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            const up = await api.upload(`/api/objects/${ctx.daten}/file`, new File([blob], 'groessen.png'));
+            if (up.status === 503 && up.data?.code === 'FILES_DISABLED') {
+                return 'R2 ist auf diesem Server nicht eingerichtet – übersprungen';
+            }
+            if (up.status === 403 && up.data?.code === 'QUOTA_EXCEEDED') {
+                return 'Gäste haben keinen Datei-Speicher – nur mit Login prüfbar, übersprungen';
+            }
+            expectStatus(up, 201, 'Testbild hochladen');
+            try {
+                const klein = await api.blob(`/api/sites/${ctx.domainName}/vorschau/datei/daten.png?w=160&format=webp`);
+                expect(klein.ok, `Kleines Bild holen: ${klein.error}`, klein);
+                expect(klein.blob.type === 'image/webp', `Typ ${klein.blob.type} statt image/webp`, klein);
+                const bild = await createImageBitmap(klein.blob);
+                expect(bild.width === 160, `Breite ${bild.width} statt 160`, klein);
+                const unsinn = await api.blob(`/api/sites/${ctx.domainName}/vorschau/datei/daten.png?w=abc`);
+                expect(!unsinn.ok, '?w=abc wurde nicht abgelehnt', unsinn);
+                return `Bilder-Werkstatt ok: 400 → 160 Pixel als WebP (${klein.blob.size} Bytes)`;
+            } finally {
+                await api.del(`/api/objects/${ctx.daten}/file`);
+            }
+        }
+    },
     // Plan "Geo-Monitor", G3: Beim Speichern sagt at0mic, was GENAU angekommen ist
     // (Zeichen, Bytes, Zeilen, Prüfwert) – damit eine KI verlorene Backslashes bemerkt
     {

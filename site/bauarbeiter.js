@@ -932,7 +932,13 @@ const createBauarbeiter = ({
             res.set('Cache-Control', 'no-store');
             return res.status(status).type('text/plain; charset=utf-8').send(text);
         };
-        const query = typeof req.query.v === 'string' && /^\d{1,9}$/.test(req.query.v) ? `?v=${req.query.v}` : '';
+        // Nur bekannte, saubere Angaben gehen ans Backend (alles andere fällt still weg):
+        //   v=<Version>, w=<Breite> und format=webp (Bildgrössen, Plan "Bildgrössen", 11.11.2026)
+        const params = new URLSearchParams();
+        if (typeof req.query.v === 'string' && /^\d{1,9}$/.test(req.query.v)) params.set('v', req.query.v);
+        if (typeof req.query.w === 'string' && /^\d{1,4}$/.test(req.query.w)) params.set('w', req.query.w);
+        if (req.query.format === 'webp') params.set('format', 'webp');
+        const query = params.size ? `?${params}` : '';
         const headers = backendHeaders(visitorIpOf(req), token);
         const etag = req.get('if-none-match');
         if (etag && etag.length < 200) headers['if-none-match'] = etag;

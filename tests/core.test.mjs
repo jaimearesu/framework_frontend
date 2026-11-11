@@ -298,6 +298,17 @@ describe('Dateien in der Vorschau', async () => {
         });
         assert.equal(out, '<img src="data:image/png;base64,AAA"> <img src="/_at0mic/datei/b">');
     });
+    test('Bildgrössen: ?w=800&format=webp (auch mit &amp;) fällt in der Vorschau weg', () => {
+        const html =
+            '<img src="/_vindelis/datei/foto.jpg?w=800&amp;format=webp" ' +
+            'srcset="/_vindelis/datei/foto.jpg?w=480 480w, /_vindelis/datei/foto.jpg?w=1280&format=webp 1280w">';
+        assert.deepEqual(findFileRefs(html), ['foto.jpg']);
+        const out = replaceFileRefs(html, { 'foto.jpg': 'data:image/jpeg;base64,AAA' });
+        assert.equal(
+            out,
+            '<img src="data:image/jpeg;base64,AAA" srcset="data:image/jpeg;base64,AAA 480w, data:image/jpeg;base64,AAA 1280w">'
+        );
+    });
     test('höchstens MAX_PREVIEW_FILES verschiedene', () => {
         const many = Array.from({ length: 40 }, (_, i) => `/_at0mic/datei/b${i}`).join(' ');
         assert.equal(findFileRefs(many).length, MAX_PREVIEW_FILES);

@@ -138,7 +138,14 @@ describe('Ein Bereich', () => {
 
     test('Speicher in Bytes, Domains ohne Kulanz, unbegrenzt ohne Balken', () => {
         const sp = bereichAnsicht(
-            m({ key: 'storageBytes', used: 250 * MB, limit: 500 * MB, hardLimit: 750 * MB, nextLimit: 5 * GB, percent: 50 }),
+            m({
+                key: 'storageBytes',
+                used: 250 * MB,
+                limit: 500 * MB,
+                hardLimit: 750 * MB,
+                nextLimit: 5 * GB,
+                percent: 50
+            }),
             'Klein'
         );
         assert.equal(sp.text, '250 MB von 500 MB');
