@@ -689,7 +689,7 @@ const besucherAbschnitt = (site, d) => {
                 'p',
                 { class: 'leise' },
                 d.enabled
-                    ? 'Eingeschaltet. Besucher melden sich auf deiner Website mit einem Code aus einer Mail an und brauchen kein Konto.'
+                    ? 'Eingeschaltet. Besucher melden sich auf deiner Website mit einem Code aus einer Mail an und brauchen kein Konto. Kommt keine Mail, hilft ein Blick in den Spam-Ordner.'
                     : 'Ausgeschaltet. Eingeschaltet melden sich Besucher auf deiner Website mit einem Code aus einer Mail an und brauchen kein Konto.'
             ),
             grund ? h('div', { class: 'bp-hinweis bp-h-warn' }, grund) : null,
@@ -723,7 +723,7 @@ const besucherAbschnitt = (site, d) => {
                 h(
                     'small',
                     {},
-                    'Dabei geht keine Mail raus. Sag den Leuten die Adresse der Website, dort bekommen sie ihren Code.'
+                    'Dabei geht keine Mail raus. Sag den Leuten die Adresse der Website, dort bekommen sie ihren Code. Kommt er nicht, sollen sie auch im Spam-Ordner nachsehen.'
                 )
             ),
             h(

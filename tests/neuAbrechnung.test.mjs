@@ -1,6 +1,6 @@
 // tests/neuAbrechnung.test.mjs
 // ---------------------------------------------------------------------
-// Karte «Abrechnung» auf der Seite Konto (Plan "P", P2): aus dem Stand vom Backend
+// Karte «Abrechnung» auf der Seite Konto (Plan "P", P2; seit Plan "T" mit Stufen): aus dem Stand vom Backend
 // wird, was auf dem Bildschirm steht. Geprüft: Stand auf Deutsch, welche Knöpfe es
 // gibt, Währung nur beim ersten Mal, Hinweise nach der Rückkehr von Stripe und dass
 // nur zu Stripe weitergeleitet wird.
@@ -12,7 +12,9 @@ import { abrechnungAnsicht, rueckkehrAus, stripeAdresseOk } from '../public/neu/
 const stand = mehr => ({
     status: 'none',
     currency: null,
-    agency: false,
+    tier: 'gratis',
+    currentTier: 'gratis',
+    tierWanted: null,
     freeLive: false,
     liveSites: 0,
     hasCustomer: false,
@@ -23,49 +25,54 @@ const stand = mehr => ({
 const wert = (ansicht, name) => (ansicht.zeilen.find(z => z[0] === name) || [])[1];
 
 describe('abrechnungAnsicht', () => {
-    test('ohne Abo: Abo starten mit Währungswahl, kein Portal, Testmodus sichtbar', () => {
+    test('ohne Abo: Stufe wählen, kein Portal, Testmodus sichtbar', () => {
         const a = abrechnungAnsicht(stand({ liveSites: 1 }));
         assert.equal(wert(a, 'Stand'), 'Kein Abo');
-        assert.equal(wert(a, 'Live-Websites'), '1 Website');
+        assert.equal(wert(a, 'Stufe'), 'Gratis');
+        assert.equal(wert(a, 'Live-Websites'), undefined, 'veröffentlichen kostet nichts mehr');
         assert.equal(a.kaufen, true);
-        assert.equal(a.waehrungWaehlen, true);
         assert.equal(a.portal, false);
         assert.equal(a.testmodus, true);
     });
 
-    test('aktives Abo: kein Kaufen, Portal, Währung fest', () => {
+    test('aktives Abo: kein Kaufen, Portal, Stufe und Vormerkung sichtbar', () => {
         const a = abrechnungAnsicht(
             stand({
                 status: 'active',
                 currency: 'eur',
                 hasCustomer: true,
                 liveSites: 3,
+                tier: 'gross',
+                currentTier: 'gross',
+                tierWanted: 'klein',
                 currentPeriodEnd: '2026-12-11T00:00:00Z'
             })
         );
         assert.equal(wert(a, 'Stand'), 'Aktiv');
         assert.equal(wert(a, 'Währung'), 'EUR');
-        assert.equal(wert(a, 'Live-Websites'), '3 Websites');
+        assert.equal(wert(a, 'Stufe'), 'Gross');
+        assert.equal(wert(a, 'Ab nächstem Monat'), 'Klein');
         assert.ok(wert(a, 'Bezahlt bis'));
         assert.equal(a.kaufen, false);
         assert.equal(a.portal, true);
-        assert.equal(a.waehrungWaehlen, false);
     });
 
-    test('gekündigt: wieder kaufen, mit der alten Währung, ohne Wahl', () => {
+    test('gekündigt: wieder eine Stufe wählen', () => {
         const a = abrechnungAnsicht(stand({ status: 'canceled', currency: 'chf', hasCustomer: true }));
         assert.equal(a.kaufen, true);
-        assert.equal(a.waehrungWaehlen, false);
-        assert.equal(a.waehrung, 'chf');
+        assert.equal(a.portal, true);
     });
 
-    test('Zahlung offen und pausiert: Warnung bzw. Gefahr, Frist sichtbar', () => {
+    test('Zahlung offen und pausiert: Warnung, Frist sichtbar, nie «Websites pausiert»', () => {
         const offen = abrechnungAnsicht(
             stand({ status: 'past_due', hasCustomer: true, graceUntil: '2026-11-25T00:00:00Z' })
         );
         assert.equal(offen.hinweis[0], 'warn');
         assert.ok(wert(offen, 'Frist bis'));
-        assert.equal(abrechnungAnsicht(stand({ status: 'paused', hasCustomer: true })).hinweis[0], 'gefahr');
+        assert.match(offen.hinweis[1], /Gratis/);
+        const pausiert = abrechnungAnsicht(stand({ status: 'paused', hasCustomer: true }));
+        assert.equal(pausiert.hinweis[0], 'warn');
+        assert.match(pausiert.hinweis[1], /bleiben online/);
     });
 
     test('gekündigt auf Ende der Periode: läuft noch, Zeile und Hinweis, kein Kaufen', () => {
@@ -89,21 +96,10 @@ describe('abrechnungAnsicht', () => {
         assert.equal(Object.fromEntries(ohne.zeilen)['Gekündigt auf'], undefined);
     });
 
-    test('Websites pausiert (P5): Gefahr, je nach Abo «bezahlen» oder «Abo starten»', () => {
-        const ohne = abrechnungAnsicht(stand({ status: 'canceled', currency: 'chf', liveSites: 2, sitesPaused: true }));
-        assert.equal(ohne.hinweis[0], 'gefahr');
-        assert.match(ohne.hinweis[1], /pausiert/);
-        assert.match(ohne.hinweis[1], /Starte ein Abo/);
-        const offen = abrechnungAnsicht(
-            stand({ status: 'past_due', currency: 'chf', liveSites: 2, sitesPaused: true })
-        );
-        assert.equal(offen.hinweis[0], 'gefahr');
-        assert.match(offen.hinweis[1], /offene Rechnung/);
-    });
-
     test('gratis live: kein Kaufen, Stand «Gratis live»', () => {
-        const a = abrechnungAnsicht(stand({ freeLive: true }));
+        const a = abrechnungAnsicht(stand({ freeLive: true, currentTier: null }));
         assert.equal(wert(a, 'Stand'), 'Gratis live');
+        assert.equal(wert(a, 'Stufe'), 'Ohne Grenzen');
         assert.equal(a.kaufen, false);
     });
 
