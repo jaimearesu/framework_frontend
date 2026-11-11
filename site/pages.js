@@ -40,6 +40,13 @@ const MESSAGES = {
         title: 'Gerade nicht erreichbar',
         text: 'Die Website ist gerade nicht erreichbar. Bitte gleich nochmal versuchen.'
     },
+    // Abrechnung (Plan "P", P5): Abo fehlt oder Frist vorbei. Bewusst ohne Grund –
+    // Besucher geht nicht an, ob jemand bezahlt hat. Nichts ist gelöscht.
+    paused: {
+        status: 503,
+        title: 'Diese Website ist pausiert',
+        text: 'Sie ist im Moment nicht erreichbar. Bitte später nochmals vorbeischauen.'
+    },
     methodNotAllowed: {
         status: 405,
         title: 'Nicht erlaubt',

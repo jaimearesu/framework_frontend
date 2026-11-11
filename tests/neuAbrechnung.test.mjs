@@ -89,6 +89,18 @@ describe('abrechnungAnsicht', () => {
         assert.equal(Object.fromEntries(ohne.zeilen)['Gekündigt auf'], undefined);
     });
 
+    test('Websites pausiert (P5): Gefahr, je nach Abo «bezahlen» oder «Abo starten»', () => {
+        const ohne = abrechnungAnsicht(stand({ status: 'canceled', currency: 'chf', liveSites: 2, sitesPaused: true }));
+        assert.equal(ohne.hinweis[0], 'gefahr');
+        assert.match(ohne.hinweis[1], /pausiert/);
+        assert.match(ohne.hinweis[1], /Starte ein Abo/);
+        const offen = abrechnungAnsicht(
+            stand({ status: 'past_due', currency: 'chf', liveSites: 2, sitesPaused: true })
+        );
+        assert.equal(offen.hinweis[0], 'gefahr');
+        assert.match(offen.hinweis[1], /offene Rechnung/);
+    });
+
     test('gratis live: kein Kaufen, Stand «Gratis live»', () => {
         const a = abrechnungAnsicht(stand({ freeLive: true }));
         assert.equal(wert(a, 'Stand'), 'Gratis live');

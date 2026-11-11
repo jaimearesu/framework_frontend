@@ -327,6 +327,10 @@ const createBauarbeiter = ({
             const visitorId = typeof body.besucher === 'string' && UUID.test(body.besucher) ? body.besucher : null;
             return { kind: 'error', page: 'noAccess', closed: true, tokenInvalid, visitorId };
         }
+        // Pausiert (Plan "P", P5): neutrale Seite, und den alten Stand NICHT weiter zeigen (closed)
+        if (res.status === 503 && body && body.code === 'SITE_PAUSED') {
+            return { kind: 'error', page: 'paused', closed: true, tokenInvalid };
+        }
         if (res.status === 429) return { kind: 'error', page: 'tooMany', retryAfter: res.headers.get('retry-after') };
         if (res.status === 401)
             log.error('[BAUARBEITER] Der Bauarbeiter-Schlüssel ist falsch (BAUARBEITER_KEY prüfen).');

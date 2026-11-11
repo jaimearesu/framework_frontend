@@ -49,6 +49,14 @@ export const abrechnungAnsicht = (stand, rueckkehr = null) => {
         hinweis = ['ok', 'Danke, dein Abo ist aktiv.'];
     } else if (rueckkehr === 'abgebrochen') {
         hinweis = ['info', 'Abgebrochen, es wurde nichts bezahlt.'];
+    } else if (stand.sitesPaused) {
+        // P5: Abo fehlt oder Frist vorbei – Besucher sehen gerade die Seite «pausiert»
+        hinweis = [
+            'gefahr',
+            'Deine Live-Websites sind pausiert: Besucher sehen gerade «Diese Website ist pausiert». ' +
+                (laeuft ? 'Bitte die offene Rechnung im Kundenportal bezahlen' : 'Starte ein Abo') +
+                ' – danach ist sofort alles wieder da. Gelöscht ist nichts.'
+        ];
     } else if (endetAm) {
         hinweis = [
             'info',
