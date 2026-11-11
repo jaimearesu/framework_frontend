@@ -2015,3 +2015,10 @@ body[data-modus='dunkel'] .landing-kopf img {
         transition: none;
     }
 }
+
+/* Karte «Abrechnung» (Plan "P", P2): Knöpfe nebeneinander, auf dem Handy untereinander */
+.knopf-reihe {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}

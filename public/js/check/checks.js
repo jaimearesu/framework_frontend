@@ -1633,6 +1633,29 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             return `${offen.data.data.length} Angebot(e) offen, Abgeben richtig abgelehnt`;
         }
     },
+    {
+        // Abrechnung (Plan "P", P2): Stand lesen und eine falsche Währung ablehnen.
+        // Legt nichts an – bei Stripe entsteht dabei keine Sitzung und kein Kunde.
+        id: 'billing-status',
+        group: 'SSF',
+        title: 'Abrechnung: Stand lesen, falsche Währung wird abgelehnt',
+        run: async () => {
+            const stand = await api.get('/api/billing');
+            if (stand.status === 403) return 'Abrechnung gibt es nur mit Login – übersprungen';
+            expectStatus(stand, 200, 'Stand der Abrechnung (Route fehlt?)');
+            const d = stand.data.data;
+            expect(typeof d.liveSites === 'number', 'liveSites fehlt', stand);
+            expect(!('stripeCustomerId' in d), 'Stripe-Nummern dürfen nicht ins Cockpit', stand);
+            const falsch = await api.post('/api/billing/checkout', { currency: 'gbp' });
+            if (!d.stripeEnabled) {
+                expectStatus(falsch, 503, 'Abo starten ohne Stripe');
+                return `Stripe ist aus, ${d.liveSites} Live-Website(s)`;
+            }
+            // Mit laufendem Abo kommt 409 (zuerst geprüft), sonst 400 für die falsche Währung
+            expect([400, 409].includes(falsch.status), `unerwarteter Status ${falsch.status}`, falsch);
+            return `Stand ${d.status} (${d.stripeMode}), ${d.liveSites} Live-Website(s)`;
+        }
+    },
     // Hintergrund-Aufträge (Plan "SSF-Ausbau", Teil C). Der Auftrag startet erst in einer
     // Stunde (startInSec) und wird gleich abgebrochen – der Arbeiter führt ihn also nie aus.
     {
