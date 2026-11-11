@@ -6,6 +6,7 @@ import { neueWebsiteOeffnen } from './neue-website.js';
 import { abmeldeAdresse } from './sitzung.js';
 import { neuLaden } from './websites.js';
 import { papierkorbAbschnitt } from './papierkorb.js';
+import { abrechnungKarte } from './abrechnung.js';
 import { werkzeugGruppen } from './werkstatt-werte.js';
 import { hatBeideHerkuenfte, hatMehrereSichtbarkeiten, nachHerkunft, nachSichtbarkeit } from './websites-werte.js';
 
@@ -282,7 +283,8 @@ export const seiteKonto = () =>
                   )
               )
             : null,
-        h('div', { class: 'bp-karte' }, leer('konto', 'Abrechnung', 'Kommt später mit dem Plan für die Preise.')),
+        // Abrechnung (Plan "P", P2): nur mit Anmeldung, Gäste haben kein Abo
+        DATEN.mensch.art === 'user' ? abrechnungKarte() : null,
         // Abmelden gibt es nur mit Anmeldung. Ohne Anmeldung steht der Knopf im Hinweis oben auf der Seite
         DATEN.mensch.art === 'user'
             ? h(
