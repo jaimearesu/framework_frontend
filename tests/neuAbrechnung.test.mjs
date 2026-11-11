@@ -68,6 +68,27 @@ describe('abrechnungAnsicht', () => {
         assert.equal(abrechnungAnsicht(stand({ status: 'paused', hasCustomer: true })).hinweis[0], 'gefahr');
     });
 
+    test('gekündigt auf Ende der Periode: läuft noch, Zeile und Hinweis, kein Kaufen', () => {
+        const a = abrechnungAnsicht({
+            status: 'active',
+            stripeEnabled: true,
+            hasCustomer: true,
+            currency: 'chf',
+            currentPeriodEnd: '2026-12-11T00:00:00Z',
+            cancelAt: '2026-12-11T00:00:00Z'
+        });
+        const zeilen = Object.fromEntries(a.zeilen);
+        assert.equal(zeilen.Stand, 'Aktiv');
+        assert.ok(zeilen['Gekündigt auf'], 'Zeile «Gekündigt auf»');
+        assert.equal(a.hinweis[0], 'info');
+        assert.match(a.hinweis[1], /gekündigt/);
+        assert.equal(a.kaufen, false);
+        assert.equal(a.portal, true);
+        // Ohne Kündigung keine Zeile
+        const ohne = abrechnungAnsicht({ status: 'active', stripeEnabled: true, cancelAt: null });
+        assert.equal(Object.fromEntries(ohne.zeilen)['Gekündigt auf'], undefined);
+    });
+
     test('gratis live: kein Kaufen, Stand «Gratis live»', () => {
         const a = abrechnungAnsicht(stand({ freeLive: true }));
         assert.equal(wert(a, 'Stand'), 'Gratis live');

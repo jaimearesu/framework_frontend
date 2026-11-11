@@ -36,6 +36,9 @@ export const abrechnungAnsicht = (stand, rueckkehr = null) => {
     if (stand.currency) zeilen.push(['Währung', stand.currency.toUpperCase()]);
     if (stand.agency) zeilen.push(['Preis', 'Agentur']);
     if (laeuft && datum(stand.currentPeriodEnd)) zeilen.push(['Bezahlt bis', datum(stand.currentPeriodEnd)]);
+    // Im Kundenportal gekündigt: läuft bis zum Ende des bezahlten Monats (P4, Migration 041)
+    const endetAm = laeuft ? datum(stand.cancelAt) : null;
+    if (endetAm) zeilen.push(['Gekündigt auf', endetAm]);
     if (status === 'past_due' && datum(stand.graceUntil)) zeilen.push(['Frist bis', datum(stand.graceUntil)]);
 
     // Ein Satz oben in der Karte: was gerade los ist
@@ -46,6 +49,13 @@ export const abrechnungAnsicht = (stand, rueckkehr = null) => {
         hinweis = ['ok', 'Danke, dein Abo ist aktiv.'];
     } else if (rueckkehr === 'abgebrochen') {
         hinweis = ['info', 'Abgebrochen, es wurde nichts bezahlt.'];
+    } else if (endetAm) {
+        hinweis = [
+            'info',
+            'Dein Abo ist gekündigt und läuft bis ' +
+                endetAm +
+                '. Danach kannst du keine neuen Websites mehr veröffentlichen. Zurücknehmen geht im Kundenportal.'
+        ];
     } else if (status === 'past_due') {
         hinweis = ['warn', 'Die letzte Zahlung hat nicht geklappt. Bitte die Karte im Kundenportal prüfen.'];
     } else if (status === 'paused') {

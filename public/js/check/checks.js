@@ -1646,6 +1646,9 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             const d = stand.data.data;
             expect(typeof d.liveSites === 'number', 'liveSites fehlt', stand);
             expect(!('stripeCustomerId' in d), 'Stripe-Nummern dürfen nicht ins Cockpit', stand);
+            // P4: ob die Sperre beim Veröffentlichen schon gilt, und «gekündigt auf» (Migration 041)
+            expect(typeof d.enforced === 'boolean', 'enforced fehlt (P4)', stand);
+            expect('cancelAt' in d, 'cancelAt fehlt (Migration 041)', stand);
             const falsch = await api.post('/api/billing/checkout', { currency: 'gbp' });
             if (!d.stripeEnabled) {
                 expectStatus(falsch, 503, 'Abo starten ohne Stripe');
@@ -1653,7 +1656,7 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             }
             // Mit laufendem Abo kommt 409 (zuerst geprüft), sonst 400 für die falsche Währung
             expect([400, 409].includes(falsch.status), `unerwarteter Status ${falsch.status}`, falsch);
-            return `Stand ${d.status} (${d.stripeMode}), ${d.liveSites} Live-Website(s)`;
+            return `Stand ${d.status} (${d.stripeMode}), ${d.liveSites} Live-Website(s), Sperre ${d.enforced ? 'an' : 'aus'}`;
         }
     },
     // Stripe-Webhook (Plan "P", P3): Ohne Unterschrift von Stripe darf er nie etwas ändern.
