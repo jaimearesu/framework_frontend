@@ -21,6 +21,13 @@ const zuStripe = async (knopf, pfad, body) => {
 
 const inhalt = (stand, karte) => {
     const a = abrechnungAnsicht(stand, rueckkehrAus(location.search));
+    // Den Gruss nach Stripe (?abrechnung=danke) nur einmal zeigen: aus der Adresse nehmen,
+    // sonst stünde er nach jedem Neuladen wieder da (auch nach einer Kündigung)
+    if (rueckkehrAus(location.search)) {
+        const adresse = new URL(location.href);
+        adresse.searchParams.delete('abrechnung');
+        history.replaceState(history.state, '', adresse.pathname + adresse.search + adresse.hash);
+    }
     if (!a.eingerichtet) {
         return [
             h('h3', {}, 'Abrechnung'),
