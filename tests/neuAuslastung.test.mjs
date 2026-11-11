@@ -22,7 +22,16 @@ import {
 // Die Stufen wie im Backend (src/config/tiers.js)
 const TIERS = [
     { id: 'gratis', name: 'Gratis', price: 0, runs: 5000, dataRows: 5000, storageBytes: 500e6, customDomains: 0 },
-    { id: 'klein', name: 'Klein', price: 500, runs: 50000, dataRows: 50000, storageBytes: 5e9, customDomains: 3 },
+    {
+        id: 'klein',
+        name: 'Klein',
+        price: 500,
+        runs: 50000,
+        dataRows: 50000,
+        storageBytes: 5e9,
+        customDomains: 3,
+        siteBytes: 15e6
+    },
     {
         id: 'mittel',
         name: 'Mittel',
@@ -179,6 +188,7 @@ describe('Stufen und Knöpfe', () => {
         for (const id of ['klein', 'mittel', 'gross', 'plattform']) assert.equal(knopf(l, id), 'kaufen', id);
         assert.equal(l.find(s => s.id === 'plattform').zeilen[3], 'Eigene Domains unbegrenzt');
         assert.equal(l.find(s => s.id === 'gratis').zeilen[3], 'Keine eigene Domain');
+        assert.ok(l.find(s => s.id === 'klein').zeilen.includes('Websites bis 15 MB'));
     });
 
     test('mit Abo Mittel: höher wechseln, tiefer ab nächstem Monat (wenn es passt), Gratis = kündigen', () => {
