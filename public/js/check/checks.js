@@ -1656,6 +1656,23 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             return `Stand ${d.status} (${d.stripeMode}), ${d.liveSites} Live-Website(s)`;
         }
     },
+    // Stripe-Webhook (Plan "P", P3): Ohne Unterschrift von Stripe darf er nie etwas ändern.
+    {
+        id: 'billing-webhook-signature',
+        group: 'SSF',
+        title: 'Abrechnung: Meldung ohne Stripe-Unterschrift wird abgelehnt',
+        run: async () => {
+            const r = await api.post('/api/billing/webhook', {
+                id: 'evt_systemcheck',
+                type: 'customer.subscription.updated',
+                livemode: false,
+                data: { object: { id: 'sub_systemcheck' } }
+            });
+            // 503 = Webhook auf diesem Server noch nicht eingerichtet, 400 = Unterschrift fehlt
+            expect([400, 503].includes(r.status), `unerwarteter Status ${r.status}`, r);
+            return r.status === 503 ? 'Webhook noch nicht eingerichtet (503)' : 'abgelehnt (400)';
+        }
+    },
     // Hintergrund-Aufträge (Plan "SSF-Ausbau", Teil C). Der Auftrag startet erst in einer
     // Stunde (startInSec) und wird gleich abgebrochen – der Arbeiter führt ihn also nie aus.
     {
