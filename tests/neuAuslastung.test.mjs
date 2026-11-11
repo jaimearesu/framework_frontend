@@ -20,17 +20,19 @@ import {
 } from '../public/neu/js/auslastung-werte.js';
 
 // Die Stufen wie im Backend (src/config/tiers.js)
+const MB = 1024 * 1024;
+const GB = 1024 * MB;
 const TIERS = [
-    { id: 'gratis', name: 'Gratis', price: 0, runs: 5000, dataRows: 5000, storageBytes: 500e6, customDomains: 0 },
+    { id: 'gratis', name: 'Gratis', price: 0, runs: 5000, dataRows: 5000, storageBytes: 500 * MB, customDomains: 0 },
     {
         id: 'klein',
         name: 'Klein',
         price: 500,
         runs: 50000,
         dataRows: 50000,
-        storageBytes: 5e9,
+        storageBytes: 5 * GB,
         customDomains: 3,
-        siteBytes: 15e6
+        siteBytes: 15 * MB
     },
     {
         id: 'mittel',
@@ -38,7 +40,7 @@ const TIERS = [
         price: 1900,
         runs: 500000,
         dataRows: 500000,
-        storageBytes: 20e9,
+        storageBytes: 20 * GB,
         customDomains: 10
     },
     {
@@ -47,7 +49,7 @@ const TIERS = [
         price: 4900,
         runs: 2500000,
         dataRows: 2500000,
-        storageBytes: 50e9,
+        storageBytes: 50 * GB,
         customDomains: 25
     },
     {
@@ -56,7 +58,7 @@ const TIERS = [
         price: 9900,
         runs: 10000000,
         dataRows: 10000000,
-        storageBytes: 100e9,
+        storageBytes: 100 * GB,
         customDomains: null
     }
 ];
@@ -92,8 +94,8 @@ describe('Zahlen', () => {
         assert.equal(zahl(2500000), "2'500'000");
         assert.equal(zahl(12), '12');
         assert.equal(bytes(0), '0 B');
-        assert.equal(bytes(500e6), '500 MB');
-        assert.equal(bytes(4.23e9), '4.2 GB');
+        assert.equal(bytes(500 * MB), '500 MB');
+        assert.equal(bytes(4.23 * GB), '4.2 GB');
         assert.equal(preisText(0), 'Kostet nichts');
         assert.equal(preisText(1900, 'eur'), '19.– EUR / Monat');
     });
@@ -136,7 +138,7 @@ describe('Ein Bereich', () => {
 
     test('Speicher in Bytes, Domains ohne Kulanz, unbegrenzt ohne Balken', () => {
         const sp = bereichAnsicht(
-            m({ key: 'storageBytes', used: 250e6, limit: 500e6, hardLimit: 750e6, nextLimit: 5e9, percent: 50 }),
+            m({ key: 'storageBytes', used: 250 * MB, limit: 500 * MB, hardLimit: 750 * MB, nextLimit: 5 * GB, percent: 50 }),
             'Klein'
         );
         assert.equal(sp.text, '250 MB von 500 MB');
@@ -249,7 +251,7 @@ describe('Pro Website', () => {
                         domain: 'gross-site',
                         runs: 90,
                         dataRows: 5,
-                        fileBytes: 2e6,
+                        fileBytes: 2 * MB,
                         customDomains: 1,
                         share: { runs: 90, dataRows: 50, storageBytes: 100 }
                     }

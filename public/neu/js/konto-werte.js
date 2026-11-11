@@ -21,11 +21,13 @@ export const vornameAus = identitaet => {
 const ZAHL = new Intl.NumberFormat('de-CH');
 
 // Bytes als gut lesbarer Text
+// Mit 1024 gerechnet wie die Grenzen im Backend (1 GB = 1024 * 1024 * 1024 Bytes)
 export const groesseText = bytes => {
     const wert = Math.max(0, Number(bytes) || 0);
-    if (wert < 1000 * 1000) return Math.round(wert / 1000) + ' KB';
-    if (wert < 1000 * 1000 * 1000) return Math.round(wert / (1000 * 1000)) + ' MB';
-    return ZAHL.format(Math.round(wert / (1000 * 1000 * 100)) / 10) + ' GB';
+    const KB = 1024;
+    if (wert < KB * KB) return Math.round(wert / KB) + ' KB';
+    if (wert < KB * KB * KB) return Math.round(wert / (KB * KB)) + ' MB';
+    return ZAHL.format(Math.round((wert / (KB * KB * KB)) * 10) / 10) + ' GB';
 };
 
 // Eine Zeile «so viel von so viel». Fehlt eine Angabe, entfällt die Zeile.

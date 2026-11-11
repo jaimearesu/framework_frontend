@@ -48,8 +48,8 @@ describe('vornameAus', () => {
 describe('groesseText', () => {
     test('wählt die passende Einheit', () => {
         assert.equal(groesseText(0), '0 KB');
-        assert.equal(groesseText(42 * 1000 * 1000), '42 MB');
-        assert.equal(groesseText(1000 * 1000 * 1000), '1 GB');
+        assert.equal(groesseText(42 * 1024 * 1024), '42 MB');
+        assert.equal(groesseText(1024 * 1024 * 1024), '1 GB');
     });
 });
 
@@ -62,7 +62,7 @@ describe('kontoZeilen', () => {
     test('zeigt Speicher, Objekte und Datensätze', () => {
         const zeilen = kontoZeilen({
             usage: {
-                storageBytes: { used: 500 * 1000 * 1000, limit: 1000 * 1000 * 1000 },
+                storageBytes: { used: 512 * 1024 * 1024, limit: 1024 * 1024 * 1024 },
                 objects: { used: 25, limit: 100 },
                 dataRows: { used: 0, limit: 1000 }
             }
@@ -72,7 +72,7 @@ describe('kontoZeilen', () => {
             ['Speicher', 'Objekte', 'Datensätze']
         );
         assert.equal(zeilen[0].anteil, 50);
-        assert.equal(zeilen[0].wert, '500 MB von 1 GB');
+        assert.equal(zeilen[0].wert, '512 MB von 1 GB');
         assert.equal(zeilen[1].wert, '25 von 100');
     });
 

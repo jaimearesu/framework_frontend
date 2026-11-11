@@ -7,6 +7,7 @@ import { abmeldeAdresse } from './sitzung.js';
 import { neuLaden } from './websites.js';
 import { papierkorbAbschnitt } from './papierkorb.js';
 import { abrechnungKarte } from './abrechnung.js';
+import { benachrichtigungKarte } from './benachrichtigung.js';
 import { werkzeugGruppen } from './werkstatt-werte.js';
 import { hatBeideHerkuenfte, hatMehrereSichtbarkeiten, nachHerkunft, nachSichtbarkeit } from './websites-werte.js';
 
@@ -285,6 +286,8 @@ export const seiteKonto = () =>
             : null,
         // Abrechnung (Plan "P", P2): nur mit Anmeldung, Gäste haben kein Abo
         DATEN.mensch.art === 'user' ? abrechnungKarte() : null,
+        // Warn-Mails (11.11.2026): Adresse bestätigen, Arten abbestellen
+        DATEN.mensch.art === 'user' ? benachrichtigungKarte() : null,
         // Abmelden gibt es nur mit Anmeldung. Ohne Anmeldung steht der Knopf im Hinweis oben auf der Seite
         DATEN.mensch.art === 'user'
             ? h(
