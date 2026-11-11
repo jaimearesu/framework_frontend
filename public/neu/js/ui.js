@@ -35,6 +35,8 @@ const IKONEN = {
     wartet: 'M4 13l3-8h10l3 8v6H4zM4 13h5l1 3h4l1-3h5',
     helfer: 'M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z',
     verlauf: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+    // Tacho: Auslastung des Kontos (Plan "T")
+    auslastung: 'M4 18a8 8 0 1 1 16 0M12 18l4-6',
     konto: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
     werkstatt: 'M15 4a5 5 0 0 0-4.6 7L4 17.4 6.6 20l6.4-6.4A5 5 0 0 0 20 9l-3 3-3-3 3-3a5 5 0 0 0-2-2z',
     suche: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-5-5',

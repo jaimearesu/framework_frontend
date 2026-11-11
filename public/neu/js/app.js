@@ -5,6 +5,7 @@ import { DATEN } from './daten.js';
 import { neueWebsiteOeffnen } from './neue-website.js';
 import { seiteStart, seiteWebsites, seiteKonto, seiteWerkstatt } from './seiten.js';
 import { seiteVerlauf } from './verlauf.js';
+import { seiteAuslastung } from './auslastung.js';
 import { seiteHelfer } from './helfer.js';
 import { seiteWartet } from './wartet.js';
 import { datenLaden, helferLaden } from './websites.js';
@@ -23,6 +24,8 @@ const MENUE = [
     { pfad: '#/wartet', text: 'Wartet auf mich', symbol: 'wartet', seite: seiteWartet },
     { pfad: '#/helfer', text: 'KI-Helfer', symbol: 'helfer', seite: seiteHelfer },
     { pfad: '#/verlauf', text: 'Verlauf', symbol: 'verlauf', seite: seiteVerlauf },
+    // Plan "T": wie viel verbraucht mein Konto, habe ich noch Platz?
+    { pfad: '#/auslastung', text: 'Auslastung', symbol: 'auslastung', seite: seiteAuslastung },
     { pfad: '#/konto', text: 'Konto', symbol: 'konto', seite: seiteKonto }
 ];
 const WERKSTATT = { pfad: '#/werkstatt', text: 'Werkstatt', symbol: 'werkstatt', seite: seiteWerkstatt };

@@ -1638,7 +1638,7 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
         // Legt nichts an – bei Stripe entsteht dabei keine Sitzung und kein Kunde.
         id: 'billing-status',
         group: 'SSF',
-        title: 'Abrechnung: Stand lesen, falsche Währung wird abgelehnt',
+        title: 'Abrechnung: Stand und Auslastung lesen, falsche Währung wird abgelehnt',
         run: async () => {
             const stand = await api.get('/api/billing');
             if (stand.status === 403) return 'Abrechnung gibt es nur mit Login – übersprungen';
@@ -1649,7 +1649,15 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             // P4: ob die Sperre beim Veröffentlichen schon gilt, und «gekündigt auf» (Migration 041)
             expect(typeof d.enforced === 'boolean', 'enforced fehlt (P4)', stand);
             expect('cancelAt' in d, 'cancelAt fehlt (Migration 041)', stand);
-            expect(typeof d.sitesPaused === 'boolean', 'sitesPaused fehlt (P5)', stand);
+            // Plan "T": Stufe statt Pausieren
+            expect(typeof d.tier === 'string', 'tier fehlt (Plan T)', stand);
+            expect('currentTier' in d, 'currentTier fehlt (Plan T)', stand);
+            expect(!('sitesPaused' in d), 'sitesPaused gibt es seit Plan T nicht mehr', stand);
+            const u = await api.get('/api/billing/usage');
+            expectStatus(u, 200, 'Auslastung (Plan T, Route fehlt?)');
+            const keys = (u.data.data.metrics || []).map(m => m.key).join(',');
+            expect(keys === 'runs,dataRows,storageBytes,customDomains', 'Bereiche der Auslastung: ' + keys, u);
+            expect(u.data.data.tiers.length === 5, '5 Stufen erwartet', u);
             const falsch = await api.post('/api/billing/checkout', { currency: 'gbp' });
             if (!d.stripeEnabled) {
                 expectStatus(falsch, 503, 'Abo starten ohne Stripe');
@@ -1657,7 +1665,7 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             }
             // Mit laufendem Abo kommt 409 (zuerst geprüft), sonst 400 für die falsche Währung
             expect([400, 409].includes(falsch.status), `unerwarteter Status ${falsch.status}`, falsch);
-            return `Stand ${d.status} (${d.stripeMode}), ${d.liveSites} Live-Website(s), Sperre ${d.enforced ? 'an' : 'aus'}`;
+            return `Stand ${d.status} (${d.stripeMode}), Stufe ${d.currentTier || 'ohne Grenzen'}, Grenzen ${d.enforced ? 'an' : 'aus'}`;
         }
     },
     // Stripe-Webhook (Plan "P", P3): Ohne Unterschrift von Stripe darf er nie etwas ändern.

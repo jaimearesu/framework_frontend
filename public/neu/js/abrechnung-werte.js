@@ -1,4 +1,5 @@
-// Reine Funktionen für die Karte «Abrechnung» auf der Seite Konto (Plan "P", P2), ohne Browser.
+// Reine Funktionen für die Karte «Abrechnung» auf der Seite Konto (Plan "P", P2; seit Plan "T"
+// nach Stufen – die Stufe wählt man im Reiter «Auslastung»), ohne Browser.
 // Geprüft in tests/neuAbrechnung.test.mjs.
 
 export const WAEHRUNGEN = ['chf', 'eur', 'usd'];
@@ -20,7 +21,8 @@ const datum = wert => {
     return Number.isFinite(ms) ? new Date(ms).toLocaleDateString('de-CH') : null;
 };
 
-const mehrzahl = (n, eins, viele) => n + ' ' + (n === 1 ? eins : viele);
+// Namen der Stufen (Plan "T", wie src/config/tiers.js im Backend)
+const STUFEN = { gratis: 'Gratis', klein: 'Klein', mittel: 'Mittel', gross: 'Gross', plattform: 'Plattform' };
 
 /**
  * Was die Karte zeigt, aus der Antwort von GET /api/billing.
@@ -31,10 +33,10 @@ export const abrechnungAnsicht = (stand, rueckkehr = null) => {
     const laeuft = LAUFEND.includes(status);
     const zeilen = [
         ['Stand', stand.freeLive ? 'Gratis live' : STAENDE[status] || status],
-        ['Live-Websites', mehrzahl(stand.liveSites || 0, 'Website', 'Websites')]
+        ['Stufe', stand.currentTier === null ? 'Ohne Grenzen' : STUFEN[stand.currentTier] || 'Gratis']
     ];
+    if (laeuft && stand.tierWanted) zeilen.push(['Ab nächstem Monat', STUFEN[stand.tierWanted] || stand.tierWanted]);
     if (stand.currency) zeilen.push(['Währung', stand.currency.toUpperCase()]);
-    if (stand.agency) zeilen.push(['Preis', 'Agentur']);
     if (laeuft && datum(stand.currentPeriodEnd)) zeilen.push(['Bezahlt bis', datum(stand.currentPeriodEnd)]);
     // Im Kundenportal gekündigt: läuft bis zum Ende des bezahlten Monats (P4, Migration 041)
     const endetAm = laeuft ? datum(stand.cancelAt) : null;
@@ -49,25 +51,23 @@ export const abrechnungAnsicht = (stand, rueckkehr = null) => {
         hinweis = ['ok', 'Danke, dein Abo ist aktiv.'];
     } else if (rueckkehr === 'abgebrochen') {
         hinweis = ['info', 'Abgebrochen, es wurde nichts bezahlt.'];
-    } else if (stand.sitesPaused) {
-        // P5: Abo fehlt oder Frist vorbei – Besucher sehen gerade die Seite «pausiert»
-        hinweis = [
-            'gefahr',
-            'Deine Live-Websites sind pausiert: Besucher sehen gerade «Diese Website ist pausiert». ' +
-                (laeuft ? 'Bitte die offene Rechnung im Kundenportal bezahlen' : 'Starte ein Abo') +
-                ' – danach ist sofort alles wieder da. Gelöscht ist nichts.'
-        ];
     } else if (endetAm) {
         hinweis = [
             'info',
             'Dein Abo ist gekündigt und läuft bis ' +
                 endetAm +
-                '. Danach kannst du keine neuen Websites mehr veröffentlichen. Zurücknehmen geht im Kundenportal.'
+                '. Danach gelten wieder die Grenzen der Stufe Gratis. Zurücknehmen geht im Kundenportal.'
         ];
     } else if (status === 'past_due') {
-        hinweis = ['warn', 'Die letzte Zahlung hat nicht geklappt. Bitte die Karte im Kundenportal prüfen.'];
+        hinweis = [
+            'warn',
+            'Die letzte Zahlung hat nicht geklappt. Bitte die Karte im Kundenportal prüfen – nach der Frist gelten sonst die Grenzen der Stufe Gratis.'
+        ];
     } else if (status === 'paused') {
-        hinweis = ['gefahr', 'Deine Websites sind pausiert. Nach dem Bezahlen ist sofort alles wieder da.'];
+        hinweis = [
+            'warn',
+            'Dein Abo ist pausiert: Es gelten die Grenzen der Stufe Gratis. Deine Websites bleiben online.'
+        ];
     }
 
     return {
@@ -75,11 +75,8 @@ export const abrechnungAnsicht = (stand, rueckkehr = null) => {
         hinweis,
         testmodus: stand.stripeMode === 'test',
         eingerichtet: stand.stripeEnabled === true,
-        // «Abo starten» nur ohne laufendes Abo und ohne «gratis live»
+        // «Stufe wählen» (führt in den Reiter Auslastung) nur ohne laufendes Abo und ohne «gratis live»
         kaufen: stand.stripeEnabled === true && !laeuft && !stand.freeLive,
-        // Die Währung wählt man nur beim ersten Mal, danach bleibt sie fest
-        waehrungWaehlen: !stand.currency,
-        waehrung: stand.currency || 'chf',
         portal: stand.stripeEnabled === true && stand.hasCustomer === true
     };
 };
