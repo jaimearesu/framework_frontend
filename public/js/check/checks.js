@@ -1634,6 +1634,25 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
         }
     },
     {
+        // Warn-Mails ans Konto (11.11.2026): nur lesen und Eingaben prüfen – verschickt NICHTS
+        id: 'warnmail-settings',
+        group: 'SSF',
+        title: 'Warn-Mails: Einstellungen lesen, falscher Code und unbekannte Art werden abgelehnt',
+        run: async () => {
+            const w = await api.get('/api/billing/benachrichtigung');
+            if (w.status === 403) return 'Warn-Mails gibt es nur mit Login – übersprungen';
+            expectStatus(w, 200, 'Einstellungen (Route fehlt? Migration 044?)');
+            const d = w.data.data;
+            expect(Array.isArray(d.muted), 'muted fehlt', w);
+            expect(typeof d.mailEnabled === 'boolean', 'mailEnabled fehlt', w);
+            const kurz = await api.post('/api/billing/benachrichtigung/bestaetigen', { code: '12' });
+            expectStatus(kurz, 400, 'zu kurzer Code');
+            const art = await api.put('/api/billing/benachrichtigung/arten', { muted: ['99'] });
+            expectStatus(art, 400, 'unbekannte Mail-Art');
+            return d.email ? 'Adresse bestätigt' : d.mailEnabled ? 'noch keine Adresse' : 'Mail-Versand aus';
+        }
+    },
+    {
         // Abrechnung (Plan "P", P2): Stand lesen und eine falsche Währung ablehnen.
         // Legt nichts an – bei Stripe entsteht dabei keine Sitzung und kein Kunde.
         id: 'billing-status',

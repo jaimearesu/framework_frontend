@@ -8,6 +8,7 @@ import { api } from '../../js/core/api.js';
 import { h, laedtBalken, meldung, dialog, leer } from './ui.js';
 import { stripeAdresseOk, WAEHRUNGEN } from './abrechnung-werte.js';
 import { bereichAnsicht, kopfAnsicht, stufenAnsicht, kostendachWahl, websitesAnsicht } from './auslastung-werte.js';
+import { ohneAdresseHinweis } from './benachrichtigung-werte.js';
 
 // Fehlermeldung des Backends zeigen (Texte immer als Text, nie als HTML)
 const fehler = antwort =>
@@ -298,7 +299,7 @@ const kostendachTeil = (u, stand, neuLaden) => {
 };
 
 // Die ganze Seite
-const inhalt = (u, stand, neuLaden) => {
+const inhalt = (u, stand, neuLaden, warn) => {
     const k = kopfAnsicht(u);
     const naechste = u.tiers.find(t => t.id === u.tier.next);
     return [
@@ -318,6 +319,19 @@ const inhalt = (u, stand, neuLaden) => {
                 k.text
             ),
             k.braucht ? h('span', { class: 'leise' }, k.braucht) : null,
+            // Warn-Mails (11.11.2026): noch keine Adresse hinterlegt
+            ohneAdresseHinweis(warn)
+                ? h(
+                      'div',
+                      { class: 'bp-hinweis bp-h-info mit-knopf', id: 'aus-warnmail' },
+                      h(
+                          'span',
+                          {},
+                          'Hinterlege eine Adresse, damit wir dich warnen können, bevor dein Konto voll ist.'
+                      ),
+                      h('a', { class: 'bp-btn bp-btn-o', href: '#/konto' }, 'Adresse eintragen')
+                  )
+                : null,
             k.nurAnzeige
                 ? h(
                       'span',
@@ -339,7 +353,11 @@ const inhalt = (u, stand, neuLaden) => {
 export const seiteAuslastung = () => {
     const seite = h('div', { class: 'stapel', id: 'auslastung' }, h('div', { class: 'bp-karte' }, laedtBalken()));
     const laden = () =>
-        Promise.all([api.get('/api/billing/usage'), api.get('/api/billing')]).then(([u, s]) => {
+        Promise.all([
+            api.get('/api/billing/usage'),
+            api.get('/api/billing'),
+            api.get('/api/billing/benachrichtigung')
+        ]).then(([u, s, w]) => {
             if (!u.ok || !s.ok) {
                 seite.replaceChildren(
                     h(
@@ -356,7 +374,9 @@ export const seiteAuslastung = () => {
                 );
                 return;
             }
-            seite.replaceChildren(...inhalt(u.data.data, s.data.data, laden).filter(Boolean));
+            seite.replaceChildren(
+                ...inhalt(u.data.data, s.data.data, laden, w.ok ? w.data.data : null).filter(Boolean)
+            );
         });
     laden();
     return seite;

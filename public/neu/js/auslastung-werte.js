@@ -25,8 +25,9 @@ export const bytes = n => {
     const stufen = ['B', 'KB', 'MB', 'GB', 'TB'];
     let i = 0;
     let wert = n;
-    while (wert >= 1000 && i < stufen.length - 1) {
-        wert /= 1000;
+    // Mit 1024 rechnen wie das Backend (config/tiers.js): sonst stünde bei 5 MB "5.2 MB"
+    while (wert >= 1024 && i < stufen.length - 1) {
+        wert /= 1024;
         i++;
     }
     return (i === 0 || wert >= 100 ? Math.round(wert) : Math.round(wert * 10) / 10) + ' ' + stufen[i];
