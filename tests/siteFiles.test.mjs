@@ -140,6 +140,15 @@ describe('/_at0mic/datei/<pfad>', () => {
         assert.equal(calls[1].url, 'http://backend.intern/api/sites/shop/datei/logo.png');
     });
 
+    test('Bildgrössen: w=<Breite> und format=webp gehen mit, Unsinn fällt weg', async () => {
+        await request('shop.at0mic.site', '/_at0mic/datei/foto.jpg?w=800&format=webp&v=2');
+        assert.equal(calls[0].url, 'http://backend.intern/api/sites/shop/datei/foto.jpg?v=2&w=800&format=webp');
+        await request('shop.at0mic.site', '/_at0mic/datei/foto.jpg?w=99999&format=avif');
+        assert.equal(calls[1].url, 'http://backend.intern/api/sites/shop/datei/foto.jpg');
+        await request('shop.at0mic.site', '/_at0mic/datei/foto.jpg?w=-5&format=WEBP');
+        assert.equal(calls[2].url, 'http://backend.intern/api/sites/shop/datei/foto.jpg');
+    });
+
     test('If-None-Match geht mit, 304 kommt zurück', async () => {
         answer = () => reply(304, Buffer.alloc(0), { 'cache-control': 'public, max-age=300', etag: '"abc"' });
         const r = await request('shop.at0mic.site', '/_at0mic/datei/logo.png', {

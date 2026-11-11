@@ -298,9 +298,11 @@ export const buildPreviewDocument = ({ html = '', css = [], js = [], body, child
 // läuft aber in einem abgeschotteten Rahmen ohne eigene Adresse und ohne Cookies –
 // dort zeigt /_at0mic/… ins Leere. Darum holt das Cockpit die Dateien selbst (mit
 // deinen Rechten, auch Private) und setzt sie als data:-Adresse ein.
+// Angaben dahinter (?v=3, ?w=800&format=webp – auch als &amp; im HTML) fallen dabei weg:
+// die Vorschau zeigt immer das Original (Plan "Bildgrössen", 11.11.2026).
 // ---------------------------------------------------------------------
 const FILE_REF =
-    /\/_(?:at0mic|vindelis)\/datei\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*(?:\.[A-Za-z0-9]{2,5})?)(?:\?v=\d{1,9})?/g;
+    /\/_(?:at0mic|vindelis)\/datei\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*(?:\.[A-Za-z0-9]{2,5})?)(?:\?[A-Za-z0-9=&;]{1,60})?/g;
 export const MAX_PREVIEW_FILES = 30;
 
 // Alle verschiedenen Datei-Pfade in einem Text (reine Funktion, getestet)
