@@ -51,7 +51,9 @@ export const TEXTE = {
             plattform: 'Für Agenturen und alles, was gross wird.'
         },
         immer: 'In jeder Stufe dabei: bauen mit deiner KI, testen, veröffentlichen, Sicherungen, Login für Besucher und Live-Verbindungen.',
-        vergleichen: 'Alle Grenzen vergleichen',
+        vergleichen: 'Alle Grenzen im Vergleich',
+        alleZeigen: n => 'Alle ' + n + ' Grenzen zeigen',
+        weniger: 'Weniger zeigen',
         grenze: 'Grenze',
         unbegrenzt: 'unbegrenzt',
         keine: '–',
@@ -91,7 +93,9 @@ export const TEXTE = {
             plattform: 'For agencies and everything that grows big.'
         },
         immer: 'Included in every tier: building with your AI, testing, publishing, backups, visitor login and live connections.',
-        vergleichen: 'Compare all limits',
+        vergleichen: 'All limits compared',
+        alleZeigen: n => 'Show all ' + n + ' limits',
+        weniger: 'Show less',
         grenze: 'Limit',
         unbegrenzt: 'unlimited',
         keine: '–',

@@ -47,6 +47,9 @@ const IKONEN = {
     zurueck: 'M19 12H5M11 6l-6 6 6 6',
     aussen: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
     kopie: 'M9 9h11v11H9zM5 15H4V4h11v1',
+    filter: 'M4 6h16M7 12h10M10 18h4',
+    // Mein Baum: Stamm mit zwei Ästen
+    baum: 'M12 21V10M12 14l-5-4M12 11l5-4M7 10V6M17 7V4',
     haken: 'M5 12l5 5 9-10',
     kreuz: 'M6 6l12 12M18 6L6 18',
     datei: 'M6 3h8l4 4v14H6zM14 3v4h4',

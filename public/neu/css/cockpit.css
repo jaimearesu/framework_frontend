@@ -52,15 +52,182 @@ body.bp {
     gap: var(--space-1);
     min-width: 0;
 }
-.id-zeile {
+/* Stand-Zeile unter der Begrüssung (12.11.2026): was wartet, was online ist, wie voll das Konto ist */
+.stand-zeile {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px var(--space-3);
+    color: var(--muted);
+    font-size: var(--text-klein);
+}
+.stand-teil {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: inherit;
+    text-decoration: none;
+}
+.bp a.stand-teil {
+    color: inherit;
+}
+.bp a.stand-teil:hover {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+/* Trenner zwischen den Stücken */
+.stand-teil + .stand-teil::before {
+    content: '·';
+    margin-right: calc(var(--space-3) - 6px);
+    color: var(--border-strong);
+}
+.stand-teil.ruhig::after,
+.stand-teil.achtung::after {
+    content: '';
+    order: -1;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+}
+.stand-teil.achtung::after {
+    background: var(--warning);
+}
+.bp a.stand-teil.achtung {
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* Konto als Kacheln (12.11.2026) */
+.konto-kacheln {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: var(--space-4);
+}
+.bp a.konto-kachel {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+    gap: var(--space-3);
+    color: var(--text);
+    text-decoration: none;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+.bp a.konto-kachel:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-2);
+}
+.konto-symbol {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+}
+.konto-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+.konto-stand {
+    margin-top: var(--space-2);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.konto-stand.laedt {
+    width: 60%;
+    height: 1em;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+}
+.konto-pfeil {
+    color: var(--muted);
+    transition: transform 0.15s ease;
+}
+.bp a.konto-kachel:hover .konto-pfeil {
+    transform: translateX(3px);
+    color: var(--text);
+}
+/* Im offenen Bereich steht der Titel schon im Kopf der Seite */
+.konto-bereich > .bp-karte > h3:first-child {
+    display: none;
+}
+
+/* Knopf «Filter» mit kleinem Menü */
+.filter-wahl {
+    position: relative;
+}
+.filter-knopf {
+    gap: 6px;
+}
+.filter-zahl {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--text);
+    color: var(--bg);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+    text-align: center;
+}
+.filter-menue {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 20;
+    min-width: 210px;
+}
+.filter-gruppe {
+    padding: 6px 8px 2px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.filter-zeile {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    column-gap: var(--space-2);
+    gap: var(--space-2);
+    width: 100%;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
 }
-.bp .id-zeile .bp-ikonknopf {
-    width: 24px;
-    height: 24px;
+.filter-zeile:hover,
+.filter-zeile:focus-visible {
+    background: var(--surface-2);
+}
+.filter-zeile.gewaehlt {
+    font-weight: 600;
+}
+.filter-haken {
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+}
+.filter-haken .bp-ic {
+    width: 14px;
+    height: 14px;
+}
+.filter-weg {
+    color: var(--muted);
 }
 
 .menue-zahl {
@@ -581,6 +748,88 @@ body.bp {
 .aus-website {
     align-items: flex-start;
 }
+.aus-website-kopf {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+.aus-trend {
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.aus-trend.hoch {
+    color: var(--success-text);
+}
+.aus-trend.runter {
+    color: var(--muted);
+}
+/* --- Aufklappen mit Unschärfe (12.11.2026, teaser.js): ein Teil ist zu sehen, der Rest läuft
+   weich in einen Schleier aus. --teaser-grund = Farbe dahinter (Karte: --bg, Startseite: --surface) --- */
+.teaser {
+    position: relative;
+    overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.teaser-schleier {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 96px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: var(--space-3);
+    background: linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--teaser-grund, var(--bg)) 0%, transparent),
+        color-mix(in srgb, var(--teaser-grund, var(--bg)) 70%, transparent) 45%,
+        var(--teaser-grund, var(--bg)) 88%
+    );
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 55%);
+    mask-image: linear-gradient(to bottom, transparent, #000 55%);
+    transition: opacity 0.3s ease;
+}
+.teaser.offen .teaser-schleier {
+    opacity: 0;
+    pointer-events: none;
+}
+.teaser-knopf {
+    border-radius: 999px;
+    box-shadow: var(--shadow-1);
+    background: var(--bg);
+}
+.teaser-huelle {
+    display: grid;
+    gap: var(--space-2);
+}
+.teaser-weniger {
+    justify-self: center;
+    padding: 4px 8px;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: var(--text-klein);
+    cursor: pointer;
+}
+.teaser-weniger:hover {
+    color: var(--text);
+}
+.landing-abschnitt {
+    --teaser-grund: var(--surface);
+}
+@media (prefers-reduced-motion: reduce) {
+    .teaser,
+    .teaser-schleier {
+        transition: none;
+    }
+}
+
 /* --- Preisliste (12.11.2026): Karten mit grossem Preis + Vergleichs-Tabelle,
    im Cockpit (Auslastung) und auf der Startseite (#preise) --- */
 .preis-karten {
@@ -699,13 +948,14 @@ body.bp {
     font-weight: 700;
     color: currentColor;
 }
-.preis-vergleich summary {
-    cursor: pointer;
-    font-weight: 600;
-    padding: var(--space-2) 0;
+.preis-vergleich {
+    display: grid;
+    gap: var(--space-2);
 }
-.preis-vergleich[open] summary {
-    margin-bottom: var(--space-2);
+.preis-vergleich > h3,
+.bp .preis-vergleich > h3 {
+    font-size: var(--text-h5);
+    margin: var(--space-3) 0 0;
 }
 .preis-tabelle th[scope='row'] {
     color: var(--text);
@@ -1325,9 +1575,9 @@ body.ueber-baum {
     .kopf-titel {
         flex: 1 1 100%;
     }
-    /* Die vindelis-ID macht den Kopf auf dem Handy zu voll, sie steht dort im Konto */
-    .id-zeile {
-        display: none;
+    /* Bricht die Stand-Zeile um, stünde sonst ein «·» am Anfang der Zeile */
+    .stand-teil + .stand-teil::before {
+        content: none;
     }
     .hintergrund {
         display: none;

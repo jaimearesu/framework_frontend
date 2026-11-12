@@ -50,3 +50,61 @@ export const kontoZeilen = limits => {
         kontoZeile('Datensätze', verbrauch.dataRows, zahl)
     ].filter(Boolean);
 };
+
+// ---------------------------------------------------------------------
+// Konto als Kacheln (12.11.2026, Wunsch von Jaime «wie bei Stripe»): jede Kachel zeigt Titel und
+// eine Zeile Stand, ein Klick öffnet den Bereich unter #/konto/<id>.
+// ---------------------------------------------------------------------
+
+// Die Bereiche. nurMitKonto = nur für angemeldete Menschen (Gäste haben kein Abo, keine Mails)
+export const KONTO_BEREICHE = Object.freeze([
+    {
+        id: 'ausweis',
+        titel: 'Deine vindelis-ID',
+        symbol: 'konto',
+        text: 'Zum Teilen, wenn dir jemand Zugriff geben will'
+    },
+    { id: 'grenzen', titel: 'Speicher und Grenzen', symbol: 'tabelle', text: 'Wie viel dein Konto belegt' },
+    { id: 'abrechnung', titel: 'Abrechnung', symbol: 'datei', text: 'Abo, Rechnungen und Karte', nurMitKonto: true },
+    {
+        id: 'benachrichtigungen',
+        titel: 'Benachrichtigungen',
+        symbol: 'brief',
+        text: 'Mails, wenn dein Konto voll wird',
+        nurMitKonto: true
+    },
+    {
+        id: 'anmeldung',
+        titel: 'Anmeldung',
+        symbol: 'aussen',
+        text: 'Mit welcher Adresse du angemeldet bist',
+        nurMitKonto: true
+    }
+]);
+
+// Welche Bereiche es für diese Person gibt
+export const kontoBereiche = ({ angemeldet, mitId, mitGrenzen }) =>
+    KONTO_BEREICHE.filter(
+        b => (angemeldet || !b.nurMitKonto) && (b.id !== 'ausweis' || mitId) && (b.id !== 'grenzen' || mitGrenzen)
+    );
+
+// Welcher Bereich ist offen? '#/konto/abrechnung' -> 'abrechnung', sonst null (= Übersicht)
+export const bereichAusAdresse = (hash, bereiche = KONTO_BEREICHE) => {
+    const teil =
+        String(hash || '')
+            .replace(/^#\/?/, '')
+            .split(/[/?]/)[1] || null;
+    return bereiche.some(b => b.id === teil) ? teil : null;
+};
+
+// Die ID kurz: die ersten 8 Zeichen
+export const idKurz = id => (id ? String(id).slice(0, 8) + '…' : '');
+
+// Stand der Benachrichtigungen in einer Zeile (Antwort von GET /api/billing/benachrichtigung)
+export const benachrichtigungKurz = stand => {
+    if (!stand) return null;
+    if (!stand.mailEnabled) return 'Auf diesem Server aus';
+    if (stand.pendingEmail) return 'Code an ' + stand.pendingEmail + ' geschickt';
+    if (stand.email) return 'An ' + stand.email;
+    return 'Noch keine Adresse';
+};

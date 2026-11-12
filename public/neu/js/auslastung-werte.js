@@ -233,5 +233,47 @@ export const websitesAnsicht = u =>
                 ['Datensätze', zahl(s.dataRows), s.share ? s.share.dataRows : 0],
                 ['Dateien', bytes(s.fileBytes), s.share ? s.share.storageBytes : 0]
             ],
-            domains: s.customDomains || 0
+            domains: s.customDomains || 0,
+            // Für die festen Filter (12.11.2026): Ausführungen diesen Monat, letzte 7 Tage, 7 Tage davor
+            runs: s.runs || 0,
+            woche: s.runsWeek || 0,
+            vorwoche: s.runsPrevWeek || 0
         }));
+
+// Wie sich eine Website diese Woche bewegt hat: «+35 % zur Vorwoche», «neu diese Woche», null = gleich/nichts
+export const trendText = (woche, vorwoche) => {
+    if (woche === vorwoche) return null;
+    if (vorwoche === 0) return woche > 0 ? 'neu diese Woche' : null;
+    const prozent = Math.round(((woche - vorwoche) / vorwoche) * 100);
+    if (prozent === 0) return null;
+    return (prozent > 0 ? '+' : '−') + Math.abs(prozent) + ' % zur Vorwoche';
+};
+
+// Die festen Filter über der Liste
+export const WEBSITE_FILTER = [
+    ['meiste', 'Am meisten'],
+    ['auf', 'Aufsteiger'],
+    ['ab', 'Absteiger'],
+    ['ruhig', 'Ruhig']
+];
+
+// Leere Liste nach einem Filter: was dort steht
+export const FILTER_LEER = {
+    meiste: 'Noch keine Website.',
+    auf: 'Diese Woche ist keine Website gewachsen.',
+    ab: 'Diese Woche hat keine Website abgenommen.',
+    ruhig: 'Jede Website hatte diesen Monat Besuch.'
+};
+
+/**
+ * Die Liste nach einem festen Filter (letzte 7 Tage gegen die 7 Tage davor):
+ * meiste = wer am meisten verbraucht, auf = am stärksten gewachsen, ab = am stärksten gesunken,
+ * ruhig = diesen Monat keine Ausführung
+ */
+export const websitesFiltern = (liste, filter) => {
+    const plus = w => w.woche - w.vorwoche;
+    if (filter === 'auf') return liste.filter(w => plus(w) > 0).sort((a, b) => plus(b) - plus(a));
+    if (filter === 'ab') return liste.filter(w => plus(w) < 0).sort((a, b) => plus(a) - plus(b));
+    if (filter === 'ruhig') return liste.filter(w => w.runs === 0);
+    return liste;
+};

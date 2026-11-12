@@ -5,6 +5,7 @@
 import { h } from './ui.js';
 import { api } from '../../js/core/api.js';
 import { matrix, stufenAusAntwort, TEXTE } from './preise-werte.js';
+import { teaser } from './teaser.js';
 
 // Eine Karte. k = stufenKarte() aus preise-werte.js
 // extra = { abzeichen, knopf, notiz, jetzt, id } – was das Cockpit dazugibt (Knopf, «Deine Stufe» …)
@@ -32,43 +33,50 @@ export const preisKarte = (k, sprache = 'de', extra = {}) =>
         extra.notiz ? h('span', { class: 'leise' }, extra.notiz) : null
     );
 
-// Die Vergleichs-Tabelle, aufklappbar. stufen = Stufen aus dem Backend
-export const preisVergleich = (stufen, sprache = 'de', offen = false) => {
+// Die Vergleichs-Tabelle. Die ersten Zeilen sind zu sehen, der Rest läuft in einen Schleier aus
+// und fährt mit einem Klick auf (teaser.js, 12.11.2026 statt des Pfeils). stufen = aus dem Backend
+const SICHTBAR = 4;
+export const preisVergleich = (stufen, sprache = 'de') => {
+    const t = TEXTE[sprache];
     const m = matrix(stufen, sprache);
     const spalte = i => (i === m.empfohlen + 1 ? 'empfohlen' : null);
-    return h(
-        'details',
-        { class: 'preis-vergleich', id: 'preis-vergleich', open: offen || null },
-        h('summary', {}, TEXTE[sprache].vergleichen),
+    const zeilen = m.zeilen.map(([name, ...werte]) =>
         h(
-            'div',
-            { class: 'bp-tab-wrap' },
-            h(
-                'table',
-                { class: 'bp-tab preis-tabelle' },
-                h(
-                    'thead',
-                    {},
-                    h(
-                        'tr',
-                        {},
-                        m.kopf.map((text, i) => h('th', { class: spalte(i), scope: 'col' }, text))
-                    )
-                ),
-                h(
-                    'tbody',
-                    {},
-                    m.zeilen.map(([name, ...werte]) =>
-                        h(
-                            'tr',
-                            {},
-                            h('th', { scope: 'row' }, name),
-                            werte.map((w, i) => h('td', { class: spalte(i + 1) }, w))
-                        )
-                    )
-                )
-            )
+            'tr',
+            {},
+            h('th', { scope: 'row' }, name),
+            werte.map((w, i) => h('td', { class: spalte(i + 1) }, w))
         )
+    );
+    const tabelle = h(
+        'div',
+        { class: 'bp-tab-wrap' },
+        h(
+            'table',
+            { class: 'bp-tab preis-tabelle' },
+            h(
+                'thead',
+                {},
+                h(
+                    'tr',
+                    {},
+                    m.kopf.map((text, i) => h('th', { class: spalte(i), scope: 'col' }, text))
+                )
+            ),
+            h('tbody', {}, zeilen)
+        )
+    );
+    return h(
+        'div',
+        { class: 'preis-vergleich', id: 'preis-vergleich' },
+        h('h3', {}, t.vergleichen),
+        teaser(tabelle, {
+            eintraege: () => zeilen,
+            sichtbar: SICHTBAR,
+            text: t.alleZeigen(zeilen.length),
+            weniger: t.weniger,
+            id: 'preis-vergleich-teaser'
+        })
     );
 };
 

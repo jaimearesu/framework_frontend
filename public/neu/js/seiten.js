@@ -1,15 +1,14 @@
 // Die Seiten des Hauptmenüs: Start, Websites, Konto, Werkstatt
-import { h, ikon, zustandPlakette, leer, huelle, kopierKnopf, kopierZeile } from './ui.js';
+import { h, ikon, zustandPlakette, leer, huelle } from './ui.js';
 import { loadThumbnail } from '../../js/core/objects.js';
 import { DATEN } from './daten.js';
 import { neueWebsiteOeffnen } from './neue-website.js';
-import { abmeldeAdresse } from './sitzung.js';
 import { neuLaden } from './websites.js';
 import { papierkorbAbschnitt } from './papierkorb.js';
-import { abrechnungKarte } from './abrechnung.js';
-import { benachrichtigungKarte } from './benachrichtigung.js';
 import { werkzeugGruppen } from './werkstatt-werte.js';
 import { hatBeideHerkuenfte, hatMehrereSichtbarkeiten, nachHerkunft, nachSichtbarkeit } from './websites-werte.js';
+import { auslastungKurz, standTeile, filterAnzahl, FILTER_STANDARD } from './start-werte.js';
+import { api } from '../../js/core/api.js';
 
 // Vorschaubild einer Website. Solange es noch kein Foto gibt, steht dort die Skizze
 export const vorschauBild = (gross, website) => {
@@ -117,6 +116,112 @@ const blaettern = (seite, letzte, gesamt) => {
     );
 };
 
+// Knopf «Filter» (12.11.2026): Sichtbarkeit und Reihenfolge in einem kleinen Menü statt zwei
+// Reihen Umschalter. Bleibt beim Neuzeichnen offen, schliesst mit Klick daneben oder Esc.
+let filterOffen = false;
+const filterSchliessen = () => {
+    if (!filterOffen) return;
+    filterOffen = false;
+    huelle.neu();
+};
+let filterHorchtSchon = false;
+const filterHorchen = () => {
+    if (filterHorchtSchon) return;
+    filterHorchtSchon = true;
+    document.addEventListener('click', e => {
+        if (filterOffen && !e.target.closest('.filter-wahl')) filterSchliessen();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') filterSchliessen();
+    });
+};
+
+const filterWahl = (feld, praefix, wert, text) => {
+    const gewaehlt = DATEN.startAnsicht[feld] === wert;
+    return h(
+        'button',
+        {
+            type: 'button',
+            id: praefix + wert,
+            role: 'menuitemradio',
+            'aria-checked': gewaehlt ? 'true' : 'false',
+            class: 'filter-zeile' + (gewaehlt ? ' gewaehlt' : ''),
+            onclick: () => {
+                DATEN.startAnsicht[feld] = wert;
+                DATEN.startAnsicht.seite = 1;
+                huelle.neu();
+            }
+        },
+        h('span', { class: 'filter-haken' }, gewaehlt ? ikon('haken') : null),
+        text
+    );
+};
+
+const filterKnopf = (mitSichtbarkeit, mitReihenfolge) => {
+    filterHorchen();
+    const anzahl = filterAnzahl(DATEN.startAnsicht);
+    return h(
+        'div',
+        { class: 'filter-wahl' },
+        h(
+            'button',
+            {
+                class: 'bp-btn bp-btn-o filter-knopf',
+                id: 'filter-knopf',
+                type: 'button',
+                'aria-haspopup': 'menu',
+                'aria-expanded': filterOffen ? 'true' : 'false',
+                onclick: () => {
+                    filterOffen = !filterOffen;
+                    huelle.neu();
+                }
+            },
+            ikon('filter'),
+            'Filter',
+            anzahl ? h('span', { class: 'filter-zahl', 'aria-label': anzahl + ' gewählt' }, String(anzahl)) : null
+        ),
+        filterOffen
+            ? h(
+                  'div',
+                  { class: 'bp-menue filter-menue', role: 'menu', id: 'filter-menue' },
+                  mitSichtbarkeit
+                      ? [
+                            h('span', { class: 'filter-gruppe' }, 'Sichtbarkeit'),
+                            filterWahl('sichtbarkeit', 'sichtbar-', 'alle', 'Alle'),
+                            filterWahl('sichtbarkeit', 'sichtbar-', 'public', 'Online'),
+                            filterWahl('sichtbarkeit', 'sichtbar-', 'members', 'Nur Angemeldete'),
+                            filterWahl('sichtbarkeit', 'sichtbar-', 'private', 'Privat')
+                        ]
+                      : null,
+                  mitSichtbarkeit && mitReihenfolge ? h('hr') : null,
+                  mitReihenfolge
+                      ? [
+                            h('span', { class: 'filter-gruppe' }, 'Reihenfolge'),
+                            filterWahl('sortierung', 'sort-', 'geaendert', 'Zuletzt geändert'),
+                            filterWahl('sortierung', 'sort-', 'neu', 'Neuste')
+                        ]
+                      : null,
+                  anzahl
+                      ? h(
+                            'button',
+                            {
+                                type: 'button',
+                                class: 'filter-zeile filter-weg',
+                                id: 'filter-zuruecksetzen',
+                                onclick: () => {
+                                    Object.assign(DATEN.startAnsicht, FILTER_STANDARD, { seite: 1 });
+                                    huelle.neu();
+                                }
+                            },
+                            h('span', { class: 'filter-haken' }),
+                            'Filter zurücksetzen'
+                        )
+                      : null
+              )
+            : null
+    );
+};
+
 // Die Kacheln mit Filter und Blättern, auf Start und auf der Seite «Websites» dieselben
 const websitesAbschnitt = ueberschrift => {
     // Beim allerersten Laden gescheitert: nicht «Noch keine Website» behaupten
@@ -155,23 +260,8 @@ const websitesAbschnitt = ueberschrift => {
                           wahlKnopf('herkunft', 'herkunft-', 'geteilt', 'Mit mir geteilt')
                       )
                     : null,
-                hatMehrereSichtbarkeiten(DATEN.websites)
-                    ? h(
-                          'div',
-                          { class: 'bp-segment', role: 'tablist', 'aria-label': 'Sichtbarkeit' },
-                          wahlKnopf('sichtbarkeit', 'sichtbar-', 'alle', 'Alle'),
-                          wahlKnopf('sichtbarkeit', 'sichtbar-', 'public', 'Online'),
-                          wahlKnopf('sichtbarkeit', 'sichtbar-', 'members', 'Nur Angemeldete'),
-                          wahlKnopf('sichtbarkeit', 'sichtbar-', 'private', 'Privat')
-                      )
-                    : null,
-                alle.length > 1
-                    ? h(
-                          'div',
-                          { class: 'bp-segment', role: 'tablist', 'aria-label': 'Reihenfolge' },
-                          wahlKnopf('sortierung', 'sort-', 'geaendert', 'Zuletzt geändert'),
-                          wahlKnopf('sortierung', 'sort-', 'neu', 'Neuste')
-                      )
+                hatMehrereSichtbarkeiten(DATEN.websites) || DATEN.websites.length > 1
+                    ? filterKnopf(hatMehrereSichtbarkeiten(DATEN.websites), DATEN.websites.length > 1)
                     : null
             )
         ),
@@ -211,94 +301,55 @@ export const seiteWebsites = () => [
     papierkorbAbschnitt()
 ];
 
-export const seiteStart = () => {
-    const anzahl = DATEN.wartet.length;
-    return [
-        anzahl
-            ? h(
-                  'div',
-                  { class: 'bp-hinweis bp-h-info mit-knopf' },
-                  h('span', {}, anzahl === 1 ? '1 Sache wartet auf dich.' : anzahl + ' Sachen warten auf dich.'),
-                  h('a', { class: 'bp-btn bp-btn-o bp-btn-klein', href: '#/wartet' }, 'Ansehen')
-              )
-            : null,
-        websitesAbschnitt('Meine Websites')
-    ];
-};
+// Was wartet, steht jetzt in der Stand-Zeile unter der Begrüssung (12.11.2026)
+export const seiteStart = () => [websitesAbschnitt('Meine Websites')];
 
-// Kopfzeile von Start: Begrüssung nach Tageszeit, darunter die eigene vindelis-ID
+// Kopfzeile von Start: Begrüssung nach Tageszeit, darunter die Stand-Zeile (12.11.2026).
+// Die vindelis-ID steht im Konto, «Mein Baum» oben rechts in der Kopfzeile.
 seiteStart.titel = () => {
     const stunde = new Date().getHours();
     const gruss = stunde < 11 ? 'Guten Morgen' : stunde < 18 ? 'Guten Tag' : 'Guten Abend';
     return DATEN.mensch.name ? gruss + ', ' + DATEN.mensch.name : gruss;
 };
-seiteStart.unter = () =>
-    h(
-        'div',
-        { class: 'id-zeile leise', id: 'meine-id' },
-        // Ohne Konto gibt es noch keine ID
-        DATEN.mensch.id
-            ? [
-                  h('span', {}, 'Deine vindelis-ID'),
-                  h('code', { class: 'mono' }, DATEN.mensch.id),
-                  kopierKnopf(DATEN.mensch.id)
-              ]
-            : null,
-        h(
-            'button',
-            {
-                class: 'bp-btn bp-btn-o bp-btn-klein',
-                id: 'mein-baum',
-                type: 'button',
-                onclick: () => huelle.baumOeffnen()
-            },
-            'Mein Baum'
-        )
-    );
 
-export const seiteKonto = () =>
-    h(
-        'div',
-        { class: 'stapel' },
-        DATEN.mensch.id
-            ? h(
-                  'div',
-                  { class: 'bp-karte stapel' },
-                  h('h3', {}, 'Deine vindelis-ID'),
-                  h('span', { class: 'leise' }, 'Schick sie jemandem, der dir Zugriff auf seine Website geben möchte.'),
-                  kopierZeile(DATEN.mensch.id)
-              )
-            : null,
-        DATEN.konto.length
-            ? h(
-                  'div',
-                  { class: 'bp-karte stapel', id: 'konto-grenzen' },
-                  h('h3', {}, 'Speicher und Grenzen'),
-                  DATEN.konto.map(k =>
-                      h(
-                          'div',
-                          { class: 'mass' },
-                          h('div', { class: 'kennzahl' }, h('span', {}, k.name), h('span', { class: 'leise' }, k.wert)),
-                          h('div', { class: 'balken' }, h('i', { style: 'width:' + k.anteil + '%' }))
-                      )
-                  )
-              )
-            : null,
-        // Abrechnung (Plan "P", P2): nur mit Anmeldung, Gäste haben kein Abo
-        DATEN.mensch.art === 'user' ? abrechnungKarte() : null,
-        // Warn-Mails (11.11.2026): Adresse bestätigen, Arten abbestellen
-        DATEN.mensch.art === 'user' ? benachrichtigungKarte() : null,
-        // Abmelden gibt es nur mit Anmeldung. Ohne Anmeldung steht der Knopf im Hinweis oben auf der Seite
-        DATEN.mensch.art === 'user'
-            ? h(
-                  'div',
-                  { class: 'bp-karte stapel' },
-                  h('h3', {}, 'Anmeldung'),
-                  DATEN.mensch.email ? h('span', { class: 'leise' }, 'Angemeldet als ' + DATEN.mensch.email) : null,
-                  h('div', {}, h('a', { class: 'bp-btn bp-btn-o', id: 'abmelden', href: abmeldeAdresse() }, 'Abmelden'))
-              )
-            : null
-    );
+// Die Auslastung kommt einmal pro Minute vom Backend, nicht bei jedem Neuzeichnen
+let auslastungGeholt = { zeit: 0, wert: null, laeuft: null };
+const auslastungHolen = () => {
+    if (DATEN.mensch.art !== 'user') return Promise.resolve(null);
+    if (Date.now() - auslastungGeholt.zeit < 60000) return Promise.resolve(auslastungGeholt.wert);
+    auslastungGeholt.laeuft ??= api
+        .get('/api/billing/usage')
+        .then(
+            a => (a.ok ? auslastungKurz(a.data.data) : null),
+            () => null
+        )
+        .then(wert => {
+            auslastungGeholt = { zeit: Date.now(), wert, laeuft: null };
+            return wert;
+        });
+    return auslastungGeholt.laeuft;
+};
+
+const standStueck = t =>
+    t.href
+        ? h('a', { class: 'stand-teil ' + t.art, href: t.href }, t.text)
+        : h('span', { class: 'stand-teil ' + t.art }, t.text);
+
+seiteStart.unter = () => {
+    const zeile = h('p', { class: 'stand-zeile', id: 'stand-zeile' });
+    const zeigen = auslastung =>
+        zeile.replaceChildren(
+            ...standTeile({ wartet: DATEN.wartet.length, websites: DATEN.websites, auslastung }).map(standStueck)
+        );
+    // Gleich zeigen, was schon da ist; die Auslastung kommt nach, sobald sie geladen ist
+    zeigen(Date.now() - auslastungGeholt.zeit < 60000 ? auslastungGeholt.wert : null);
+    auslastungHolen().then(wert => {
+        if (wert && zeile.isConnected) zeigen(wert);
+    });
+    return zeile;
+};
+
+// Die Seite «Konto» steht seit 12.11.2026 in konto.js (Kacheln)
 
 // Die Technik bleibt, wie sie ist. Hier führen die Wege hinein
 export const seiteWerkstatt = () =>

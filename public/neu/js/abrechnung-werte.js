@@ -104,3 +104,10 @@ export const stripeAdresseOk = adresse => {
         return false;
     }
 };
+
+// Für die Kachel im Konto (12.11.2026): «Klein · Aktiv» in einer Zeile
+export const abrechnungKurz = stand => {
+    if (!stand) return null;
+    const [standZeile, stufeZeile] = abrechnungAnsicht(stand).zeilen;
+    return stufeZeile[1] + ' · ' + standZeile[1];
+};
