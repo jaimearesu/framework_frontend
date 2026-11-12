@@ -4,19 +4,37 @@
 /**
  * Was zeigt die Karte «Im Netzwerk»?
  * status = Antwort von GET /api/netzwerk/websites/:uuid (oder null, solange sie lädt)
- * -> { zustand: 'laedt' | 'aus' | 'geteilt' | 'pausiert' | 'gesperrt', titel, text, knopf, profilLink }
+ * -> { zustand: 'laedt' | 'aus' | 'geteilt' | 'pausiert' | 'gesperrt' | 'herausgenommen', titel, text, knopf, profilLink, feedLink }
  */
 export const netzwerkZustand = status => {
-    if (!status) return { zustand: 'laedt', titel: 'Im Netzwerk', text: '', knopf: null, profilLink: false };
+    if (!status)
+        return { zustand: 'laedt', titel: 'Im Netzwerk', text: '', knopf: null, profilLink: false, feedLink: false };
     const s = status.share;
     const von = s && !s.byMe && s.handle ? ' Geteilt von @' + s.handle + '.' : '';
+    // Stufe 4: vom Team aus dem Feed genommen – ändern oder neu teilen geht nicht mehr
+    if (s && s.hidden) {
+        return {
+            zustand: 'herausgenommen',
+            titel: 'Im Netzwerk – herausgenommen',
+            text:
+                'Das vindelis-Team hat «' +
+                s.title +
+                '» aus dem Feed genommen' +
+                (s.hiddenReason ? ': ' + s.hiddenReason : '.') +
+                ' Die Website selbst bleibt online.',
+            knopf: null,
+            profilLink: false,
+            feedLink: false
+        };
+    }
     if (s && s.visible) {
         return {
             zustand: 'geteilt',
             titel: 'Im Netzwerk',
             text: 'Geteilt als «' + s.title + '».' + von,
             knopf: 'Ändern',
-            profilLink: false
+            profilLink: false,
+            feedLink: true
         };
     }
     if (s) {
@@ -30,7 +48,8 @@ export const netzwerkZustand = status => {
                 (status.reasonText || 'Die Website ist nicht öffentlich, oder es fehlen die Rechte.') +
                 von,
             knopf: 'Ändern',
-            profilLink: status.reason === 'NEEDS_HANDLE'
+            profilLink: status.reason === 'NEEDS_HANDLE',
+            feedLink: false
         };
     }
     if (status.canShare) {
@@ -39,7 +58,8 @@ export const netzwerkZustand = status => {
             titel: 'Im Netzwerk',
             text: 'Noch nicht geteilt. Zeig deine Website den anderen auf vindelis.',
             knopf: 'Teilen…',
-            profilLink: false
+            profilLink: false,
+            feedLink: false
         };
     }
     return {
@@ -47,7 +67,8 @@ export const netzwerkZustand = status => {
         titel: 'Im Netzwerk',
         text: status.reasonText || 'Diese Website lässt sich nicht teilen.',
         knopf: null,
-        profilLink: status.reason === 'NEEDS_HANDLE'
+        profilLink: status.reason === 'NEEDS_HANDLE',
+        feedLink: false
     };
 };
 

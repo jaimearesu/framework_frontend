@@ -133,6 +133,12 @@ app.get(/^\/@[A-Za-z0-9-]{1,40}\/?$/, (req, res) => {
     res.sendFile(PROFIL_SEITE);
 });
 
+// Feed «Entdecken» (Plan "N", Stufe 4): vindelis.com/entdecken – offen für alle, ohne Cockpit.
+const ENTDECKEN_SEITE = path.join(__dirname, 'public', 'neu', 'entdecken.html');
+app.get(/^\/entdecken\/?$/, (req, res) => {
+    res.sendFile(ENTDECKEN_SEITE);
+});
+
 app.get('*', (req, res) => {
     res.sendFile(COCKPIT_NEU);
 });

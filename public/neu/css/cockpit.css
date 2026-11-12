@@ -2656,3 +2656,83 @@ body[data-modus='dunkel'] .landing-kopf img {
     flex-wrap: wrap;
     gap: var(--space-2);
 }
+
+/* ---------------------------------------------------------------------
+   Feed «Entdecken» (Plan "N", Stufe 4): Karten auf /entdecken und der Startseite
+   --------------------------------------------------------------------- */
+.feed-kopf {
+    display: grid;
+    gap: var(--space-2);
+    margin-bottom: var(--space-5);
+}
+.feed-karte {
+    display: grid;
+    gap: var(--space-3);
+    align-content: start;
+    min-width: 0;
+}
+.bp a.feed-vorschau {
+    color: inherit;
+}
+.feed-text {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+.bp a.feed-titel {
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+.bp a.feed-titel:hover {
+    text-decoration: underline;
+}
+.feed-satz {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+.feed-adresse {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.feed-fuss {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    min-width: 0;
+}
+.feed-von {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    color: var(--muted);
+    font-size: var(--text-klein);
+    text-decoration: none;
+}
+.feed-von span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.feed-profilbild {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    font-size: 10px;
+}
+.feed-unten {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    justify-content: center;
+    align-items: center;
+    margin-top: var(--space-5);
+    text-align: center;
+}
+.feed-vorschau {
+    text-decoration: none;
+}
