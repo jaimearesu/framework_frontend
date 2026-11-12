@@ -13,6 +13,7 @@ import { datenLaden, helferLaden } from './websites.js';
 import { seiteWebsite, websiteTitel } from './website.js';
 import { hintergrundStarten } from './hintergrund.js';
 import { sitzungLaden } from './sitzung.js';
+import { nameFragenWennNoetig } from './profil.js';
 import { ladeSeite, fehlerSeite, anmeldeSeite, gastHinweis } from './anmelden.js';
 import { api } from '../../js/core/api.js';
 import { ALTES_COCKPIT, alteAdresse } from './adressen-werte.js';
@@ -245,6 +246,8 @@ const cockpitStarten = ({ baumSteht = false } = {}) => {
         }
     });
     zeichnen();
+    // Plan "N": beim ersten Mal nach einem @namen fragen (einmal, überspringbar)
+    nameFragenWennNoetig();
 };
 
 // Zeigt eine der Seiten, die vor dem Cockpit kommen

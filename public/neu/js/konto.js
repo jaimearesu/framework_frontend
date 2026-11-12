@@ -10,6 +10,8 @@ import { abrechnungKarte } from './abrechnung.js';
 import { benachrichtigungKarte } from './benachrichtigung.js';
 import { abrechnungKurz, rueckkehrAus } from './abrechnung-werte.js';
 import { kontoBereiche, bereichAusAdresse, idKurz, benachrichtigungKurz } from './konto-werte.js';
+import { profilKopf, profilBereich } from './profil.js';
+import { profilKurz } from './profil-werte.js';
 
 const angemeldet = () => DATEN.mensch.art === 'user';
 const bereiche = () =>
@@ -27,6 +29,7 @@ const offenerBereich = () => {
 
 // Die Zeile Stand auf einer Kachel. Was das Backend erst liefern muss, kommt nach
 const STAND_SOFORT = {
+    profil: () => profilKurz(DATEN.profil),
     ausweis: () => idKurz(DATEN.mensch.id),
     grenzen: () => (DATEN.konto[0] ? DATEN.konto[0].name + ' ' + DATEN.konto[0].wert : null),
     anmeldung: () => DATEN.mensch.email || 'Angemeldet'
@@ -59,6 +62,8 @@ const kachel = b => {
 
 // Die Inhalte der Bereiche (wie vorher die Karten untereinander)
 const INHALT = {
+    // Plan "N": Name und Bild
+    profil: () => profilBereich(),
     ausweis: () =>
         h(
             'div',
@@ -110,7 +115,14 @@ export const seiteKonto = () => {
             INHALT[offen]()
         );
     }
-    return h('div', { class: 'konto-kacheln', id: 'konto-kacheln' }, bereiche().map(kachel));
+    // Oben das Profil (Plan "N", «das übliche Profildesign»), darunter die Kacheln
+    return h(
+        'div',
+        { class: 'stapel' },
+        [profilKopf(), h('div', { class: 'konto-kacheln', id: 'konto-kacheln' }, bereiche().map(kachel))].filter(
+            Boolean
+        )
+    );
 };
 // Im Kopf steht der Name des offenen Bereichs, sonst «Konto»
 seiteKonto.titel = () => {

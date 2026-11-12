@@ -6,6 +6,7 @@
 // Ein Link gilt für die ganze Website oder für genau einen Teil.
 import { api } from '../../js/core/api.js';
 import { h, ikon, dialog, kopierZeile } from './ui.js';
+import { empfaengerAus } from './profil-werte.js';
 import {
     GUELTIG,
     RECHTE,
@@ -292,20 +293,20 @@ export const zugriffGebenOeffnen = ({ w, site, besucher, gast, nachher }) => {
         return h(
             'div',
             { class: 'bp-feld' },
-            h('label', { for: 'zg-id' }, 'vindelis-ID der Person'),
+            h('label', { for: 'zg-id' }, '@name oder vindelis-ID der Person'),
             h('input', {
                 id: 'zg-id',
                 class: 'bp-in mono',
                 value: stand.id,
                 autocomplete: 'off',
-                placeholder: 'z.B. a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d',
+                placeholder: 'z.B. @anna oder a1b2c3d4-5e6f-…',
                 'data-fokus': true,
                 oninput: e => {
                     stand.id = e.target.value;
                     fehlerEntfernen(e.target);
                 }
             }),
-            h('small', {}, 'Die Person findet ihre ID in ihrem Konto.')
+            h('small', {}, 'Die Person findet beides in ihrem Konto unter «Profil» bzw. «Deine vindelis-ID».')
         );
     };
 
@@ -348,13 +349,24 @@ export const zugriffGebenOeffnen = ({ w, site, besucher, gast, nachher }) => {
 
     const rechteGeben = async neu => {
         const ziel = zielAus(stand, site.uuid);
-        const id = stand.id.trim().toLowerCase();
+        // Plan "N": ein @name wird zuerst zur ID aufgelöst – die Rechte hängen immer an der ID
+        const empfaenger = empfaengerAus(stand.id);
+        let id = empfaenger.wert;
+        if (empfaenger.art === 'name') {
+            const person = await api.get('/api/profil/@' + encodeURIComponent(empfaenger.wert));
+            if (person.status === 404) return 'Niemand heisst @' + empfaenger.wert + '.';
+            if (!person.ok) return person.error;
+            id = person.data.data.uuid;
+        }
         for (const roleType of RECHTE[stand.darf].rollen) {
             const antwort = await api.put('/api/objects/' + ziel.uuid + '/members/' + id, {
                 roleType,
                 scope: ziel.scope
             });
-            if (antwort.status === 404) return 'Diese vindelis-ID gibt es nicht.';
+            if (antwort.status === 404)
+                return empfaenger.art === 'name'
+                    ? 'Diese Person gibt es nicht mehr.'
+                    : 'Diese vindelis-ID gibt es nicht.';
             if (!antwort.ok) return antwort.error;
         }
         erfolg(neu, 'Hat geklappt!', 'Die Person hat jetzt Zugriff auf «' + w.titel + '».');

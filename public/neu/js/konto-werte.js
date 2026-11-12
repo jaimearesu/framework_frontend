@@ -58,6 +58,8 @@ export const kontoZeilen = limits => {
 
 // Die Bereiche. nurMitKonto = nur für angemeldete Menschen (Gäste haben kein Abo, keine Mails)
 export const KONTO_BEREICHE = Object.freeze([
+    // Plan "N": Name, Anzeigename und Bild
+    { id: 'profil', titel: 'Profil', symbol: 'konto', text: 'Dein @name und dein Bild', nurMitKonto: true },
     {
         id: 'ausweis',
         titel: 'Deine vindelis-ID',

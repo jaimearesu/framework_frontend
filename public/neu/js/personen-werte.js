@@ -1,5 +1,6 @@
 // Rechnet die Antworten des Backends in das um, was der Reiter «Personen» zeigt.
 // Hier stehen nur reine Funktionen ohne Browser, darum sind sie in tests/neuPersonen.test.mjs geprüft.
+import { menschName, empfaengerAus } from './profil-werte.js';
 
 // Die drei Stufen, die man im Cockpit wählen kann. red schliesst black im Backend NICHT ein,
 // darum bekommt «ändern» immer beide Rollen
@@ -23,10 +24,10 @@ export const darfAus = rollen => {
 
 export const kurzeId = uuid => String(uuid || '').slice(0, 8) + '…';
 
-// Bei Menschen zeigt das Backend nie einen Namen. Dann bleibt nur die gekürzte ID
+// Menschen: Anzeigename oder @name (Plan "N"). Wer noch keinen Namen hat, bleibt die gekürzte ID
 const anzeigeName = (mitglied, ichUuid) => {
     if (ichUuid && mitglied.uuid === ichUuid) return 'Du';
-    if (mitglied.kind === 'mensch') return 'Mensch ' + kurzeId(mitglied.uuid);
+    if (mitglied.kind === 'mensch') return menschName(mitglied) || 'Mensch ' + kurzeId(mitglied.uuid);
     if (mitglied.identifier) return mitglied.name + '/' + mitglied.identifier;
     return mitglied.name || 'Objekt ' + kurzeId(mitglied.uuid);
 };
@@ -47,7 +48,12 @@ export const personAus = (mitglied, ichUuid, teil = null) => ({
     rollen: Array.isArray(mitglied.roles) ? mitglied.roles : [],
     darf: darfAus(mitglied.roles),
     ich: Boolean(ichUuid && mitglied.uuid === ichUuid),
-    teil
+    teil,
+    // Plan "N": für das runde Bild und die zweite Zeile (@name unter dem Anzeigenamen)
+    mensch: mitglied.kind === 'mensch',
+    handle: mitglied.kind === 'mensch' ? mitglied.handle || null : null,
+    displayName: mitglied.kind === 'mensch' ? mitglied.displayName || null : null,
+    hatBild: mitglied.kind === 'mensch' && mitglied.hasAvatar === true
 });
 
 // Die Einträge der Teile selbst (family) sind ein technischer Schutz und niemand, der Zugriff bekam
@@ -152,8 +158,9 @@ export const eingabeFehler = stand => {
             ? ''
             : 'Bitte gib eine gültige E-Mail-Adresse ein.';
     if (stand.worauf === 'teil' && !stand.teil) return 'Bitte wähle einen Teil.';
-    if (stand.weg === 'id' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stand.id.trim()))
-        return 'Das sieht nicht wie eine vindelis-ID aus.';
+    // Plan "N": ein @name geht genauso wie die vindelis-ID
+    if (stand.weg === 'id' && !empfaengerAus(stand.id))
+        return 'Das sieht weder wie ein @name noch wie eine vindelis-ID aus.';
     const anzahl = Number(stand.anzahl);
     if (stand.weg === 'link' && !(Number.isInteger(anzahl) && anzahl >= 1 && anzahl <= 100))
         return 'Die Anzahl Personen muss zwischen 1 und 100 liegen.';
