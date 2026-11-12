@@ -1789,6 +1789,40 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
         }
     },
     {
+        // Admin-Bereich, Stufe 1 (12.11.2026, Migration 052): für Nicht-Admins zu (404),
+        // für Admins Übersicht lesen und ungültige Eingriffe – ändert nie etwas.
+        id: 'admin-area',
+        group: 'SSF',
+        title: 'Admin-Bereich: Türen für Nicht-Admins zu, Übersicht lesen, Eingriff ohne Grund abgelehnt',
+        run: async () => {
+            const ich = await api.get('/api/admin/ich');
+            if (ich.status === 403) return 'Nur mit Login – übersprungen';
+            expectStatus(ich, 200, 'Admin-Frage');
+            const uebersicht = await api.get('/api/admin/uebersicht');
+            if (!ich.data.data.admin) {
+                expectStatus(uebersicht, 404, 'Übersicht für Nicht-Admins');
+                return 'kein Admin – Türen sind zu';
+            }
+            expectStatus(uebersicht, 200, 'Übersicht (Route fehlt? Migration 052?)');
+            const d = uebersicht.data.data;
+            expect(typeof d.accounts === 'number', 'accounts fehlt', uebersicht);
+            expect(Array.isArray(d.tiers), 'tiers fehlt', uebersicht);
+            const leer = await api.get('/api/admin/konten?suche=');
+            expectStatus(leer, 400, 'leere Suche');
+            const niemand = await api.get(
+                '/api/admin/konten?suche=' + encodeURIComponent('@niemand-' + Date.now().toString(36))
+            );
+            expectStatus(niemand, 404, 'unbekannter @name');
+            const me = await api.get('/api/me');
+            const uuid = me.data?.data?.uuid || me.data?.uuid;
+            if (uuid) {
+                const ohneGrund = await api.post('/api/admin/konten/' + uuid + '/gratis-live', { an: true });
+                expectStatus(ohneGrund, 400, 'Eingriff ohne Grund');
+            }
+            return d.accounts + ' Konten, ' + d.sites + ' Websites';
+        }
+    },
+    {
         // Abrechnung (Plan "P", P2): Stand lesen und eine falsche Währung ablehnen.
         // Legt nichts an – bei Stripe entsteht dabei keine Sitzung und kein Kunde.
         id: 'billing-status',

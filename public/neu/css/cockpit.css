@@ -2736,3 +2736,26 @@ body[data-modus='dunkel'] .landing-kopf img {
 .feed-vorschau {
     text-decoration: none;
 }
+
+/* Admin-Bereich (Stufe 1, 12.11.2026): Kacheln mit Kennzahlen */
+.admin-zahlen {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: var(--space-3);
+}
+.admin-zahl {
+    display: grid;
+    gap: var(--space-1);
+    align-content: start;
+}
+.admin-zahl b {
+    font-size: 1.5rem;
+    line-height: 1.2;
+}
+.admin-suche {
+    flex-wrap: nowrap;
+}
+.admin-suche .bp-in {
+    flex: 1;
+    min-width: 0;
+}

@@ -12,7 +12,7 @@ export const DATEN = {
     helfer: [],
     helferFehler: false,
     wartet: [],
-    // Plan "N", Stufe 4: Admin (vom Backend, /api/admin/ich) – zeigt den Menüpunkt «Meldungen»
+    // Plan "N", Stufe 4: Admin (vom Backend, /api/admin/ich) – zeigt den Menüpunkt «Admin»
     admin: false,
     konto: [
         { name: 'Speicher', wert: '374 MB von 1 GB', anteil: 37 },
