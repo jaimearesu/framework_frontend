@@ -127,7 +127,21 @@ export const anmeldeSeite = (alsGast, sprache = startSprache()) => {
                 objektZahl(sprache, t)
             )
         ),
-        landingInhalt(t, sprache)
+        landingInhalt(
+            t,
+            sprache,
+            // «Gratis loslegen» unter den Preisen führt zur gleichen Anmeldung wie oben
+            h(
+                'a',
+                {
+                    class: 'bp-btn bp-btn-p bp-btn-gross',
+                    id: 'preise-loslegen',
+                    href: anmeldeAdresse(),
+                    onclick: () => anmeldungMerken()
+                },
+                t.preiseKnopf
+            )
+        )
     );
 };
 
