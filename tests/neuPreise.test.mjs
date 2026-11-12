@@ -33,6 +33,7 @@ const STUFEN = [
         storageBytes: 500 * MB,
         customDomains: 0,
         siteBytes: 5 * MB,
+        siteFiles: 200,
         siteParts: 200,
         objects: 500,
         uploadLinks: 25,
@@ -49,6 +50,7 @@ const STUFEN = [
         storageBytes: 20 * GB,
         customDomains: 10,
         siteBytes: 30 * MB,
+        siteFiles: 1000,
         siteParts: 1000,
         objects: 10000,
         uploadLinks: 200,
@@ -65,6 +67,7 @@ const STUFEN = [
         storageBytes: 100 * GB,
         customDomains: null,
         siteBytes: 30 * MB,
+        siteFiles: 2000,
         siteParts: 1500,
         objects: 200000,
         uploadLinks: 500,
@@ -139,11 +142,12 @@ describe('Vergleichs-Tabelle', () => {
         const m = matrix(STUFEN);
         assert.deepEqual(m.kopf, ['Grenze', 'Gratis', 'Mittel', 'Plattform']);
         assert.equal(m.empfohlen, 1);
-        assert.equal(m.zeilen.length, 12);
+        assert.equal(m.zeilen.length, 13);
         const zeile = name => m.zeilen.find(z => z[0] === name);
         assert.deepEqual(zeile('Preis pro Monat'), ['Preis pro Monat', '0.–', '19.– CHF', '99.– CHF']);
         assert.deepEqual(zeile('Eigene Domains'), ['Eigene Domains', '–', '10', 'unbegrenzt']);
         assert.deepEqual(zeile('Teile pro Website'), ['Teile pro Website', '200', "1'000", "1'500"]);
+        assert.deepEqual(zeile('Dateien pro Website'), ['Dateien pro Website', '200', "1'000", "2'000"]);
         assert.deepEqual(zeile('Objekte im Konto'), ['Objekte im Konto', '500', "10'000", "200'000"]);
         assert.deepEqual(zeile('Speicher für Dateien'), ['Speicher für Dateien', '500 MB', '20 GB', '100 GB']);
     });
