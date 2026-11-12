@@ -2,7 +2,15 @@
 // nach Stufen – die Stufe wählt man im Reiter «Auslastung»), ohne Browser.
 // Geprüft in tests/neuAbrechnung.test.mjs.
 
-export const WAEHRUNGEN = ['chf', 'eur', 'usd'];
+// Neue Abos gibt es seit 12.11.2026 nur in CHF (vorerst nur Kunden aus der Schweiz und
+// Liechtenstein). Alte Abos in EUR/USD zeigen ihre Währung weiter an.
+export const WAEHRUNGEN = ['chf'];
+
+// Satz unter den Stufen: inkl. MWST (nur wenn Stripe die MWST rechnet) und wer kaufen kann
+export const mwstHinweis = stand =>
+    stand && stand.mwst === true
+        ? 'Alle Preise in CHF inkl. 8.1 % MWST. Abos gibt es vorerst nur mit Adresse in der Schweiz oder in Liechtenstein.'
+        : null;
 
 // Wie der Stand des Abos auf Deutsch heisst
 const STAENDE = {

@@ -1725,7 +1725,7 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             }
             // Mit laufendem Abo kommt 409 (zuerst geprüft), sonst 400 für die falsche Währung
             expect([400, 409].includes(falsch.status), `unerwarteter Status ${falsch.status}`, falsch);
-            return `Stand ${d.status} (${d.stripeMode}), Stufe ${d.currentTier || 'ohne Grenzen'}, Grenzen ${d.enforced ? 'an' : 'aus'}`;
+            return `Stand ${d.status} (${d.stripeMode}), Stufe ${d.currentTier || 'ohne Grenzen'}, Grenzen ${d.enforced ? 'an' : 'aus'}, MWST ${d.mwst ? 'an' : 'aus'}`;
         }
     },
     // Stripe-Webhook (Plan "P", P3): Ohne Unterschrift von Stripe darf er nie etwas ändern.
