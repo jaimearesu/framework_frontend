@@ -1842,6 +1842,7 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             for (const k of [
                 'price',
                 'runs',
+                'siteFiles',
                 'siteParts',
                 'objects',
                 'uploadLinks',
