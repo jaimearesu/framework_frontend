@@ -28,5 +28,11 @@ export const sitzungLaden = async () => {
         testModus: isTestMode()
     };
     DATEN.konto = kontoZeilen(ich.data.limits);
+    // Plan "N": Profil nur für angemeldete Menschen. Klappt es nicht, fehlt einfach der Kopf
+    DATEN.profil = null;
+    if (identitaet.kind === 'user') {
+        const profil = await api.get('/api/profil');
+        if (profil.ok) DATEN.profil = profil.data.data;
+    }
     return { erreichbar: true, art: identitaet.kind };
 };

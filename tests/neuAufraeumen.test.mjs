@@ -127,7 +127,7 @@ describe('Auslastung: feste Filter pro Website', () => {
 });
 
 describe('Konto als Kacheln', () => {
-    test('Gäste sehen nur ID und Grenzen, Angemeldete alle fünf', () => {
+    test('Gäste sehen nur ID und Grenzen, Angemeldete alle sechs', () => {
         assert.deepEqual(
             kontoBereiche({ angemeldet: false, mitId: true, mitGrenzen: true }).map(b => b.id),
             ['ausweis', 'grenzen']
@@ -135,7 +135,7 @@ describe('Konto als Kacheln', () => {
         assert.equal(kontoBereiche({ angemeldet: true, mitId: true, mitGrenzen: true }).length, KONTO_BEREICHE.length);
         assert.deepEqual(
             kontoBereiche({ angemeldet: true, mitId: false, mitGrenzen: false }).map(b => b.id),
-            ['abrechnung', 'benachrichtigungen', 'anmeldung']
+            ['profil', 'abrechnung', 'benachrichtigungen', 'anmeldung']
         );
     });
 

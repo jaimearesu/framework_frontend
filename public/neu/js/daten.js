@@ -5,6 +5,8 @@ export const DATEN = {
     mensch: { name: 'Jaime', id: 'a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d', tage: 30 },
     // Adresse zum Verbinden. Leer, solange das Backend sie nicht gemeldet hat
     mcpAdresse: null,
+    // Plan "N": mein Profil (@name, Anzeigename, Bild) – null = Gast oder nicht geladen
+    profil: null,
     websites: [],
     kaesten: [],
     helfer: [],

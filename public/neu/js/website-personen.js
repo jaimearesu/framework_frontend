@@ -22,6 +22,23 @@ import {
     uebergabeKandidaten
 } from './personen-werte.js';
 import { neuLaden } from './websites.js';
+import { profilBild } from './profil.js';
+
+// Plan "N": Menschen mit rundem Bild (oder Initialen), Anzeigename und @name darunter
+const personName = p =>
+    p.mensch && !p.ich
+        ? h(
+              'span',
+              { class: 'person-name' },
+              profilBild({ uuid: p.id, hatBild: p.hatBild, name: { displayName: p.displayName, handle: p.handle } }),
+              h(
+                  'span',
+                  { class: 'person-name-text' },
+                  h('b', {}, p.name),
+                  p.handle && p.name !== '@' + p.handle ? h('small', { class: 'leise mono' }, '@' + p.handle) : null
+              )
+          )
+        : h('b', {}, p.name);
 
 // Der geladene Stand. Gehört zu genau einer Website
 const FRISCH_MS = 30000;
@@ -252,7 +269,7 @@ const personenTabelle = (site, personen) =>
                     h(
                         'tr',
                         {},
-                        h('td', {}, h('b', {}, p.name)),
+                        h('td', {}, personName(p)),
                         h('td', {}, p.art),
                         h('td', {}, darfText(p)),
                         h(
@@ -440,7 +457,7 @@ const uebergebenOeffnen = (site, kandidaten) => {
                             checked: wahl === p.id,
                             onchange: () => (wahl = p.id)
                         }),
-                        h('span', { class: 'zeile-text' }, h('b', {}, p.name))
+                        h('span', { class: 'zeile-text' }, personName(p))
                     )
                 )
             ),

@@ -1694,6 +1694,35 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
         }
     },
     {
+        // Namen und Profilbilder (Plan "N", Stufe 1, Migration 048): nur lesen und Fehler prüfen –
+        // ändert weder Namen noch Bild (die gehören dem Menschen, nicht dem Check)
+        id: 'profile-names',
+        group: 'SSF',
+        title: 'Profil: eigenes Profil lesen, gesperrte und ungültige Namen werden abgelehnt',
+        run: async () => {
+            const p = await api.get('/api/profil');
+            if (p.status === 403) return 'Profile gibt es nur mit Login – übersprungen';
+            expectStatus(p, 200, 'Profil (Route fehlt? Migration 048?)');
+            const d = p.data.data;
+            expect('handle' in d && typeof d.hasAvatar === 'boolean', 'Felder des Profils fehlen', p);
+            const admin = await api.get('/api/profil/name-frei?name=admin');
+            expectStatus(admin, 200, 'Name frei?');
+            expect(admin.data.data.frei === false, 'gesperrter Name «admin» gilt als frei', admin);
+            const kurz = await api.put('/api/profil', { handle: 'ab' });
+            expectStatus(kurz, 400, 'zu kurzer Name');
+            const fremd = await api.put('/api/profil', { handle: 'x-check', unbekannt: 1 });
+            expectStatus(fremd, 400, 'unbekanntes Feld');
+            const niemand = await api.get('/api/profil/@niemand-heisst-so-' + Date.now().toString(36));
+            expectStatus(niemand, 404, 'unbekannter @name');
+            if (d.handle) {
+                const ich = await api.get('/api/profil/@' + d.handle);
+                expectStatus(ich, 200, 'eigener @name');
+                expect(ich.data.data.uuid, 'UUID zum @namen fehlt', ich);
+            }
+            return d.handle ? '@' + d.handle : 'noch kein Name';
+        }
+    },
+    {
         // Abrechnung (Plan "P", P2): Stand lesen und eine falsche Währung ablehnen.
         // Legt nichts an – bei Stripe entsteht dabei keine Sitzung und kein Kunde.
         id: 'billing-status',
