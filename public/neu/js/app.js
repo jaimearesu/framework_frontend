@@ -3,7 +3,8 @@ import { h, ikon, huelle, LOGOS } from './ui.js';
 import { sucheOeffnen } from './suche.js';
 import { DATEN } from './daten.js';
 import { neueWebsiteOeffnen } from './neue-website.js';
-import { seiteStart, seiteWebsites, seiteKonto, seiteWerkstatt } from './seiten.js';
+import { seiteStart, seiteWebsites, seiteWerkstatt } from './seiten.js';
+import { seiteKonto } from './konto.js';
 import { seiteVerlauf } from './verlauf.js';
 import { seiteAuslastung } from './auslastung.js';
 import { seiteHelfer } from './helfer.js';
@@ -156,6 +157,19 @@ function zeichnen() {
                                   ikon('plus'),
                                   'Neue Website'
                               ),
+                        // Mein Baum (12.11.2026 von der Startseite hierher): immer in der Kopfzeile
+                        h(
+                            'button',
+                            {
+                                class: 'bp-ikonknopf',
+                                id: 'mein-baum',
+                                type: 'button',
+                                'aria-label': 'Mein Baum',
+                                title: 'Mein Baum',
+                                onclick: () => huelle.baumOeffnen()
+                            },
+                            ikon('baum')
+                        ),
                         // Hell/Dunkel steht immer ganz rechts in der Kopfzeile (Wunsch Jaime 10.11.)
                         h(
                             'button',

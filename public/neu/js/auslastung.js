@@ -7,7 +7,18 @@
 import { api } from '../../js/core/api.js';
 import { h, laedtBalken, meldung, dialog, leer } from './ui.js';
 import { mwstHinweis, stripeAdresseOk, WAEHRUNGEN } from './abrechnung-werte.js';
-import { bereichAnsicht, kopfAnsicht, stufenAnsicht, kostendachWahl, websitesAnsicht } from './auslastung-werte.js';
+import {
+    bereichAnsicht,
+    kopfAnsicht,
+    stufenAnsicht,
+    kostendachWahl,
+    websitesAnsicht,
+    websitesFiltern,
+    trendText,
+    WEBSITE_FILTER,
+    FILTER_LEER
+} from './auslastung-werte.js';
+import { teaser } from './teaser.js';
 import { ohneAdresseHinweis } from './benachrichtigung-werte.js';
 import { preisKarte, preisVergleich } from './preise.js';
 import { TEXTE } from './preise-werte.js';
@@ -45,58 +56,106 @@ const bereichKarte = b =>
         b.naechste ? h('span', { class: 'leise' }, 'Nächste Stufe ' + b.naechste) : null
     );
 
-// Pro Website: Name und drei kleine Anteils-Balken
-const websitesKarte = u => {
-    const liste = websitesAnsicht(u);
+// Eine Zeile pro Website: Name, Bewegung zur Vorwoche, drei kleine Anteils-Balken
+const websiteZeile = w => {
+    const trend = trendText(w.woche, w.vorwoche);
     return h(
-        'div',
-        { class: 'bp-karte stapel', id: 'aus-websites' },
-        h('h3', {}, 'Pro Website'),
+        'a',
+        { class: 'zeile zeile-link aus-website', href: '#/website/' + w.uuid },
         h(
-            'span',
-            { class: 'leise' },
-            'Welche Website wie viel verbraucht – der Balken zeigt den Anteil am ganzen Konto.'
-        ),
-        liste.length === 0
-            ? leer('kugel', 'Noch keine Website', 'Sobald du eine Website hast, steht hier ihr Verbrauch.')
-            : h(
-                  'div',
-                  { class: 'zeilen' },
-                  liste.map(w =>
-                      h(
-                          'a',
-                          { class: 'zeile zeile-link aus-website', href: '#/website/' + w.uuid },
-                          h(
-                              'div',
-                              { class: 'zeile-text' },
-                              h('b', {}, w.name),
+            'div',
+            { class: 'zeile-text' },
+            h(
+                'div',
+                { class: 'aus-website-kopf' },
+                h('b', {}, w.name),
+                trend ? h('span', { class: 'aus-trend ' + (w.woche >= w.vorwoche ? 'hoch' : 'runter') }, trend) : null
+            ),
+            h(
+                'div',
+                { class: 'aus-anteile' },
+                w.zeilen.map(([name, wert, anteil]) =>
+                    h(
+                        'div',
+                        { class: 'aus-anteil' },
+                        h('span', { class: 'leise' }, name + ' ' + wert + ' (' + anteil + ' %)'),
+                        h('div', { class: 'balken' }, h('i', { style: 'width:' + Math.min(100, anteil) + '%' }))
+                    )
+                )
+            )
+        )
+    );
+};
+
+// Pro Website (12.11.2026): feste Filter, die ersten 5 sind zu sehen, der Rest fährt mit
+// einem Klick aus dem Schleier auf (teaser.js). Der gewählte Filter bleibt bis zum Neuladen.
+const SICHTBAR = 5;
+let websiteFilter = 'meiste';
+const websitesKarte = u => {
+    const alle = websitesAnsicht(u);
+    const karte = h('div', { class: 'bp-karte stapel', id: 'aus-websites' });
+    const zeichnen = () => {
+        const liste = websitesFiltern(alle, websiteFilter);
+        const zeilen = liste.map(websiteZeile);
+        const listenTeil = h('div', { class: 'zeilen' }, zeilen);
+        // replaceChildren schreibt null als Text hin: darum zuerst die leeren Stellen weg
+        const teile = [
+            h(
+                'div',
+                { class: 'abschnitt-kopf' },
+                h('h3', {}, 'Pro Website'),
+                alle.length > 1
+                    ? h(
+                          'div',
+                          { class: 'bp-segment', role: 'tablist', 'aria-label': 'Filter' },
+                          WEBSITE_FILTER.map(([wert, text]) =>
                               h(
-                                  'div',
-                                  { class: 'aus-anteile' },
-                                  w.zeilen.map(([name, wert, anteil]) =>
-                                      h(
-                                          'div',
-                                          { class: 'aus-anteil' },
-                                          h('span', { class: 'leise' }, name + ' ' + wert + ' (' + anteil + ' %)'),
-                                          h(
-                                              'div',
-                                              { class: 'balken' },
-                                              h('i', { style: 'width:' + Math.min(100, anteil) + '%' })
-                                          )
-                                      )
-                                  )
+                                  'button',
+                                  {
+                                      type: 'button',
+                                      role: 'tab',
+                                      id: 'aus-filter-' + wert,
+                                      'aria-selected': wert === websiteFilter ? 'true' : 'false',
+                                      onclick: () => {
+                                          websiteFilter = wert;
+                                          zeichnen();
+                                      }
+                                  },
+                                  text
                               )
                           )
                       )
-                  )
-              ),
-        u.backupBytes > 0
-            ? h('span', { class: 'leise' }, 'Dazu kommen die Sicherungen der Zeitmaschine (gehören zum Konto).')
-            : null,
-        u.sitesCapped
-            ? h('span', { class: 'leise' }, 'Es werden nur die Websites mit dem meisten Verbrauch gezeigt.')
-            : null
-    );
+                    : null
+            ),
+            h(
+                'span',
+                { class: 'leise' },
+                websiteFilter === 'auf' || websiteFilter === 'ab'
+                    ? 'Ausführungen der letzten 7 Tage gegen die 7 Tage davor.'
+                    : 'Welche Website wie viel verbraucht – der Balken zeigt den Anteil am ganzen Konto.'
+            ),
+            alle.length === 0
+                ? leer('kugel', 'Noch keine Website', 'Sobald du eine Website hast, steht hier ihr Verbrauch.')
+                : liste.length === 0
+                  ? h('p', { class: 'leise', id: 'aus-filter-leer' }, FILTER_LEER[websiteFilter])
+                  : teaser(listenTeil, {
+                        eintraege: () => zeilen,
+                        sichtbar: SICHTBAR,
+                        text: 'Alle ' + liste.length + ' Websites zeigen',
+                        weniger: 'Weniger zeigen',
+                        id: 'aus-websites-teaser'
+                    }),
+            u.backupBytes > 0
+                ? h('span', { class: 'leise' }, 'Dazu kommen die Sicherungen der Zeitmaschine (gehören zum Konto).')
+                : null,
+            u.sitesCapped
+                ? h('span', { class: 'leise' }, 'Es werden nur die Websites mit dem meisten Verbrauch gezeigt.')
+                : null
+        ];
+        karte.replaceChildren(...teile.filter(Boolean));
+    };
+    zeichnen();
+    return karte;
 };
 
 // Zu Stripe (Kauf oder Kundenportal): Adresse holen, prüfen, hinüber
@@ -328,7 +387,7 @@ const inhalt = (u, stand, neuLaden, warn) => {
                           {},
                           'Hinterlege eine Adresse, damit wir dich warnen können, bevor dein Konto voll ist.'
                       ),
-                      h('a', { class: 'bp-btn bp-btn-o', href: '#/konto' }, 'Adresse eintragen')
+                      h('a', { class: 'bp-btn bp-btn-o', href: '#/konto/benachrichtigungen' }, 'Adresse eintragen')
                   )
                 : null,
             k.nurAnzeige

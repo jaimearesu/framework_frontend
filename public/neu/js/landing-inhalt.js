@@ -112,7 +112,8 @@ const abschnittPreise = (t, sprache, knopf) => {
     const abschnitt = h('section', { class: 'landing-abschnitt', id: 'preise', hidden: true }, innen);
     stufenHolen().then(stufen => {
         if (!stufen || !abschnitt.isConnected) return;
-        innen.replaceChildren(
+        // replaceChildren schreibt null als Text hin: darum filter(Boolean)
+        const teile = [
             h('h2', {}, t.preiseTitel),
             h('p', { class: 'landing-lead' }, t.preiseLead),
             h(
@@ -123,7 +124,8 @@ const abschnittPreise = (t, sprache, knopf) => {
             h('p', { class: 'leise' }, PREIS_TEXTE[sprache].immer),
             preisVergleich(stufen, sprache),
             knopf ? h('div', { class: 'landing-knoepfe' }, knopf) : null
-        );
+        ];
+        innen.replaceChildren(...teile.filter(Boolean));
         abschnitt.hidden = false;
     });
     return abschnitt;
