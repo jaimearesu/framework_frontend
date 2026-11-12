@@ -51,6 +51,21 @@ test('Zustand der Karte: lädt, aus, geteilt, pausiert, gesperrt', () => {
     assert.equal(ohneName.zustand, 'gesperrt');
     assert.equal(ohneName.knopf, null);
     assert.equal(ohneName.profilLink, true);
+    assert.equal(geteilt.feedLink, true, 'geteilt: Link zum Feed');
+    assert.equal(pausiert.feedLink, false);
+});
+
+test('Stufe 4: vom Team herausgenommen – kein Knopf, Grund sichtbar', () => {
+    const z = netzwerkZustand({
+        share: share({ visible: false, hidden: true, hiddenReason: 'Werbung' }),
+        canShare: true
+    });
+    assert.equal(z.zustand, 'herausgenommen');
+    assert.equal(z.knopf, null);
+    assert.equal(z.feedLink, false);
+    assert.match(z.text, /aus dem Feed genommen: Werbung/);
+    const ohneGrund = netzwerkZustand({ share: share({ hidden: true, hiddenReason: null }), canShare: true });
+    assert.match(ohneGrund.text, /genommen\. Die Website/);
 });
 
 test('Auftrag und Zähler', () => {

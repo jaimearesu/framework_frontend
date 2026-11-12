@@ -1755,6 +1755,40 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
         }
     },
     {
+        // Plan "N", Stufe 4 (Migration 051): Feed «Entdecken», Melden, Admin.
+        // Liest nur und schickt einen ungültigen Grund – meldet nie wirklich etwas
+        // (der Grund wird vor der Bremse geprüft, verbraucht also nichts).
+        id: 'network-feed',
+        group: 'SSF',
+        title: 'Netzwerk: Feed ohne Anmeldung, ungültige Meldung wird abgelehnt, Admin-Frage',
+        run: async () => {
+            const feed = await api.get('/api/netzwerk/entdecken?limit=3', { anonymous: true });
+            expectStatus(feed, 200, 'Feed (Route fehlt? Migration 051?)');
+            const items = feed.data.data.items;
+            expect(Array.isArray(items), 'items-Liste erwartet', feed);
+            expect(items.length <= 3, 'limit nicht beachtet', feed);
+            expect(
+                items.every(i => !('account' in i) && !('account' in (i.by || {}))),
+                'Konto-UUID darf nicht in den Feed',
+                feed
+            );
+            const kaputt = await api.get('/api/netzwerk/entdecken?nach=kaputt', { anonymous: true });
+            expectStatus(kaputt, 400, 'ungültiger Merkpunkt');
+            const zufall = '00000000-0000-4000-8000-' + Date.now().toString(16).padStart(12, '0').slice(-12);
+            const melden = await api.post(
+                '/api/netzwerk/entdecken/' + zufall + '/melden',
+                { grund: 'gibt-es-nicht' },
+                { anonymous: true }
+            );
+            expectStatus(melden, 400, 'Meldung mit unbekanntem Grund');
+            const ich = await api.get('/api/admin/ich');
+            if (ich.status === 403) return items.length + ' im Feed (Admin-Frage nur mit Login)';
+            expectStatus(ich, 200, 'Admin-Frage (Route fehlt?)');
+            expect(typeof ich.data.data.admin === 'boolean', 'admin: true/false erwartet', ich);
+            return items.length + ' im Feed, ' + (ich.data.data.admin ? 'Admin' : 'kein Admin');
+        }
+    },
+    {
         // Abrechnung (Plan "P", P2): Stand lesen und eine falsche Währung ablehnen.
         // Legt nichts an – bei Stripe entsteht dabei keine Sitzung und kein Kunde.
         id: 'billing-status',

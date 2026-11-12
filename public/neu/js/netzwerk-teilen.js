@@ -207,7 +207,7 @@ export const netzwerkKarte = site => {
         karte.replaceChildren(
             h('h3', {}, z.titel),
             h('span', { class: z.zustand === 'geteilt' ? '' : 'leise', id: 'netzwerk-text' }, z.text),
-            z.knopf || z.profilLink
+            z.knopf || z.profilLink || z.feedLink
                 ? h(
                       'div',
                       { class: 'knopf-reihe' },
@@ -223,7 +223,20 @@ export const netzwerkKarte = site => {
                                 z.knopf
                             )
                           : null,
-                      z.profilLink ? profilLink() : null
+                      z.profilLink ? profilLink() : null,
+                      // Stufe 4: den Feed ansehen, in dem die Website jetzt steht
+                      z.feedLink
+                          ? h(
+                                'a',
+                                {
+                                    class: 'bp-btn bp-btn-g bp-btn-klein',
+                                    href: '/entdecken',
+                                    target: '_blank',
+                                    rel: 'noopener'
+                                },
+                                'Im Feed ansehen'
+                            )
+                          : null
                   )
                 : null
         );

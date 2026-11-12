@@ -6,6 +6,9 @@ import { RECHTLICHES, fussVersatz } from './landing-werte.js';
 import { BEISPIELE, BEISPIEL_TEXTE, BEISPIELE_ONLINE, beispielAdresse } from './beispiele-werte.js';
 import { preisKarte, preisVergleich, stufenHolen } from './preise.js';
 import { stufenKarte, TEXTE as PREIS_TEXTE } from './preise-werte.js';
+import { apiBase } from '../../js/core/config.js';
+import { feedKarte } from './entdecken-karte.js';
+import { feedAdresse } from './entdecken-werte.js';
 
 // «Gebaut mit vindelis»: eine Karte pro Beispiel, mit Bild und Weg zur Geschichte dahinter
 const karteBeispiel = (beispiel, sprache) => {
@@ -60,6 +63,40 @@ const abschnittBeispiele = sprache =>
             )
         )
     );
+
+// Feed «Entdecken» (Plan "N", Stufe 4): die neusten 6 geteilten Websites.
+// Bleibt versteckt, bis es etwas zu zeigen gibt (und wenn das Backend nicht antwortet).
+const ENTDECKEN_TEXTE = {
+    de: { titel: 'Entdecken.', lead: 'Was Menschen mit vindelis gebaut und geteilt haben.', mehr: 'Alle ansehen' },
+    en: { titel: 'Discover.', lead: 'What people built and shared with vindelis.', mehr: 'See all' }
+};
+const abschnittEntdecken = sprache => {
+    const t = ENTDECKEN_TEXTE[sprache] || ENTDECKEN_TEXTE.de;
+    const raster = h('div', { class: 'profilseite-raster feed-raster' });
+    const abschnitt = h(
+        'section',
+        { class: 'landing-abschnitt', id: 'entdecken', hidden: true },
+        h(
+            'div',
+            { class: 'landing-innen' },
+            h('h2', {}, t.titel),
+            h('p', { class: 'landing-lead' }, t.lead),
+            raster,
+            h('div', { class: 'feed-unten' }, h('a', { class: 'bp-btn bp-btn-o', href: '/entdecken' }, t.mehr))
+        )
+    );
+    const basis = String(apiBase() || '').replace(/\/+$/, '');
+    fetch(feedAdresse(basis, { limit: 6 }), { credentials: 'omit' })
+        .then(res => (res.ok ? res.json() : null))
+        .then(antwort => {
+            const items = antwort?.data?.items || [];
+            if (!items.length) return;
+            raster.replaceChildren(...items.map(i => feedKarte(basis, i)));
+            abschnitt.hidden = false;
+        })
+        .catch(() => {});
+    return abschnitt;
+};
 
 const karteVerbinden = ({ name, logo, schritte }) =>
     h(
@@ -184,6 +221,7 @@ export const landingInhalt = (t, sprache, preisKnopf = null) =>
     [
         abschnittVerbinden(t),
         BEISPIELE_ONLINE ? abschnittBeispiele(sprache) : null,
+        abschnittEntdecken(sprache),
         abschnittPreise(t, sprache, preisKnopf),
         h('div', { class: 'landing-ende' }, abschnittAufbau(t), fussBauen(t))
     ].filter(Boolean);

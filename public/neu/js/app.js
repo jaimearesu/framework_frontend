@@ -9,6 +9,7 @@ import { seiteVerlauf } from './verlauf.js';
 import { seiteAuslastung } from './auslastung.js';
 import { seiteHelfer } from './helfer.js';
 import { seiteWartet } from './wartet.js';
+import { seiteMeldungen } from './meldungen.js';
 import { datenLaden, helferLaden } from './websites.js';
 import { seiteWebsite, websiteTitel } from './website.js';
 import { hintergrundStarten } from './hintergrund.js';
@@ -31,6 +32,10 @@ const MENUE = [
     { pfad: '#/konto', text: 'Konto', symbol: 'konto', seite: seiteKonto }
 ];
 const WERKSTATT = { pfad: '#/werkstatt', text: 'Werkstatt', symbol: 'werkstatt', seite: seiteWerkstatt };
+// Plan "N", Stufe 4: der Feed für alle (eigene Seite ausserhalb des Cockpits) und – nur für Admins – die Meldungen
+const ENTDECKEN = { pfad: '/entdecken', text: 'Entdecken', symbol: 'kugel' };
+const MELDUNGEN = { pfad: '#/meldungen', text: 'Meldungen', symbol: 'nachricht', seite: seiteMeldungen };
+const unten = () => (DATEN.admin ? [MELDUNGEN, WERKSTATT] : [WERKSTATT]);
 
 // Hell oder dunkel, pro Browser gemerkt
 const modusLesen = () => {
@@ -58,7 +63,7 @@ const modusWechseln = () => {
 };
 
 // Öffnet die Suche über alles (Strg K)
-const sucheStarten = () => sucheOeffnen([...MENUE, WERKSTATT]);
+const sucheStarten = () => sucheOeffnen([...MENUE, ...unten()]);
 
 // Findet heraus, welche Seite zur Adresse gehört
 const aktuelleSeite = () => {
@@ -68,7 +73,7 @@ const aktuelleSeite = () => {
         return { menue: '#/websites', titel: null, inhalt, name: websiteTitel(teile[1]) };
     }
     const pfad = '#/' + (teile[0] || '');
-    const eintrag = [...MENUE, WERKSTATT].find(m => m.pfad === pfad) || MENUE[0];
+    const eintrag = [...MENUE, ...unten()].find(m => m.pfad === pfad) || MENUE[0];
     return {
         menue: eintrag.pfad,
         name: eintrag.text,
@@ -119,7 +124,12 @@ function zeichnen() {
                     DATEN.mensch.testModus
                         ? h('span', { class: 'bp-badge bp-badge-s', id: 'test-marke' }, 'Test-Modus')
                         : null,
-                    h('nav', { 'aria-label': 'Technik' }, menueLink(WERKSTATT, seite.menue))
+                    h(
+                        'nav',
+                        { 'aria-label': 'Technik' },
+                        menueLink(ENTDECKEN, seite.menue),
+                        unten().map(m => menueLink(m, seite.menue))
+                    )
                 )
             ),
             h(
@@ -246,6 +256,13 @@ const cockpitStarten = ({ baumSteht = false } = {}) => {
         }
     });
     zeichnen();
+    // Plan "N", Stufe 4: Admins sehen zusätzlich «Meldungen» (das Backend entscheidet, wer Admin ist)
+    api.get('/api/admin/ich').then(antwort => {
+        if (antwort.ok && antwort.data?.data?.admin) {
+            DATEN.admin = true;
+            zeichnen();
+        }
+    });
     // Plan "N": beim ersten Mal nach einem @namen fragen (einmal, überspringbar)
     nameFragenWennNoetig();
 };
