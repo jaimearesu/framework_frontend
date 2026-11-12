@@ -9,7 +9,7 @@ import { seiteVerlauf } from './verlauf.js';
 import { seiteAuslastung } from './auslastung.js';
 import { seiteHelfer } from './helfer.js';
 import { seiteWartet } from './wartet.js';
-import { seiteMeldungen } from './meldungen.js';
+import { seiteAdmin } from './admin.js';
 import { datenLaden, helferLaden } from './websites.js';
 import { seiteWebsite, websiteTitel } from './website.js';
 import { hintergrundStarten } from './hintergrund.js';
@@ -32,10 +32,11 @@ const MENUE = [
     { pfad: '#/konto', text: 'Konto', symbol: 'konto', seite: seiteKonto }
 ];
 const WERKSTATT = { pfad: '#/werkstatt', text: 'Werkstatt', symbol: 'werkstatt', seite: seiteWerkstatt };
-// Plan "N", Stufe 4: der Feed für alle (eigene Seite ausserhalb des Cockpits) und – nur für Admins – die Meldungen
+// Plan "N", Stufe 4: der Feed für alle (eigene Seite ausserhalb des Cockpits).
+// Admin-Bereich (Stufe 1, 12.11.2026): nur für Admins – Übersicht, Meldungen, Konten unter #/admin/<reiter>
 const ENTDECKEN = { pfad: '/entdecken', text: 'Entdecken', symbol: 'kugel' };
-const MELDUNGEN = { pfad: '#/meldungen', text: 'Meldungen', symbol: 'nachricht', seite: seiteMeldungen };
-const unten = () => (DATEN.admin ? [MELDUNGEN, WERKSTATT] : [WERKSTATT]);
+const ADMIN = { pfad: '#/admin', text: 'Admin', symbol: 'schild', seite: seiteAdmin };
+const unten = () => (DATEN.admin ? [ADMIN, WERKSTATT] : [WERKSTATT]);
 
 // Hell oder dunkel, pro Browser gemerkt
 const modusLesen = () => {
@@ -67,6 +68,8 @@ const sucheStarten = () => sucheOeffnen([...MENUE, ...unten()]);
 
 // Findet heraus, welche Seite zur Adresse gehört
 const aktuelleSeite = () => {
+    // Alte Adresse der Meldungen (Mail vom 12.11.2026) -> Reiter im Admin-Bereich
+    if (/^#\/meldungen\/?$/.test(location.hash)) history.replaceState(null, '', '#/admin/meldungen');
     const teile = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
     if (teile[0] === 'website') {
         const inhalt = seiteWebsite(teile[1], teile[2], teile[3]);
@@ -256,7 +259,7 @@ const cockpitStarten = ({ baumSteht = false } = {}) => {
         }
     });
     zeichnen();
-    // Plan "N", Stufe 4: Admins sehen zusätzlich «Meldungen» (das Backend entscheidet, wer Admin ist)
+    // Admins sehen zusätzlich «Admin» (das Backend entscheidet, wer Admin ist)
     api.get('/api/admin/ich').then(antwort => {
         if (antwort.ok && antwort.data?.data?.admin) {
             DATEN.admin = true;

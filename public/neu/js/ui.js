@@ -56,6 +56,8 @@ const IKONEN = {
     kugel: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
     tabelle: 'M4 5h16v14H4zM4 10h16M4 15h16M10 5v14',
     nachricht: 'M4 5h16v11H9l-5 4z',
+    // Schild: Admin-Bereich (12.11.2026)
+    schild: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
     brief: 'M3 6h18v12H3zM3 7l9 7 9-7'
 };
 
