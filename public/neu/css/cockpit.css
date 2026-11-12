@@ -581,31 +581,152 @@ body.bp {
 .aus-website {
     align-items: flex-start;
 }
-.aus-stufen {
+/* --- Preisliste (12.11.2026): Karten mit grossem Preis + Vergleichs-Tabelle,
+   im Cockpit (Auslastung) und auf der Startseite (#preise) --- */
+.preis-karten {
     display: grid;
     gap: var(--space-3);
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+    align-items: stretch;
 }
-.aus-stufe {
-    display: grid;
-    gap: var(--space-2);
-    align-content: start;
-    padding: var(--space-4);
+.preis-karte {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-4);
     border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--card-radius, var(--radius));
+    background: var(--bg, transparent);
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
 }
-.aus-stufe.jetzt {
+.preis-karte:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 10%, transparent);
+}
+/* Empfohlen: dunkle Karte (im dunklen Modus hell) – fällt auf, ohne «Show» */
+.preis-karte.empfohlen {
+    background: var(--text);
+    color: var(--surface);
+    border-color: var(--text);
+}
+.preis-karte.empfohlen .preis-kurz,
+.preis-karte.empfohlen .preis-liste,
+.preis-karte.empfohlen .preis-betrag span,
+.preis-karte.empfohlen .leise {
+    color: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+.preis-karte.empfohlen .bp-btn-p {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--surface);
+}
+.preis-karte.empfohlen .bp-btn-o {
+    color: var(--surface);
+    border-color: color-mix(in srgb, var(--surface) 50%, transparent);
+}
+/* Deine Stufe: dicker Rahmen */
+.preis-karte.jetzt {
     border-color: var(--text);
     box-shadow: 0 0 0 1px var(--text);
 }
-.aus-preis {
-    font-weight: 600;
+.preis-kopf {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    flex-wrap: wrap;
 }
-.aus-liste {
+.preis-kopf h3 {
     margin: 0;
-    padding-left: 1.1em;
+    font-size: 1.15rem;
+}
+.preis-abzeichen {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0.15em 0.6em;
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text);
+}
+.preis-kurz {
+    margin: 0;
+    min-height: 2.6em;
     color: var(--muted);
     font-size: var(--text-klein);
+}
+.preis-betrag {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.preis-betrag b {
+    font-size: clamp(2rem, 3vw, 2.6rem);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+.preis-betrag span {
+    color: var(--muted);
+    font-size: var(--text-klein);
+}
+.preis-karte .bp-btn {
+    width: 100%;
+    justify-content: center;
+}
+.preis-liste {
+    margin: 0;
+    padding: var(--space-3) 0 0;
+    list-style: none;
+    display: grid;
+    gap: 6px;
+    border-top: var(--border-width) solid color-mix(in srgb, currentColor 18%, transparent);
+    font-size: var(--text-klein);
+    color: var(--muted);
+}
+.preis-liste li {
+    position: relative;
+    padding-left: 1.4em;
+}
+.preis-liste li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+    color: currentColor;
+}
+.preis-vergleich summary {
+    cursor: pointer;
+    font-weight: 600;
+    padding: var(--space-2) 0;
+}
+.preis-vergleich[open] summary {
+    margin-bottom: var(--space-2);
+}
+.preis-tabelle th[scope='row'] {
+    color: var(--text);
+    font-weight: 500;
+}
+.preis-tabelle td {
+    font-variant-numeric: tabular-nums;
+}
+.preis-tabelle .empfohlen {
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+    font-weight: 600;
+}
+.preis-tabelle thead th.empfohlen {
+    color: var(--text);
+}
+@media (prefers-reduced-motion: reduce) {
+    .preis-karte,
+    .preis-karte:hover {
+        transition: none;
+        transform: none;
+    }
 }
 .aus-wahl {
     width: auto;

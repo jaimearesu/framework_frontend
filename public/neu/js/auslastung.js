@@ -9,6 +9,8 @@ import { h, laedtBalken, meldung, dialog, leer } from './ui.js';
 import { mwstHinweis, stripeAdresseOk, WAEHRUNGEN } from './abrechnung-werte.js';
 import { bereichAnsicht, kopfAnsicht, stufenAnsicht, kostendachWahl, websitesAnsicht } from './auslastung-werte.js';
 import { ohneAdresseHinweis } from './benachrichtigung-werte.js';
+import { preisKarte, preisVergleich } from './preise.js';
+import { TEXTE } from './preise-werte.js';
 
 // Fehlermeldung des Backends zeigen (Texte immer als Text, nie als HTML)
 const fehler = antwort =>
@@ -229,34 +231,26 @@ const stufenKarte = (u, stand, neuLaden) => {
             : null,
         waehlen ? h('div', { class: 'bp-segment', role: 'tablist', 'aria-label': 'Währung' }, waehlKnoepfe) : null,
         mwstHinweis(stand) ? h('span', { class: 'leise', id: 'aus-mwst' }, mwstHinweis(stand)) : null,
+        // Karten wie bei anderen Anbietern: grosser Preis, ein Satz, «Empfohlen» (12.11.2026)
         h(
             'div',
-            { class: 'aus-stufen' },
+            { class: 'preis-karten' },
             stufen.map((s, i) =>
-                h(
-                    'div',
-                    { class: 'aus-stufe' + (s.jetzt ? ' jetzt' : ''), id: 'aus-stufe-karte-' + s.id },
-                    h(
-                        'div',
-                        { class: 'kennzahl' },
-                        h('b', {}, s.name),
-                        s.jetzt
-                            ? h('span', { class: 'bp-st bp-st-ok' }, 'Deine Stufe')
-                            : s.passt
-                              ? h('span', { class: 'bp-st bp-st-info' }, 'Passt zu dir')
-                              : null
-                    ),
-                    h('span', { class: 'aus-preis' }, s.preis),
-                    h(
-                        'ul',
-                        { class: 'aus-liste' },
-                        s.zeilen.map(z => h('li', {}, z))
-                    ),
-                    s.notiz ? h('span', { class: 'leise' }, s.notiz) : null,
-                    knopfFuer(s, i)
-                )
+                preisKarte(s.karte, 'de', {
+                    id: 'aus-stufe-karte-' + s.id,
+                    jetzt: s.jetzt,
+                    abzeichen: s.jetzt
+                        ? h('span', { class: 'bp-st bp-st-ok' }, 'Deine Stufe')
+                        : s.passt
+                          ? h('span', { class: 'bp-st bp-st-info' }, 'Passt zu dir')
+                          : null,
+                    knopf: knopfFuer(s, i),
+                    notiz: s.notiz
+                })
             )
         ),
+        h('p', { class: 'leise' }, TEXTE.de.immer),
+        preisVergleich(u.tiers, 'de'),
         kostendachTeil(u, stand, neuLaden)
     );
 };

@@ -49,9 +49,10 @@ test('Ohne Speicher geht nichts kaputt', () => {
     assert.equal(anmeldungHolen(kaputt), false);
 });
 
-test('Beide Anmelde-Links der Startseite merken sich den Klick', () => {
+test('Alle Anmelde-Links der Startseite merken sich den Klick (oben, Knopf, unter den Preisen)', () => {
     const code = lies('js/anmelden.js');
-    assert.equal(code.match(/onclick: \(\) => anmeldungMerken\(\)/g).length, 2);
+    assert.equal(code.match(/onclick: \(\) => anmeldungMerken\(\)/g).length, 3);
+    assert.match(code, /id: 'preise-loslegen'/);
     assert.match(code, /id: 'als-gast'/);
 });
 

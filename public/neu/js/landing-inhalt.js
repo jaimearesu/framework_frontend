@@ -4,6 +4,8 @@ import { h, kopierZeile } from './ui.js';
 import { mcpAdresseLive } from './sitzung.js';
 import { RECHTLICHES, fussVersatz } from './landing-werte.js';
 import { BEISPIELE, BEISPIEL_TEXTE, BEISPIELE_ONLINE, beispielAdresse } from './beispiele-werte.js';
+import { preisKarte, preisVergleich, stufenHolen } from './preise.js';
+import { stufenKarte, TEXTE as PREIS_TEXTE } from './preise-werte.js';
 
 // «Gebaut mit vindelis»: eine Karte pro Beispiel, mit Bild und Weg zur Geschichte dahinter
 const karteBeispiel = (beispiel, sprache) => {
@@ -102,6 +104,31 @@ const abschnittAufbau = t =>
         )
     );
 
+// Preise (12.11.2026): Karten aller Stufen + aufklappbarer Vergleich. Die Zahlen kommen vom Backend
+// (GET /api/billing/stufen, ohne Anmeldung). Kommen keine, bleibt der Abschnitt versteckt.
+// knopf = der «Gratis loslegen»-Knopf (kommt von anmelden.js, weil er dort die Anmeldung kennt)
+const abschnittPreise = (t, sprache, knopf) => {
+    const innen = h('div', { class: 'landing-innen' });
+    const abschnitt = h('section', { class: 'landing-abschnitt', id: 'preise', hidden: true }, innen);
+    stufenHolen().then(stufen => {
+        if (!stufen || !abschnitt.isConnected) return;
+        innen.replaceChildren(
+            h('h2', {}, t.preiseTitel),
+            h('p', { class: 'landing-lead' }, t.preiseLead),
+            h(
+                'div',
+                { class: 'preis-karten' },
+                stufen.map(s => preisKarte(stufenKarte(s, sprache), sprache))
+            ),
+            h('p', { class: 'leise' }, PREIS_TEXTE[sprache].immer),
+            preisVergleich(stufen, sprache),
+            knopf ? h('div', { class: 'landing-knoepfe' }, knopf) : null
+        );
+        abschnitt.hidden = false;
+    });
+    return abschnitt;
+};
+
 const rechtlichEintrag = (text, href, folgt) =>
     h('li', {}, href ? h('a', { href }, text) : h('span', {}, text, h('small', {}, folgt)));
 
@@ -151,9 +178,10 @@ const fussBauen = t => {
 // Der letzte Abschnitt und der Footer gehören zusammen: So bleibt der Footer versteckt, bis man unten ankommt
 // sprache = 'de' oder 'en' (für die Beispiele, deren Texte in beispiele-werte.js stehen)
 // Die Beispiele erscheinen nur, wenn der Schalter BEISPIELE_ONLINE (beispiele-werte.js) an ist
-export const landingInhalt = (t, sprache) =>
+export const landingInhalt = (t, sprache, preisKnopf = null) =>
     [
         abschnittVerbinden(t),
         BEISPIELE_ONLINE ? abschnittBeispiele(sprache) : null,
+        abschnittPreise(t, sprache, preisKnopf),
         h('div', { class: 'landing-ende' }, abschnittAufbau(t), fussBauen(t))
     ].filter(Boolean);

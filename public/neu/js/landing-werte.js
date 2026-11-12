@@ -98,6 +98,11 @@ export const TEXTE = {
             }
         ],
         aufbauTitel: 'So ist vindelis aufgebaut.',
+        // Preise (12.11.2026): Stufen-Karten + Vergleich, Zahlen von GET /api/billing/stufen
+        preiseTitel: 'Einfache Preise. Gratis starten.',
+        preiseLead:
+            'Bauen, testen und veröffentlichen kosten nie etwas. Bezahlt wird erst, wenn deine Websites mehr brauchen – nach Verbrauch des ganzen Kontos, monatlich kündbar. Preise inkl. MWST.',
+        preiseKnopf: 'Gratis loslegen',
         aufbau: [
             {
                 titel: 'Alles ist ein Baustein',
@@ -161,6 +166,10 @@ export const TEXTE = {
             }
         ],
         aufbauTitel: 'How vindelis works.',
+        preiseTitel: 'Simple pricing. Start for free.',
+        preiseLead:
+            'Building, testing and publishing never cost anything. You only pay once your websites need more – based on what the whole account uses, cancel any month. Prices incl. Swiss VAT.',
+        preiseKnopf: 'Start for free',
         aufbau: [
             {
                 titel: 'Everything is a building block',

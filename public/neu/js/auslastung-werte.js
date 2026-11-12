@@ -2,6 +2,7 @@
 // Aus der Antwort von GET /api/billing/usage (und GET /api/billing) wird, was auf dem
 // Bildschirm steht: Balken pro Bereich, «noch Platz», Anteile pro Website, die Stufen
 // mit dem passenden Knopf. Geprüft in tests/neuAuslastung.test.mjs.
+import { kartenZeilen, stufenKarte } from './preise-werte.js';
 
 // Namen und Erklärung der vier Bereiche (Reihenfolge wie im Backend)
 export const BEREICHE = {
@@ -193,18 +194,9 @@ export const stufenAnsicht = (u, stand) => {
             preis: preisText(t.price, stand.currency || 'chf'),
             jetzt: t.id === gebucht && !stand.freeLive,
             passt: i === neededRang,
-            zeilen: [
-                zahl(t.runs) + ' Ausführungen / Monat',
-                zahl(t.dataRows) + ' Datensätze',
-                bytes(t.storageBytes) + ' Dateien',
-                t.customDomains === null
-                    ? 'Eigene Domains unbegrenzt'
-                    : t.customDomains === 0
-                      ? 'Keine eigene Domain'
-                      : t.customDomains + ' eigene Domains',
-                // Komfort-Grenze (11.11.2026): wie gross eine Website sein darf
-                ...(t.siteBytes ? ['Websites bis ' + bytes(t.siteBytes)] : [])
-            ],
+            // Karte mit grossem Preis, Satz und den wichtigsten Grenzen (preise-werte.js, 12.11.2026)
+            karte: stufenKarte(t, 'de', stand.currency || 'chf'),
+            zeilen: kartenZeilen(t, 'de'),
             knopf,
             notiz
         };

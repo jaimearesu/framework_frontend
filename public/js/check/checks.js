@@ -1728,6 +1728,37 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             return `Stand ${d.status} (${d.stripeMode}), Stufe ${d.currentTier || 'ohne Grenzen'}, Grenzen ${d.enforced ? 'an' : 'aus'}, MWST ${d.mwst ? 'an' : 'aus'}`;
         }
     },
+    {
+        // Öffentliche Preisliste (12.11.2026): Startseite zeigt Stufen ohne Anmeldung.
+        // Alle Grenzen pro Stufe dabei, Gratis hat 500 Objekte und 200 Teile pro Website.
+        id: 'billing-public-tiers',
+        group: 'SSF',
+        title: 'Preisliste: alle Stufen mit Preis und Grenzen, ohne Anmeldung',
+        run: async () => {
+            const r = await api.get('/api/billing/stufen', { anonymous: true });
+            expectStatus(r, 200, 'Preisliste (Route fehlt? Backend deployed?)');
+            const t = r.data.data.tiers || [];
+            expect(
+                t.map(x => x.id).join(',') === 'gratis,klein,mittel,gross,plattform',
+                'Stufen: ' + t.map(x => x.id),
+                r
+            );
+            const gratis = t[0];
+            for (const k of [
+                'price',
+                'runs',
+                'siteParts',
+                'objects',
+                'uploadLinks',
+                'liveConnections',
+                'openJobs',
+                'vectorTokens'
+            ])
+                expect(k in gratis, 'Grenze fehlt: ' + k, r);
+            expect(gratis.price === 0, 'Gratis kostet nichts', r);
+            return `Gratis: ${gratis.objects} Objekte, ${gratis.siteParts} Teile pro Website, ${gratis.uploadLinks} offene Upload-Adressen`;
+        }
+    },
     // Stripe-Webhook (Plan "P", P3): Ohne Unterschrift von Stripe darf er nie etwas ändern.
     {
         id: 'billing-webhook-signature',
