@@ -3,6 +3,7 @@
 import { api } from '../../js/core/api.js';
 import { invalidateObjects } from '../../js/core/objects.js';
 import { h, dialog, meldung } from './ui.js';
+import { darfTeilen, teilenFragen } from './netzwerk-teilen.js';
 import { teileGekappt, veroeffentlichenAuftrag, veroeffentlichenWahl } from './website-werte.js';
 
 export const veroeffentlichenOeffnen = (w, site, fertig) => {
@@ -32,6 +33,8 @@ export const veroeffentlichenOeffnen = (w, site, fertig) => {
                     invalidateObjects();
                     meldung('Veröffentlicht', w.adresse);
                     await fertig();
+                    // Plan "N", Stufe 3: gleich fragen, ob sie im Netzwerk erscheinen soll
+                    if (darfTeilen(site)) teilenFragen(site, { nachVeroeffentlichen: true, fertig });
                 }
             },
             'Jetzt veröffentlichen'

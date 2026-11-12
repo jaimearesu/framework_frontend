@@ -98,6 +98,8 @@ export const bitteAusApi = (eintrag, namen = {}, jetzt = Date.now()) => ({
     art: 'Veröffentlichen',
     website: eintrag.objectName,
     ziel: eintrag.objectUuid,
+    // Was nach dem Freigeben gilt (Plan "N", Stufe 3: bei «öffentlich» fragen wir nach dem Teilen)
+    neueSichtbarkeit: eintrag.visibility || null,
     was: describeRequest(eintrag),
     ausnahmen: (Array.isArray(eintrag.except) ? eintrag.except : []).map(u => namen[u] || String(u).slice(0, 8)),
     stand: 'Jetzt ' + (SICHTBAR[eintrag.currentVisibility] || eintrag.currentVisibility),

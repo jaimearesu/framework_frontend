@@ -4,6 +4,7 @@ import { formatNumber, timeAgo } from '../../js/core/format.js';
 import { problemKindText, repairPrompt } from '../../js/core/view.js';
 import { h, meldung, laedtBalken } from './ui.js';
 import { vorschauBild } from './seiten.js';
+import { netzwerkKarte } from './netzwerk-teilen.js';
 import { zustandZeilen } from './website-werte.js';
 
 // Der gewählte Zeitraum bleibt, auch wenn die Seite neu gezeichnet wird
@@ -248,5 +249,5 @@ export const reiterUebersicht = (w, site, neuHolen) =>
             site.rights?.write ? problemeKarte(site) : null,
             vorschauBlock(w, site, neuHolen)
         ),
-        h('div', { class: 'stapel' }, zustandKarte(site), notizKarte(site))
+        h('div', { class: 'stapel' }, zustandKarte(site), netzwerkKarte(site), notizKarte(site))
     );
