@@ -1729,6 +1729,32 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
         }
     },
     {
+        // Plan "N", Stufe 3 (Migration 050): Websites im Netzwerk teilen.
+        // Liest nur und schickt ungültige Anfragen – teilt nie wirklich etwas.
+        id: 'network-share',
+        group: 'SSF',
+        title: 'Netzwerk: geteilte Websites lesen, fremde Website und leerer Titel werden abgelehnt',
+        run: async () => {
+            const meine = await api.get('/api/netzwerk/meine');
+            if (meine.status === 403) return 'Teilen gibt es nur mit Login – übersprungen';
+            expectStatus(meine, 200, 'Meine geteilten Websites (Route fehlt? Migration 050?)');
+            expect(Array.isArray(meine.data.data), 'Liste erwartet', meine);
+            expect(
+                meine.data.data.every(e => !('account' in e)),
+                'Konto-UUID darf nicht ins Cockpit',
+                meine
+            );
+            const zufall = '00000000-0000-4000-8000-' + Date.now().toString(16).padStart(12, '0').slice(-12);
+            const fremd = await api.get('/api/netzwerk/websites/' + zufall);
+            expectStatus(fremd, 404, 'unbekannte Website');
+            const leer = await api.put('/api/netzwerk/websites/' + zufall, { title: '' });
+            expectStatus(leer, 400, 'leerer Titel');
+            const kaputt = await api.get('/api/netzwerk/websites/kaputt');
+            expectStatus(kaputt, 400, 'ungültige UUID');
+            return meine.data.data.length + ' geteilt';
+        }
+    },
+    {
         // Abrechnung (Plan "P", P2): Stand lesen und eine falsche Währung ablehnen.
         // Legt nichts an – bei Stripe entsteht dabei keine Sitzung und kein Kunde.
         id: 'billing-status',

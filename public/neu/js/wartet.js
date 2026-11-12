@@ -6,6 +6,7 @@ import { api } from '../../js/core/api.js';
 import { href } from '../../js/core/routes.js';
 import { h, ikon, meldung, leer, dialog } from './ui.js';
 import { DATEN } from './daten.js';
+import { darfTeilen, teilenFragen } from './netzwerk-teilen.js';
 import { neuLaden } from './websites.js';
 
 // Die alte Adresse wird beim Öffnen übersetzt: Website = neues Cockpit, einzelner Teil = altes
@@ -24,6 +25,15 @@ const ansehenLink = e =>
 
 // Freigeben kann nur, wer ein Konto hat. Das prüft auch das Backend
 const darfFreigeben = () => DATEN.mensch.art === 'user';
+
+// Plan "N", Stufe 3: Ist mit der Freigabe eine ganze Website online gegangen, fragen wir nach dem Teilen.
+// Nur bei einer Wurzel (für ein einzelnes Teil antwortet /api/websites mit 404 – dann nichts)
+const nachFreigabeTeilen = async uuid => {
+    if (!uuid) return;
+    const antwort = await api.get('/api/websites/' + encodeURIComponent(uuid));
+    const site = antwort.ok ? antwort.data?.data : null;
+    if (site && site.visibility === 'public' && darfTeilen(site)) teilenFragen(site, { nachVeroeffentlichen: true });
+};
 
 // Fragt nach, sagt genau was passiert und nimmt eine Notiz an die KI entgegen
 const bitteEntscheidenOeffnen = (e, freigeben) =>
@@ -58,6 +68,7 @@ const bitteEntscheidenOeffnen = (e, freigeben) =>
                     zu();
                     meldung(freigeben ? 'Freigegeben' : 'Abgelehnt', e.website);
                     await neuLaden();
+                    if (freigeben && e.neueSichtbarkeit === 'public') nachFreigabeTeilen(e.ziel);
                 }
             },
             freigeben ? 'Ja, freigeben' : 'Ablehnen'
