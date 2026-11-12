@@ -248,6 +248,93 @@ body.bp {
     display: grid;
     min-width: 0;
 }
+.wahl.gesperrt {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* Öffentliche Profilseite /@name (Plan "N", Stufe 2) */
+.profilbild-riesig {
+    width: 128px;
+    height: 128px;
+    font-size: 40px;
+}
+.profilseite-innen {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    max-width: 880px;
+    margin: 0 auto;
+    padding: var(--space-5) 16px var(--space-6);
+}
+.profilseite-kopf {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-2);
+}
+.profilseite-kopf h1 {
+    margin: var(--space-3) 0 0;
+    overflow-wrap: anywhere;
+}
+.profilseite-bio {
+    max-width: 520px;
+    margin: var(--space-2) 0 0;
+    overflow-wrap: anywhere;
+}
+.profilseite-raster {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+    gap: var(--space-4);
+}
+.bp a.profilseite-website {
+    display: grid;
+    gap: var(--space-3);
+    color: var(--text);
+    text-decoration: none;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+.bp a.profilseite-website:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-2);
+}
+.profilseite-vorschau {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 10;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--surface-2);
+}
+.profilseite-vorschau img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+}
+.profilseite-vorschau-leer {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--muted);
+}
+.profilseite-website-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+.profilseite-website-text span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.profilseite-fuss {
+    text-align: center;
+    font-size: var(--text-klein);
+}
+
 .profil-frage-kopf {
     margin-bottom: var(--space-2);
 }

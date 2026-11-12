@@ -1698,7 +1698,7 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
         // ändert weder Namen noch Bild (die gehören dem Menschen, nicht dem Check)
         id: 'profile-names',
         group: 'SSF',
-        title: 'Profil: eigenes Profil lesen, gesperrte und ungültige Namen werden abgelehnt',
+        title: 'Profil: eigenes Profil und Profilseite lesen, gesperrte und ungültige Namen werden abgelehnt',
         run: async () => {
             const p = await api.get('/api/profil');
             if (p.status === 403) return 'Profile gibt es nur mit Login – übersprungen';
@@ -1714,6 +1714,12 @@ return { ticket: t.ticket.slice(0, 4), bis: t.gueltigBis, s, falsch };`
             expectStatus(fremd, 400, 'unbekanntes Feld');
             const niemand = await api.get('/api/profil/@niemand-heisst-so-' + Date.now().toString(36));
             expectStatus(niemand, 404, 'unbekannter @name');
+            // Stufe 2 (Migration 049): Schalter der Profilseite, öffentlich unbekannt = 404
+            expect(typeof d.publicEnabled === 'boolean', 'publicEnabled fehlt (Migration 049?)', p);
+            const seiten = await api.get('/api/profil/websites');
+            expectStatus(seiten, 200, 'Websites der Profilseite');
+            const seite = await api.get('/api/profil/oeffentlich/@niemand-heisst-so-' + Date.now().toString(36));
+            expectStatus(seite, 404, 'unbekannte Profilseite');
             if (d.handle) {
                 const ich = await api.get('/api/profil/@' + d.handle);
                 expectStatus(ich, 200, 'eigener @name');

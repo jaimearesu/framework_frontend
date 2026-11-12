@@ -4,7 +4,8 @@
 //   - profilBereich(): Konto → Profil, dort Name, Anzeigename und Bild ändern
 //   - nameFragenWennNoetig(): beim ersten Öffnen einmal freundlich nach einem @namen fragen
 // Alles nur für angemeldete Menschen. Texte immer über h()/textContent (nie innerHTML).
-import { h, ikon, dialog, meldung, huelle } from './ui.js';
+import { h, ikon, dialog, meldung, huelle, kopierZeile, laedtBalken } from './ui.js';
+import { auswahlListe, gewaehlteUuids, seitenAdresse } from './profil-seite-werte.js';
 import { api } from '../../js/core/api.js';
 import { DATEN } from './daten.js';
 import { initialen, profilTitel, nameNormal, nameFormFehler, wechselText, sollNameFragen } from './profil-werte.js';
@@ -266,14 +267,155 @@ export const profilBereich = () => {
                     class: 'bp-in',
                     value: stand.anzeige,
                     maxlength: 60,
-                    placeholder: 'z.B. Anna Muster',
+                    placeholder: 'z.B. Captain James T. Kirk',
                     oninput: e => (stand.anzeige = e.target.value)
                 })
             ),
             fehler,
             h('div', {}, knopf)
         ),
-        bildKarte()
+        bildKarte(),
+        oeffentlichKarte()
+    );
+};
+
+// ---------------------------------------------------------------------
+// Öffentliche Profilseite (Plan "N", Stufe 2): vindelis.com/@name
+// Aus, bis man sie einschaltet. Ein Satz über mich und welche Websites drauf stehen.
+// ---------------------------------------------------------------------
+const oeffentlichKarte = () => {
+    const p = DATEN.profil || {};
+    const adresse = seitenAdresse(location.origin, p.handle);
+    const stand = { an: p.publicEnabled === true, bio: p.bio || '', liste: null };
+    const fehler = h('div', { class: 'bp-hinweis bp-h-gefahr', id: 'profilseite-fehler', hidden: true });
+    const zeigeFehler = text => {
+        fehler.textContent = text;
+        fehler.hidden = !text;
+    };
+    const listeBox = h('div', { class: 'stapel', id: 'profilseite-auswahl' }, laedtBalken());
+
+    // Websites laden: meine (mit Rechten und Sichtbarkeit) und die schon gewählten
+    const zeichneListe = () => {
+        if (!stand.liste) return;
+        if (!stand.liste.length) {
+            listeBox.replaceChildren(
+                h('span', { class: 'leise' }, 'Du verwaltest noch keine Website, die du zeigen könntest.')
+            );
+            return;
+        }
+        listeBox.replaceChildren(
+            ...stand.liste.map(w =>
+                h(
+                    'label',
+                    { class: 'wahl' + (w.waehlbar ? '' : ' gesperrt') },
+                    h('input', {
+                        type: 'checkbox',
+                        value: w.uuid,
+                        checked: w.gewaehlt,
+                        disabled: !w.waehlbar,
+                        onchange: e => (w.gewaehlt = e.target.checked)
+                    }),
+                    h(
+                        'span',
+                        { class: 'zeile-text' },
+                        h('b', {}, w.name),
+                        w.grund ? h('small', { class: 'leise' }, ' – ' + w.grund) : null
+                    )
+                )
+            )
+        );
+    };
+    Promise.all([api.get('/api/websites'), api.get('/api/profil/websites')]).then(([alle, gewaehlt]) => {
+        if (!alle.ok || !gewaehlt.ok) {
+            listeBox.replaceChildren(h('span', { class: 'leise' }, alle.error || gewaehlt.error));
+            return;
+        }
+        stand.liste = auswahlListe(
+            alle.data.data,
+            gewaehlt.data.data.map(w => w.uuid)
+        );
+        zeichneListe();
+    });
+
+    const knopf = h('button', { class: 'bp-btn bp-btn-p', type: 'button', id: 'profilseite-speichern' }, 'Speichern');
+    knopf.onclick = async () => {
+        zeigeFehler('');
+        knopf.disabled = true;
+        const profil = await api.put('/api/profil', { publicEnabled: stand.an, bio: stand.bio.trim() || null });
+        let sites = { ok: true };
+        if (profil.ok && stand.liste)
+            sites = await api.put('/api/profil/websites', { sites: gewaehlteUuids(stand.liste) });
+        knopf.disabled = false;
+        if (!profil.ok) return zeigeFehler(profil.error);
+        if (!sites.ok) return zeigeFehler(sites.error);
+        meldung(
+            stand.an ? 'Profilseite ist online' : 'Profilseite gespeichert',
+            stand.an ? adresse : 'Sie ist ausgeschaltet.'
+        );
+        merken(profil.data.data);
+    };
+
+    return h(
+        'div',
+        { class: 'bp-karte stapel', id: 'profilseite-karte' },
+        h('h3', {}, 'Öffentliche Profilseite'),
+        h(
+            'span',
+            { class: 'leise' },
+            'Eine Seite für alle, mit Bild, Name, einem Satz und den Websites, die du zeigen willst. Aus, bis du sie einschaltest.'
+        ),
+        p.handle
+            ? h(
+                  'label',
+                  { class: 'wahl' },
+                  h('input', {
+                      type: 'checkbox',
+                      id: 'profilseite-an',
+                      checked: stand.an,
+                      onchange: e => (stand.an = e.target.checked)
+                  }),
+                  h('span', { class: 'zeile-text' }, h('b', {}, 'Profilseite einschalten'))
+              )
+            : h(
+                  'div',
+                  { class: 'bp-hinweis bp-h-info' },
+                  'Wähl zuerst oben einen @namen – er ist die Adresse der Seite.'
+              ),
+        adresse && p.publicEnabled ? kopierZeile(adresse) : null,
+        h(
+            'div',
+            { class: 'bp-feld' },
+            h('label', { for: 'profilseite-bio' }, 'Ein Satz über dich (freiwillig)'),
+            h('textarea', {
+                id: 'profilseite-bio',
+                class: 'bp-in',
+                rows: 2,
+                maxlength: 160,
+                placeholder: 'z.B. Kapitän der Enterprise. Baue Websites für die Crew.',
+                value: stand.bio,
+                oninput: e => (stand.bio = e.target.value)
+            })
+        ),
+        h('div', { class: 'bp-feld' }, h('label', {}, 'Diese Websites zeigen'), listeBox),
+        fehler,
+        h(
+            'div',
+            { class: 'knopf-reihe' },
+            knopf,
+            adresse && p.publicEnabled
+                ? h(
+                      'a',
+                      {
+                          class: 'bp-btn bp-btn-o',
+                          href: adresse,
+                          target: '_blank',
+                          rel: 'noopener',
+                          id: 'profilseite-ansehen'
+                      },
+                      'Ansehen'
+                  )
+                : null
+        )
     );
 };
 

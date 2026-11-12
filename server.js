@@ -126,6 +126,13 @@ app.get(/^\/beispiele\/[a-z0-9-]{1,60}\/?$/, (req, res) => {
     res.sendFile(BEISPIEL_SEITE);
 });
 
+// Öffentliche Profilseite (Plan "N", Stufe 2): vindelis.com/@name – offen für alle, ohne Cockpit.
+// Ob es das Profil gibt und ob es eingeschaltet ist, fragt die Seite selbst beim Backend.
+const PROFIL_SEITE = path.join(__dirname, 'public', 'neu', 'profil.html');
+app.get(/^\/@[A-Za-z0-9-]{1,40}\/?$/, (req, res) => {
+    res.sendFile(PROFIL_SEITE);
+});
+
 app.get('*', (req, res) => {
     res.sendFile(COCKPIT_NEU);
 });
