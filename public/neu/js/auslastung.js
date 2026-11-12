@@ -6,7 +6,7 @@
 // Bezahlt wird immer bei Stripe – vindelis sieht keine Kartendaten.
 import { api } from '../../js/core/api.js';
 import { h, laedtBalken, meldung, dialog, leer } from './ui.js';
-import { stripeAdresseOk, WAEHRUNGEN } from './abrechnung-werte.js';
+import { mwstHinweis, stripeAdresseOk, WAEHRUNGEN } from './abrechnung-werte.js';
 import { bereichAnsicht, kopfAnsicht, stufenAnsicht, kostendachWahl, websitesAnsicht } from './auslastung-werte.js';
 import { ohneAdresseHinweis } from './benachrichtigung-werte.js';
 
@@ -160,8 +160,12 @@ const wechselnFragen = (stufe, hoeher, neuLaden) =>
 // Die Stufen nebeneinander, mit Knopf
 const stufenKarte = (u, stand, neuLaden) => {
     let waehrung = stand.currency || 'chf';
+    // Währung wählen nur, wenn es mehr als eine gibt (seit 12.11.2026 nur CHF)
     const waehlen =
-        !stand.currency && stand.stripeEnabled === true && !['active', 'past_due', 'paused'].includes(stand.status);
+        WAEHRUNGEN.length > 1 &&
+        !stand.currency &&
+        stand.stripeEnabled === true &&
+        !['active', 'past_due', 'paused'].includes(stand.status);
     const stufen = stufenAnsicht(u, stand);
     const gebuchtRang = stufen.findIndex(s => s.jetzt);
     const waehlKnoepfe = WAEHRUNGEN.map(w =>
@@ -224,6 +228,7 @@ const stufenKarte = (u, stand, neuLaden) => {
               )
             : null,
         waehlen ? h('div', { class: 'bp-segment', role: 'tablist', 'aria-label': 'Währung' }, waehlKnoepfe) : null,
+        mwstHinweis(stand) ? h('span', { class: 'leise', id: 'aus-mwst' }, mwstHinweis(stand)) : null,
         h(
             'div',
             { class: 'aus-stufen' },

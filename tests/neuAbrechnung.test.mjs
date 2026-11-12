@@ -7,7 +7,13 @@
 // ---------------------------------------------------------------------
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { abrechnungAnsicht, rueckkehrAus, stripeAdresseOk } from '../public/neu/js/abrechnung-werte.js';
+import {
+    abrechnungAnsicht,
+    mwstHinweis,
+    rueckkehrAus,
+    stripeAdresseOk,
+    WAEHRUNGEN
+} from '../public/neu/js/abrechnung-werte.js';
 
 const stand = mehr => ({
     status: 'none',
@@ -136,5 +142,18 @@ describe('stripeAdresseOk', () => {
         assert.equal(stripeAdresseOk('https://evil.example/?checkout.stripe.com'), false);
         assert.equal(stripeAdresseOk('javascript:alert(1)'), false);
         assert.equal(stripeAdresseOk(null), false);
+    });
+});
+
+describe('MWST und Währung (12.11.2026)', () => {
+    test('neue Abos nur in CHF', () => {
+        assert.deepEqual(WAEHRUNGEN, ['chf']);
+    });
+    test('Hinweis «inkl. MWST» nur, wenn Stripe die MWST rechnet', () => {
+        assert.match(mwstHinweis({ mwst: true }), /inkl\. 8\.1 % MWST/);
+        assert.match(mwstHinweis({ mwst: true }), /Schweiz oder in Liechtenstein/);
+        assert.equal(mwstHinweis({ mwst: false }), null);
+        assert.equal(mwstHinweis({}), null);
+        assert.equal(mwstHinweis(null), null);
     });
 });
